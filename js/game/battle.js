@@ -710,13 +710,19 @@ export class Battle {
     this.arrowMesh = new THREE.InstancedMesh(am.geometry(), MAT.flat, 300); this.arrowMesh.frustumCulled = false; this.arrowMesh.count = 0; this.root.add(this.arrowMesh);
     const bush = new THREE.RingGeometry(0.3, 0.55, 12); bush.rotateX(-Math.PI / 2);
     this.hideMarks = new THREE.InstancedMesh(bush, new THREE.MeshBasicMaterial({ color: '#a6e07b', transparent: true, opacity: 0.8, depthWrite: false }), 120); this.hideMarks.frustumCulled = false; this.hideMarks.count = 0; this.root.add(this.hideMarks);
-    // sight circles of the enemy (shown before the alarm, so you can plan a sneak)
-    const cone = new THREE.RingGeometry(SIGHT.ground - 0.3, SIGHT.ground, 40); cone.rotateX(-Math.PI / 2);
-    this.sightMarks = new THREE.InstancedMesh(cone, new THREE.MeshBasicMaterial({ color: '#ff8a6a', transparent: true, opacity: 0.35, depthWrite: false }), 80); this.sightMarks.frustumCulled = false; this.sightMarks.count = 0; this.root.add(this.sightMarks);
+    // what the enemy can see (shown before the alarm, so you can plan a sneak): all sight circles merged
+    // into one zone with a single outline, painted on a canvas laid over the battlefield
+    const px = 4, size = N * CELL;
+    this.sight = { px, size, canvas: document.createElement('canvas'), layer: document.createElement('canvas'), t: 0 };
+    this.sight.canvas.width = this.sight.canvas.height = this.sight.layer.width = this.sight.layer.height = size * px;
+    this.sight.tex = new THREE.CanvasTexture(this.sight.canvas); this.sight.tex.colorSpace = THREE.SRGBColorSpace;
+    const sg = new THREE.PlaneGeometry(size, size); sg.rotateX(-Math.PI / 2);
+    this.sightMesh = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: this.sight.tex, transparent: true, depthWrite: false, toneMapped: false, fog: false }));
+    this.sightMesh.position.y = 0.12; this.sightMesh.renderOrder = 2; this.root.add(this.sightMesh);
   }
   animate(dt) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), camQ = this.ctx.stage.camera.quaternion, c = new THREE.Color();
-    let bars = 0, hidden = 0, sights = 0;
+    let bars = 0, hidden = 0;
     for (const u of this.units) {
       const o = u.obj;
       o.position.set(u.x - BATTLE_ORIGIN.x, u.y || 0, u.z - BATTLE_ORIGIN.z);
@@ -735,7 +741,6 @@ export class Battle {
         const ghost = u.team === 0 && (u.hidden || u.sneak);
         if (u._hid !== ghost) { u._hid = ghost; o.traverse(x => { if (x.isMesh) x.material = ghost ? MAT.hidden : MAT.flat; }); }
       }
-      if (u.team === 1 && !this.alarm && !this.defend && sights < 80) { m4.compose(new THREE.Vector3(u.x - BATTLE_ORIGIN.x, 0.1, u.z - BATTLE_ORIGIN.z), q.identity(), new THREE.Vector3(1, 1, 1).multiplyScalar((u.y || 0) > 1.5 ? SIGHT.high / SIGHT.ground : 1)); this.sightMarks.setMatrixAt(sights++, m4); }
       if (u.hidden && hidden < 120) { m4.compose(new THREE.Vector3(u.x - BATTLE_ORIGIN.x, 0.08, u.z - BATTLE_ORIGIN.z), q.identity(), new THREE.Vector3(1.6, 1, 1.6)); this.hideMarks.setMatrixAt(hidden++, m4); }
       if ((u.hp < u.maxHp || u.team === 0) && bars < 399) {
         const w = u.U.siege ? 2.4 : u.type === 'berserker' || u.type === 'taisho' || u.type === 'enemy_lord' ? 1.8 : 1.1, y = (u.y || 0) + (u.U.siege ? 3.4 : 2.6 * (u.person ? u.person.group.scale.x : 1));
@@ -764,7 +769,7 @@ export class Battle {
     this.barBg.count = this.barFg.count = bars;
     this.barBg.instanceMatrix.needsUpdate = this.barFg.instanceMatrix.needsUpdate = true; if (this.barFg.instanceColor) this.barFg.instanceColor.needsUpdate = true;
     this.hideMarks.count = hidden; this.hideMarks.instanceMatrix.needsUpdate = true;
-    this.sightMarks.count = sights; this.sightMarks.instanceMatrix.needsUpdate = true;
+    this.drawSight(dt);
     let k = 0;
     for (const a of this.arrows) {
       if (k >= 300) break;
@@ -795,7 +800,26 @@ export class Battle {
     }
     this.rings.count = i; this.rings.instanceMatrix.needsUpdate = true; if (this.rings.instanceColor) this.rings.instanceColor.needsUpdate = true;
   }
+  // paint the enemy's sight: one soft zone, one outline around its edge
+  drawSight(dt) {
+    const S = this.sight, show = !this.alarm && !this.defend;
+    this.sightMesh.visible = show;
+    if (!show || (S.t -= dt) > 0) return;
+    S.t = 0.15;
+    const circles = this.units.filter(u => u.team === 1 && !u.dead && !u.fled).map(u => [(u.x - BATTLE_ORIGIN.x + S.size / 2) * S.px, (u.z - BATTLE_ORIGIN.z + S.size / 2) * S.px, ((u.y || 0) > 1.5 ? SIGHT.high : SIGHT.ground) * S.px]);
+    const W = S.canvas.width, c = S.canvas.getContext('2d'), l = S.layer.getContext('2d');
+    const union = (ctx, grow, color) => { ctx.fillStyle = color; ctx.beginPath(); for (const [x, z, r] of circles) { ctx.moveTo(x + r + grow, z); ctx.arc(x, z, Math.max(1, r + grow), 0, Math.PI * 2); } ctx.fill(); };
+    c.clearRect(0, 0, W, W);
+    // soft fill of everything they can see
+    l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, W, W); union(l, 0, '#e8452e');
+    c.globalAlpha = 0.2; c.drawImage(S.layer, 0, 0);
+    // the outline: the union minus a slightly smaller union
+    l.clearRect(0, 0, W, W); union(l, 0, '#e8452e'); l.globalCompositeOperation = 'destination-out'; union(l, -1.4 * S.px / 2, '#000');
+    c.globalAlpha = 0.85; c.drawImage(S.layer, 0, 0); c.globalAlpha = 1;
+    S.tex.needsUpdate = true;
+  }
   dispose() {
+    if (this.sight) this.sight.tex.dispose();
     this.scene.remove(this.root);
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   }

@@ -289,7 +289,7 @@ export class Views {
       this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
     if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, b.defend
       ? 'Your archers are on the towers and walls, your spearmen hold the gate. Plan while paused: drag to look around, click your troops to move them.'
-      : 'The defenders haven’t spotted you. The red circles show how far they can see. Creep up in Stealth (C), hide archers in the bushes to pick off the wall archers, then send the ram to the gate. Drag to look around; Shift+drag or Box select to select troops.'));
+      : 'The defenders haven’t spotted you. The red zone shows how far they can see. Creep up in Stealth (C), hide archers in the bushes to pick off the wall archers, then send the ram to the gate. Drag to look around; Shift+drag or Box select to select troops.'));
     this.bBottom.textContent = '';
     const grp = h('div', { class: 'groups' });
     for (const G of this.groups()) {
