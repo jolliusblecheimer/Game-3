@@ -164,7 +164,7 @@ export class Hud {
     }
     if (d.dropoff === 'wood') row('wood', 'Woodcutters drop logs here — build it near trees');
     if (d.dropoff === 'all' && type !== 'townhall') row('storage', 'Workers deliver goods here — build it near fields and mines');
-    if (d.beauty) { const now = g.harmony(), next = g.harmony(d.beauty); row('sakura', b ? `${d.beauty} beauty — part of your Harmony (now +${now}%)` : `+${d.beauty} beauty — Harmony ${now < 30 ? `+${now}% → +${next}%` : 'is already at its best (+30%)'} with ${g.pop} villagers`); }
+    if (d.beauty) { const now = g.harmony(), next = g.harmony(d.beauty); row('sakura', b ? `+${d.beauty}% Harmony (your village: +${now}%)` : `+${d.beauty}% Harmony — everyone works faster${now >= 30 ? ' (you are already at the +30% maximum)' : ` (+${now}% → +${next}%)`}`); }
     if (d.relax) row('people', d.relax === 'pray' ? 'Villagers with free time come here to pray' : 'Villagers with free time come here to relax');
     if (d.garrison) row('soldier', `${d.garrison} archers stand watch up here${L > 1 ? `, shooting ${4 * (L - 1)} further` : ''}`);
     if (d.road) row('road', `Villagers walk ${Math.round((d.road - 1) * 100)}% faster and follow roads`);
@@ -381,18 +381,15 @@ export class Hud {
   openHarmony() {
     const g = this.game, groups = {};
     for (const b of g.buildings.values()) if (b.def.beauty) { const k = b.type; groups[k] = groups[k] || { n: 0, built: 0, pts: 0 }; groups[k].n++; if (b.done) { groups[k].built++; groups[k].pts += b.def.beauty; } }
-    const beauty = g.beauty(), hm = g.harmony(), pop = g.pop, per = Math.round(beauty * 12 / (pop + 4) * 10) / 10;
-    // how much beauty the next +1% needs, and how much for the maximum
-    const need = pct => Math.max(0, Math.ceil(((pct - 0.5) * (pop + 4)) / 12 - beauty));
+    const beauty = g.beauty(), hm = g.harmony();
     const rows = Object.entries(groups).sort((a, b) => b[1].pts - a[1].pts).map(([k, G]) => h('div', { class: 'irow' }, art('building', k, BUILDINGS[k].kanji, 'tiny'),
-      h('span', null, `${BUILDINGS[k].name} ×${G.built}${G.n > G.built ? ` (+${G.n - G.built} being built)` : ''}`), h('b', { class: 'rt' }, `${G.pts} beauty`)));
+      h('span', null, `${BUILDINGS[k].name} ×${G.built}${G.n > G.built ? ` (+${G.n - G.built} being built)` : ''}`), h('b', { class: 'rt' }, `+${G.pts}%`)));
     this.openModal('Harmony', h('div', { class: 'harmony' },
       h('div', { class: 'hbig' }, h('b', null, `+${hm}%`), h('span', null, 'Villagers work this much faster, and newcomers are more likely to move in.')),
       rows.length ? h('div', { class: 'irows' }, rows) : h('p', { class: 'sub' }, 'No beauty buildings yet. Build them in the Harmony tab.'),
-      h('div', { class: 'irow' }, h('span', null, 'Total beauty'), h('b', { class: 'rt' }, String(beauty))),
-      h('div', { class: 'irow' }, h('span', null, 'Shared among'), h('b', { class: 'rt' }, `${pop} villagers`)),
-      h('p', { class: 'sub' }, `Harmony = 12 × beauty ÷ (villagers + 4) = ${per}% → +${hm}% (at most +30%). Beauty is shared by everyone who lives here, so Harmony drops a little each time a family moves in unless you add more.`),
-      hm < 30 ? h('p', null, `Next +1%: ${need(hm + 1)} more beauty. For the full +30%: ${need(30)} more.`) : h('p', null, 'Your village is as harmonious as it can be.')),
+      h('div', { class: 'irow' }, h('b', null, 'Total'), h('b', { class: 'rt' }, `+${Math.round(beauty)}%${beauty > 30 ? ' (counts up to +30%)' : ''}`)),
+      h('p', { class: 'sub' }, 'Every beauty building adds the Harmony it shows, up to +30% in all. How many of each you may build grows with your Keep.'),
+      hm >= 30 ? h('p', null, 'Your village is as harmonious as it can be.') : h('p', null, `${30 - hm}% more to reach the +30% maximum.`)),
       [{ label: 'Close' }]);
   }
   openArmy() {

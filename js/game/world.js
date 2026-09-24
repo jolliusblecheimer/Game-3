@@ -89,8 +89,8 @@ export class Game {
     this.toast(`Your scholars begin studying ${r.node.name}`); this.emit('research'); return true;
   }
   beauty() { let s = 0; for (const b of this.buildings.values()) if (b.done && b.def.beauty) s += b.def.beauty; return s; }
-  // Harmony: beauty shared among everyone who lives here — more villagers need more beauty (max 30%)
-  harmony(extraBeauty = 0) { return Math.min(30, Math.round((this.beauty() + extraBeauty) * 12 / (this.pop + 4))); }
+  // Harmony: every beauty building adds its own share, up to +30%
+  harmony(extra = 0) { return Math.min(30, Math.round(this.beauty() + extra)); }
   hungry() { return this.state.res.wheat <= 0; }
   workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100); }
   countJob(job) { let n = 0; for (const v of this.villagers.values()) if (v.job === job) n++; return n; }
