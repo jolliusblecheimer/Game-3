@@ -225,7 +225,7 @@ const MODELS = {
     for (let i = 0; i < 8; i++) m.box(0.12, 0.05, 3.0, '#5a3e2a', [-1.6 + i * 0.46, 2.66, -0.3], [0.25, 0, 0]); // shingle battens
     for (let r = 0; r < 3; r++) for (let i = 0; i < 4 - r; i++) {
       const x = -0.9 + i * 0.55 + r * 0.27, y = 0.28 + r * 0.46;
-      m.cyl(0.26, 0.26, 2.4, 8, i % 2 ? '#7a5438' : '#6d4a31', [x, y, -0.5], [0, 0, Math.PI / 2]);
+      m.cyl(0.26, 0.26, 2.4, 8, i % 2 ? '#7a5438' : '#6d4a31', [x, y, -0.5], [Math.PI / 2, 0, 0]); // logs run front to back
       m.cyl(0.22, 0.22, 0.02, 8, '#d2b07a', [x, y, 0.71], [Math.PI / 2, 0, 0]); // cut ends
       m.cyl(0.22, 0.22, 0.02, 8, '#d2b07a', [x, y, -1.71], [Math.PI / 2, 0, 0]);
     }
