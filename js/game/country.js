@@ -249,6 +249,18 @@ export class Country {
     this.setStatus(site, 'held');
     this.reveal(site.x, site.z, 22);
   }
+  // what a garrison carries off when it strips a place it holds and burns it
+  plunderLoot(site) { const L = SITES[site.type].loot || {}, out = {}; for (const r in L) out[r] = Math.round(L[r] * 1.5); return out; }
+  plunderHeld(site) {
+    const vids = this.garrison(site).map(v => v.id); if (!this.holds[site.id]) return;
+    delete this.holds[site.id]; this.setStatus(site, 'ruined');
+    const loot = this.plunderLoot(site);
+    if (!vids.length) { for (const r in loot) this.game.add(r, loot[r]); this.game.emit('country'); return; }
+    const m = { id: this.nextId++, kind: 'army', vids, rams: 0, site: site.id, from: { x: 0, z: 0 }, to: { x: site.x, z: site.z }, t0: this.clock, dur: this.marchTime(site), phase: 'back', loot, lastReveal: 0 };
+    this.missions.push(m); for (const id of vids) { const v = this.game.villagers.get(id); if (v) v.away = 'army'; }
+    this.game.toast(`The garrison of ${site.name} strips it bare, sets it alight and marches home with the loot (${Math.round(m.dur)}s)`);
+    this.game.emit('country');
+  }
   recall(site) {
     const vids = [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id).map(v => v.id);
     this.home(vids); delete this.holds[site.id]; this.setStatus(site, 'scouted');

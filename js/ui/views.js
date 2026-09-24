@@ -161,7 +161,12 @@ export class Views {
       if (st === 'held') {
         const n = [...g.villagers.values()].filter(v => v.away === 'hold:' + s.id).length;
         P.append(h('p', null, `${n} of your soldiers guard it. It pays ${this.costText(S.tribute)} every minute, but may be attacked.`),
-          h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { C.recall(s); this.renderMapUI(); } }, 'Recall the garrison')));
+          h('div', { class: 'actions' },
+            h('button', { class: 'btn ghost', onclick: () => { C.recall(s); this.renderMapUI(); } }, 'Recall the garrison'),
+            h('button', { class: 'btn danger', onclick: () => this.hud.openModal(`Plunder ${s.name}?`, h('div', null,
+              h('p', null, `Your garrison strips ${s.name} of everything of value, burns it and marches home with the loot. It stops paying tribute and can’t be held again.`),
+              h('div', { class: 'irow costrow' }, h('b', null, 'They bring home'), costChips(g, C.plunderLoot(s)))),
+              [{ label: 'Keep holding it', cls: 'ghost' }, { label: 'Plunder and come home', cls: 'danger', fn: () => { C.plunderHeld(s); this.selectSite(s); this.renderMapUI(); } }]) }, 'Plunder and come home')));
       }
     }
     const waiting = C.missions.find(m => m.kind === 'army' && m.site === s.id && m.phase === 'ready');
