@@ -361,3 +361,5 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .harmony .hbig { display: flex; align-items: center; gap: 12px; }
 .harmony .hbig b { font: 700 34px var(--mincho); color: var(--leaf); white-space: nowrap; flex: 0 0 auto; }
 .harmony .irow .rt { margin-left: auto; }
+.jobcard.on { border: 2px solid var(--verm); background: #fff; box-shadow: inset 0 0 0 1px var(--verm); }
+.jobcard:disabled { opacity: .5; }

@@ -245,6 +245,8 @@ export class Hud {
   renderPanel() {
     if (this.panelPress) { this.panelDirty = true; return; }
     const p = this.panel, sel = this.sel, g = this.game;
+    const key = sel ? sel.kind + sel.id : '', scroll = key && key === this.panelKey ? p.scrollTop : 0; this.panelKey = key;
+    requestAnimationFrame(() => { if (this.panelKey === key) p.scrollTop = scroll; });
     p.textContent = '';
     if (!sel) { p.hidden = true; return; }
     p.hidden = false;
@@ -270,7 +272,7 @@ export class Hud {
       if (slots && b.done) {
         const J = JOBS[d.job];
         p.append(h('div', { class: 'jobs' },
-          h('div', { class: 'jrow' }, art('person', J.look, null, 'face'), h('b', null, d.trains ? `${J.name}s` : `${J.name}s`),
+          h('div', { class: 'jrow' }, art('person', J.look, null, 'face'), h('b', null, b.type === 'dojo' ? `${JOBS[g.trainInfo(b).to].name} trainees` : `${J.name}s`),
             this.live(h('span', { class: 'count' }), el => { el.textContent = `${b.workers.length} / ${g.jobSlots(b)}`; }),
             h('button', { class: 'mini', title: 'Send one back to being unemployed', onclick: () => { g.assign(b, -1); this.renderPanel(); } }, '−'),
             h('button', { class: 'mini', title: 'Hire an unemployed villager', onclick: () => { g.assign(b, +1); this.renderPanel(); } }, '+')),
@@ -297,7 +299,7 @@ export class Hud {
     } else {
       const v = g.villagers.get(sel.id); if (!v) { p.hidden = true; return; }
       const J = JOBS[v.job], work = v.work ? g.buildings.get(v.work) : null;
-      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work ? ` · ${work.def.name}` : '') + (v.aid ? ' · aiding construction' : '')))),
+      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, g.jobName(v) + (work ? ` · ${work.def.name}` : '') + (v.aid ? ' · aiding construction' : '')))),
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
       if (v.hpf != null) p.append(h('div', { class: 'irow' }, icon('soldier', 16), h('span', null, 'Wounded'), this.bar2(() => v.hpf == null ? 1 : v.hpf, 'hp')));
@@ -409,7 +411,7 @@ export class Hud {
       body.append(h('h3', null, `${name} · ${list.length}`));
       if (!list.length) { body.append(h('p', { class: 'sub' }, name === 'Commanders' ? 'Appoint commanders at the Keep (level 4 and 5).' : name === 'In training' ? 'Hire unemployed villagers at a Dojo or Kyūdō Range.' : name === 'Shield-bearers' ? 'Train them at a Dojo — choose Shield-bearer in its panel (Keep level 2).' : name === 'Samurai' ? 'Train them at a Dojo — choose Samurai in its panel (Keep level 4).' : 'None yet.')); continue; }
       body.append(h('div', { class: 'armygrid' }, list.map(v => h('button', { class: 'soldier', disabled: v.away ? true : null, onclick: () => { this.modal.hidden = true; this.input.select({ kind: 'villager', id: v.id }); this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } },
-        art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${JOBS[v.job].name} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null,
+        art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${g.jobName(v)} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null,
           v.hpf != null ? h('span', { class: 'hpbar' }, h('i', { style: `width:${Math.round(v.hpf * 100)}%` })) : null)))));
 
     }

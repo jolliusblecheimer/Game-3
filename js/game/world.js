@@ -62,6 +62,11 @@ export class Game {
     if (b.type === 'dojo') { const k = DOJO_TRAINS[b.trainAs] && this.thLevel >= DOJO_TRAINS[b.trainAs].th ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
     return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
   }
+  // a villager's job title; dojo trainees are named after what they train to become
+  jobName(v) {
+    if (v.job === 'trainee' && v.work) { const b = this.buildings.get(v.work); if (b && b.type === 'dojo') return `${JOBS[this.trainInfo(b).to].name} trainee`; }
+    return JOBS[v.job].name;
+  }
   levelMult(b) { return 1 + 0.25 * ((b ? b.level : 1) - 1); }
   // how many of a building the current Keep level allows (null = no limit)
   buildLimit(type) { const d = BUILDINGS[type]; return d.limit ? d.limit[this.thLevel - 1] : d.unique ? 1 : null; }

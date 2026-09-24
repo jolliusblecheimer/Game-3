@@ -549,7 +549,7 @@ export class Views {
       const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));
       for (const [k, T] of Object.entries(DOJO_TRAINS)) {
         const locked = g.thLevel < T.th;
-        box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, onclick: () => { b.trainAs = k; this.hud.renderPanel(); } },
+        box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, onclick: () => { if (b.trainAs !== k) { b.trainAs = k; g.toast(`The dojo now trains ${JOBS[k].name}s`); } this.hud.renderPanel(); } },
           art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? `Keep level ${T.th}` : `${T.time}s · ${this.costText(T.cost)}`))));
       }
       box.append(h('p', { class: 'sub' }, 'Trainees already in the yard finish as whatever the dojo trains when they graduate.'));
