@@ -44,7 +44,10 @@ export class Hud {
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
 
   live = (el, fn) => { this.lives.push({ el, fn }); fn(el); return el; };
-  tick() { this.lives = this.lives.filter(l => l.el.isConnected); for (const l of this.lives) l.fn(l.el); }
+  tick() {
+    this.lives = this.lives.filter(l => l.el.isConnected); for (const l of this.lives) l.fn(l.el);
+    if (this.barTh !== undefined && this.barTh !== this.game.thLevel) this.renderBar(); // the Keep changed level: unlock cards
+  }
 
   build() {
     const g = this.game, R = this.root;
@@ -114,7 +117,7 @@ export class Hud {
 
   /* ---------- build menu ---------- */
   renderBar() {
-    const g = this.game, bar = this.bar; bar.textContent = '';
+    const g = this.game, bar = this.bar; bar.textContent = ''; this.barTh = g.thLevel;
     this.hideInfo(true);
     bar.classList.toggle('closed', !this.buildOpen);
     const tabs = h('div', { class: 'tabs' },

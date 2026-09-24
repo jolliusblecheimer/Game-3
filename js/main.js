@@ -74,6 +74,7 @@ function boot() {
       { locked: true });
   }
   if (!game.buildings.size) { game.newGame(); if (!failed) setTimeout(() => hud.showHelp(), 600); }
+  hud.renderBar(); // the build menu was drawn before the save was loaded: redraw it for the real Keep level
   if (away) setTimeout(() => hud.showAway(away), 400);
 
   window.addEventListener('resize', () => stage.resize());
