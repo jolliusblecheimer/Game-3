@@ -419,8 +419,19 @@ export class Hud {
     this.toasts.style.top = top + 'px';
     // the build menu sits above the clan panel when they share the bottom row
     if (vis(this.clan) && vis(this.bar)) this.bar.style.bottom = narrow ? (this.clan.getBoundingClientRect().height + 22) + 'px' : '';
-    // the side panel stops above the Turn / Move buttons and the build menu
+    // ...and never reaches under the Turn / Move buttons, the Map button or the clan panel beside it
     const tools = document.querySelector('.camtools');
+    if (vis(this.bar)) {
+      this.bar.style.maxWidth = ''; this.bar.style.minWidth = '';
+      const b = this.bar.getBoundingClientRect(), W = window.innerWidth;
+      let left = 12, right = W - 12;
+      for (const e of [tools, this.mapBtn]) if (vis(e)) { const r = e.getBoundingClientRect(); if (r.top < b.bottom + 8 && r.bottom > b.top - 8) right = Math.min(right, r.left - 10); }
+      if (vis(this.clan)) { const r = this.clan.getBoundingClientRect(); if (r.top < b.bottom + 8 && r.bottom > b.top - 8) left = Math.max(left, r.right + 10); }
+      const centred = getComputedStyle(this.bar).transform !== 'none';
+      const room = centred ? 2 * Math.min(right - W / 2, W / 2 - left) : right - b.left;
+      if (room < b.width) { this.bar.style.maxWidth = Math.max(160, room) + 'px'; this.bar.style.minWidth = '0'; }
+    }
+    // the side panel stops above the Turn / Move buttons and the build menu
     if (vis(this.panel)) {
       let limit = H - 12;
       if (vis(tools)) limit = Math.min(limit, tools.getBoundingClientRect().top - 10);

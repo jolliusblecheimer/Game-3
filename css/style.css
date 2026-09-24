@@ -375,3 +375,5 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .maphint { white-space: normal; text-align: center; max-width: calc(100% - 290px); }
 @media (max-width: 700px) { .maphint { display: none; } }
 .top .mute.off { color: var(--verm); border-color: var(--verm); }
+/* the open/close button of the build menu stays visible even when the tabs have to scroll */
+.tab.toggle { position: sticky; right: 0; background: var(--paper-2); z-index: 1; }
