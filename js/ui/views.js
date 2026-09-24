@@ -147,7 +147,7 @@ export class Views {
         const gate = L.structs.some(x => x.type === 'gate' || x.type === 'pgate');
         P.append(h('h3', null, 'Defenses'), h('div', { class: 'intel' }, Object.entries(counts).map(([t, n]) => h('span', { class: 'chip' }, art('person', UNITS[t].look, null, 'face'), `${n} ${UNIT_NAMES[t]}`))),
           h('div', { class: 'irow' }, icon('wall', 18), h('span', null, `${walls}${towers ? `, ${towers} watchtower${towers > 1 ? 's' : ''} with archers` : ''}${gate ? ', a gate' : ''}`)),
-          gate ? h('div', { class: 'irow' }, icon('ram', 18), h('span', null, 'Bring a battering ram to break the gate')) : null,
+          gate ? h('div', { class: 'irow' }, icon('ram', 18), h('span', null, 'Bring a battering ram to break the gate')) : '',
           h('div', { class: 'irow' }, icon('sakura', 18), h('span', null, 'Bushes around the walls — archers hidden there are hard to spot')));
       } else P.append(h('p', { class: 'sub' }, 'Send a scout close to learn its defenses before you attack.'));
       P.append(h('div', { class: 'irow costrow' }, h('b', null, 'Loot'), costChips(g, S.loot)));
@@ -266,9 +266,9 @@ export class Views {
     const title = b.defend ? `Defend ${site.name}` : `Raid on ${site.name}`;
     const goal = b.defend ? 'Hold the walls until the attackers break — don’t let them reach the keep' : keep ? 'Take the keep: reach it and clear the defenders around it' : 'Defeat or drive off every defender';
     this.bTop.append(h('div', { class: 'btitle' }, h('b', null, title), h('small', null, goal)),
-      b.defend ? null : h('div', { class: 'bstat ' + (b.alarm ? 'alarm' : 'unseen') }, icon(b.alarm ? 'camp' : 'eye', 18), b.alarm ? 'Alarm raised' : 'They haven’t seen you'),
+      b.defend ? '' : h('div', { class: 'bstat ' + (b.alarm ? 'alarm' : 'unseen') }, icon(b.alarm ? 'camp' : 'eye', 18), b.alarm ? 'Alarm raised' : 'They haven’t seen you'),
       h('div', { class: 'bstat' }, icon('soldier', 18), `${foes} ${b.defend ? 'attackers' : 'enemies'} left`),
-      keep ? h('div', { class: 'bstat cap' }, icon('flag', 18), h('div', { class: 'bar' }, h('i', { style: `width:${b.capture * 100}%` }))) : null,
+      keep ? h('div', { class: 'bstat cap' }, icon('flag', 18), h('div', { class: 'bar' }, h('i', { style: `width:${b.capture * 100}%` }))) : '',
       this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
     if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, b.defend
       ? 'Your archers are on the towers and walls, your spearmen hold the gate. Plan while paused: drag to look around, click your troops to move them.'
