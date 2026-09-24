@@ -253,6 +253,39 @@ export class Game {
     this.emit('move', b); return true;
   }
 
+  /* ---------- whole wall segments ---------- */
+  // every piece connected to building `id` along its line (walls and palisades count as one wall)
+  segmentOf(id) {
+    const b0 = this.buildings.get(id); if (!b0 || !b0.def.line) return b0 ? [id] : [];
+    const fam = t => (t === 'wall' || t === 'palisade') ? 'wall' : t, want = fam(b0.type);
+    const seen = new Set([id]), queue = [b0];
+    while (queue.length) {
+      const b = queue.pop();
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const o = this.buildings.get(this.grid.get(b.cx + dx, b.cz + dz));
+        if (o && !seen.has(o.id) && o.def.line && fam(o.type) === want) { seen.add(o.id); queue.push(o); }
+      }
+    }
+    return [...seen];
+  }
+  // upgrading a whole segment at once: what it costs and whether it can be done
+  segmentUpgrade(ids) {
+    const items = [], cost = {}; let why = '';
+    for (const id of ids) {
+      const b = this.buildings.get(id); const u = b && this.upgradeInfo(b); if (!u || u.busy || u.max) continue;
+      if (u.why && u.why !== 'Not enough resources') { why = why || u.why; continue; }
+      items.push(b); for (const r in u.cost) cost[r] = (cost[r] || 0) + u.cost[r];
+    }
+    if (items.length && !this.canAfford(cost)) why = 'Not enough resources';
+    else if (items.length) why = '';
+    return { items, cost, why: items.length ? why : why || 'Nothing to upgrade' };
+  }
+  upgradeSegment(ids) {
+    const U = this.segmentUpgrade(ids); if (!U.items.length || U.why) { this.toast(U.why, 'warn'); return false; }
+    let n = 0; for (const b of U.items) if (this.startUpgrade(b, true)) n++;
+    this.toast(`Your villagers start work on ${n} piece${n === 1 ? '' : 's'}`); return n > 0;
+  }
+
   /* ---------- upgrades ---------- */
   // What an upgrade of b would cost and whether it's possible right now.
   upgradeInfo(b) {
@@ -286,18 +319,18 @@ export class Game {
     if (!why && !this.canAfford(cost)) why = 'Not enough resources';
     return { level: L, name: `Upgrade to level ${L}`, cost, time, anchor, grows: !!anchor, ok: !why, why };
   }
-  startUpgrade(b) {
-    const u = this.upgradeInfo(b); if (!u || !u.ok) { if (u && u.why) this.toast(u.why, 'warn'); return false; }
+  startUpgrade(b, quiet = false) {
+    const u = this.upgradeInfo(b); if (!u || !u.ok) { if (u && u.why && !quiet) this.toast(u.why, 'warn'); return false; }
     this.pay(u.cost);
     if (u.to) { // rebuild as another type in place (keeps the spot)
       const { cx, cz, rot, id } = b; this.demolish(id, { silent: true });
       const nb = this.place(u.to, cx, cz, rot, { free: true, id }); nb.done = true; nb.upg = { level: 1, progress: 0, time: u.time, convert: true }; this.makeVisual(nb);
-      this.toast(`Your villagers start rebuilding the wall in stone`); return true;
+      if (!quiet) this.toast(`Your villagers start rebuilding the wall in stone`); return true;
     }
     if (u.anchor) { this.occupy(b, false); [b.cx, b.cz] = u.anchor; [b.w, b.d] = this.footprint(b.type, b.rot, u.level); [b.sw, b.sd] = this.sizeAt(b.type, u.level); this.clearCells(b.cx, b.cz, b.w, b.d); this.occupy(b, true); for (const v of this.villagers.values()) v.reset = true; }
     b.upg = { level: u.level, progress: 0, time: u.time };
     this.makeVisual(b);
-    this.toast(`Builders start upgrading the ${b.def.name}`); this.emit('build', b);
+    if (!quiet) this.toast(`Builders start upgrading the ${b.def.name}`); this.emit('build', b);
     return true;
   }
   finishUpgrade(b) {

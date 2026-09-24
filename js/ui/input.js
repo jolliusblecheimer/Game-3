@@ -209,9 +209,17 @@ export class Input {
     this.ring = ring; this.frame = frame;
     this.stage.scene.add(ring, frame);
   }
+  // double-click a wall (or road, hedge, fence) to select the whole connected line
+  selectSegment(id) {
+    const ids = this.game.segmentOf(id);
+    if (ids.length < 2) return this.select({ kind: 'building', id });
+    this.select({ kind: 'segment', ids, id: ids[0] });
+  }
   select(sel) {
     this.selected = sel;
     this.frame.visible = false; this.ring.visible = false;
+    if (this.segMarks) { this.stage.scene.remove(this.segMarks); this.segMarks.geometry.dispose(); this.segMarks = null; }
+    if (sel && sel.kind === 'segment') { sel.ids = sel.ids.filter(i => this.game.buildings.has(i)); if (!sel.ids.length) this.selected = null; }
     if (sel && sel.kind === 'building' && !this.game.buildings.get(sel.id)) this.selected = null;
     if (sel && sel.kind === 'villager' && !this.game.villagers.get(sel.id)) this.selected = null;
     this.updateSelectionVisual();
@@ -220,6 +228,15 @@ export class Input {
   updateSelectionVisual() {
     const s = this.selected;
     if (!s) return;
+    if (s.kind === 'segment') {
+      if (!this.segMarks) {
+        const geo = new THREE.PlaneGeometry(PLOT.cell - 0.15, PLOT.cell - 0.15); geo.rotateX(-Math.PI / 2);
+        this.segMarks = new THREE.InstancedMesh(geo, MAT.ghostOk, s.ids.length); const m4 = new THREE.Matrix4();
+        s.ids.forEach((id, i) => { const b = this.game.buildings.get(id); if (!b) return; const c = this.game.center(b); m4.makeTranslation(c.x, 0.09, c.z); this.segMarks.setMatrixAt(i, m4); });
+        this.stage.scene.add(this.segMarks);
+      }
+      return;
+    }
     if (s.kind === 'building') {
       const b = this.game.buildings.get(s.id); if (!b) return this.select(null);
       const c = this.game.center(b), hw = b.w * PLOT.cell / 2 + 0.25, hd = b.d * PLOT.cell / 2 + 0.25, t = 0.3;
@@ -338,6 +355,10 @@ export class Input {
     }
     const p = this.pick(e.clientX, e.clientY);
     if (p && p.kind === 'bandit') { this.game.raids.raiseAlarm(null); return; }
+    // a second click on the same wall piece selects the whole wall
+    const now = performance.now(), b = p && p.kind === 'building' && this.game.buildings.get(p.id);
+    if (b && b.def.line && this.lastPick && this.lastPick.id === p.id && now - this.lastPick.t < 450) { this.lastPick = null; this.selectSegment(p.id); return; }
+    this.lastPick = p ? { id: p.id, t: now } : null;
     this.select(p);
   }
   onWheel(e) {

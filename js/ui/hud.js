@@ -251,6 +251,7 @@ export class Hud {
     if (!sel) { p.hidden = true; return; }
     p.hidden = false;
     const close = h('button', { class: 'x', title: 'Close (Esc)', onclick: () => this.input.select(null) }, icon('close', 16));
+    if (sel.kind === 'segment') return this.segmentPanel(p, close);
     if (sel.kind === 'building') {
       const b = g.buildings.get(sel.id); if (!b) { p.hidden = true; return; }
       const d = b.def, maxL = d.maxLevel || 1;
@@ -289,6 +290,7 @@ export class Hud {
           el.textContent = `Archers on watch: ${n} / ${d.garrison}` + (g.countJob('archer') ? '' : ' — train archers at a Kyūdō Range');
         }));
       }
+      if (d.line) { const seg = g.segmentOf(b.id); if (seg.length > 1) p.append(h('button', { class: 'btn ghost', title: 'Or double-click any piece', onclick: () => this.input.selectSegment(b.id) }, icon(d.road ? 'road' : 'wall', 16), `Select the whole ${d.road ? 'road' : b.type === 'wall' || b.type === 'palisade' ? 'wall' : 'line'} (${seg.length} pieces)`)); }
       if (b.type === 'townhall') this.keepSection(p, b);
       else this.upgradeSection(p, b);
       const actions = h('div', { class: 'actions' });
@@ -324,6 +326,30 @@ export class Hud {
       }
     }
   }
+  // a whole wall (or road, hedge, fence line) selected at once
+  segmentPanel(p, close) {
+    const g = this.game, sel = this.sel, list = sel.ids.map(id => g.buildings.get(id)).filter(Boolean);
+    if (!list.length) { p.hidden = true; return; }
+    const counts = {}; for (const b of list) counts[b.def.name] = (counts[b.def.name] || 0) + 1;
+    const first = list[0], title = first.type === 'wall' || first.type === 'palisade' ? 'Wall' : first.def.name;
+    p.append(close, h('div', { class: 'phead' }, art('building', first.type, first.def.kanji, 'big'), h('div', null, h('h2', null, `${title} · ${list.length} pieces`),
+      h('p', { class: 'sub' }, Object.entries(counts).map(([n, c]) => `${c} ${n}`).join(' · ')))));
+    const hp = list.filter(b => b.def.hp);
+    if (hp.length) {
+      const cur = () => hp.reduce((a, b) => a + (g.buildings.has(b.id) ? b.hp : 0), 0), max = hp.reduce((a, b) => a + g.maxHp(b), 0);
+      p.append(h('div', { class: 'irow' }, icon('wall', 18), this.live(h('span'), el => { el.textContent = `Strength ${Math.round(cur())} / ${max}`; })), this.bar2(() => cur() / max, 'hp'));
+    }
+    const busy = list.filter(b => !b.done || b.upg).length;
+    if (busy) p.append(h('p', { class: 'sub' }, `${busy} piece${busy === 1 ? ' is' : 's are'} being built or upgraded.`));
+    const U = g.segmentUpgrade(sel.ids), allPal = U.items.length && U.items.every(b => b.def.upgradeTo);
+    if (U.items.length) p.append(h('div', { class: 'upgrade' },
+      h('div', { class: 'jrow' }, icon('up', 18), h('b', null, allPal ? `Rebuild ${U.items.length} pieces in stone` : `Upgrade ${U.items.length} piece${U.items.length === 1 ? '' : 's'}`)),
+      h('div', { class: 'row' }, costChips(g, U.cost, this.live), h('button', { class: 'btn small', disabled: U.why ? true : null, onclick: () => { if (g.upgradeSegment(sel.ids)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade all')),
+      U.why ? h('p', { class: 'why' }, U.why) : null));
+    else if (U.why && U.why !== 'Nothing to upgrade') p.append(h('p', { class: 'why' }, U.why));
+    p.append(h('p', { class: 'sub' }, 'Tip: double-click any piece of wall, fence, hedge or road to select the whole line.'),
+      h('div', { class: 'actions' }, h('button', { class: 'btn danger', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? `Really demolish all ${list.length}?` : `Demolish all ${list.length}`)));
+  }
   upgradeSection(p, b) {
     const g = this.game, u = g.upgradeInfo(b);
     if (!u || u.busy || u.max) { if (u && u.max && (b.def.maxLevel || 1) > 1) p.append(h('p', { class: 'sub' }, 'Fully upgraded.')); return; }
@@ -347,6 +373,11 @@ export class Hud {
   bar2(frac, cls = '') { const i = h('i'); return this.live(h('div', { class: 'bar ' + cls }, i), () => { i.style.width = Math.min(100, Math.max(0, (frac() || 0) * 100)).toFixed(1) + '%'; }); }
   costText(c) { return Object.keys(c).map(r => `${c[r]} ${RES[r].name.toLowerCase()}`).join(' + '); }
   demolishSelected() {
+    if (this.sel && this.sel.kind === 'segment') {
+      if (!this.confirmDemolish) { this.confirmDemolish = true; this.renderPanel(); return; }
+      for (const id of this.sel.ids) this.game.demolish(id);
+      this.input.select(null); this.sound('place'); return;
+    }
     if (!this.sel || this.sel.kind !== 'building') return;
     const b = this.game.buildings.get(this.sel.id); if (!b || b.type === 'townhall') return;
     if (!this.confirmDemolish) { this.confirmDemolish = true; this.renderPanel(); return; }
