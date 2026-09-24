@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { THUMBS } from '../render/thumbs.js';
@@ -159,7 +159,7 @@ export class Hud {
     if (d.storage) row('storage', `Stores ${d.storage + 300 * (L - 1)} more of every resource`);
     if (d.jobs) {
       const J = JOBS[d.job], n = d.jobs + (L - 1);
-      if (d.trains) row('katana', `${n} trainees at a time → ${JOBS[d.trains].name} after ${d.trainTime}s (each costs ${this.costText(d.trainCost)})`);
+      if (d.trains) { const T = b ? g.trainInfo(b) : { to: d.trains, time: d.trainTime, cost: d.trainCost }; row('katana', `${n} trainees at a time → ${JOBS[T.to].name} after ${T.time}s (each costs ${this.costText(T.cost)})`); }
       else row(J.res ? RES[J.res].icon : 'worker', `Up to ${n} ${J.name.toLowerCase()}s, each bringing ${J.amount} ${RES[J.res].name.toLowerCase()} per trip${L > 1 ? ` — ${Math.round((g.levelMult(b) - 1) * 100)}% faster` : ''}`);
     }
     if (d.dropoff === 'wood') row('wood', 'Woodcutters drop logs here — build it near trees');
@@ -278,7 +278,7 @@ export class Hud {
           h('ul', { class: 'names' }, b.workers.map(id => {
             const v = g.villagers.get(id); if (!v) return null;
             return h('li', null, art('person', JOBS[v.job].look, null, 'face'), h('div', null, h('button', { class: 'link', onclick: () => this.input.select({ kind: 'villager', id }) }, v.name),
-              d.trains ? this.bar2(() => (v.train || 0) / d.trainTime) : this.live(h('small', null), el => { el.textContent = v.status; })));
+              d.trains ? this.bar2(() => (v.train || 0) / g.trainInfo(b).time) : this.live(h('small', null), el => { el.textContent = v.status; })));
           }))));
       }
       if (d.garrison && b.done) {
@@ -301,7 +301,7 @@ export class Hud {
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
       if (v.hpf != null) p.append(h('div', { class: 'irow' }, icon('soldier', 16), h('span', null, 'Wounded'), this.bar2(() => v.hpf == null ? 1 : v.hpf, 'hp')));
-      if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / work.def.trainTime));
+      if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / g.trainInfo(work).time));
       const actions = h('div', { class: 'actions' });
       actions.append(h('button', { class: 'btn ghost', onclick: () => { this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } }, icon('eye', 16), 'Follow'));
       if (v.job !== 'idle' && !v.away) {
@@ -401,13 +401,13 @@ export class Hud {
       const m = C.missions.find(x => x.vids.includes(v.id)); const s = m && m.site && C.site(m.site);
       return m ? (m.phase === 'back' ? 'Marching home' : m.phase === 'ready' ? `Waiting at ${s.name}` : `Marching to ${s ? s.name : '…'}`) : 'Away';
     };
-    const groups = [['Commanders', v => JOBS[v.job].commander], ['Spearmen', v => v.job === 'ashigaru'], ['Archers', v => v.job === 'archer'], ['In training', v => v.job === 'trainee' || v.job === 'trainee_archer']];
+    const groups = [['Commanders', v => JOBS[v.job].commander], ['Samurai', v => v.job === 'samurai'], ['Shield-bearers', v => v.job === 'shieldman'], ['Spearmen', v => v.job === 'ashigaru'], ['Archers', v => v.job === 'archer'], ['In training', v => v.job === 'trainee' || v.job === 'trainee_archer']];
     const all = [...g.villagers.values()];
     const body = h('div', { class: 'army' });
     for (const [name, test] of groups) {
       const list = all.filter(test);
       body.append(h('h3', null, `${name} · ${list.length}`));
-      if (!list.length) { body.append(h('p', { class: 'sub' }, name === 'Commanders' ? 'Appoint commanders at the Keep (level 4 and 5).' : name === 'In training' ? 'Hire unemployed villagers at a Dojo or Kyūdō Range.' : 'None yet.')); continue; }
+      if (!list.length) { body.append(h('p', { class: 'sub' }, name === 'Commanders' ? 'Appoint commanders at the Keep (level 4 and 5).' : name === 'In training' ? 'Hire unemployed villagers at a Dojo or Kyūdō Range.' : name === 'Shield-bearers' ? 'Train them at a Dojo — choose Shield-bearer in its panel (Keep level 2).' : name === 'Samurai' ? 'Train them at a Dojo — choose Samurai in its panel (Keep level 4).' : 'None yet.')); continue; }
       body.append(h('div', { class: 'armygrid' }, list.map(v => h('button', { class: 'soldier', disabled: v.away ? true : null, onclick: () => { this.modal.hidden = true; this.input.select({ kind: 'villager', id: v.id }); this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } },
         art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${JOBS[v.job].name} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null,
           v.hpf != null ? h('span', { class: 'hpbar' }, h('i', { style: `width:${Math.round(v.hpf * 100)}%` })) : null)))));

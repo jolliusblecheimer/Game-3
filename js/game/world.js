@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS } from './data.js';
 import { Grid, FREE, TREE, ROCK } from './grid.js';
 import { PLOT } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
@@ -57,6 +57,11 @@ export class Game {
     return s;
   }
   jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
+  // what a training building turns its trainees into, how long it takes and what it costs each
+  trainInfo(b) {
+    if (b.type === 'dojo') { const k = DOJO_TRAINS[b.trainAs] && this.thLevel >= DOJO_TRAINS[b.trainAs].th ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
+    return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
+  }
   levelMult(b) { return 1 + 0.25 * ((b ? b.level : 1) - 1); }
   // how many of a building the current Keep level allows (null = no limit)
   buildLimit(type) { const d = BUILDINGS[type]; return d.limit ? d.limit[this.thLevel - 1] : d.unique ? 1 : null; }
@@ -463,7 +468,7 @@ export class Game {
     return {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
-      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0 })).concat(this.keptBuildings || []),
+      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined })).concat(this.keptBuildings || []),
       villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
@@ -504,6 +509,7 @@ export class Game {
         const lvl = clamp(b.level | 0 || 1, 1, BUILDINGS[b.type].maxLevel || 1);
         const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null });
         if (b.prio) nb.prio = true;
+        if (b.trainAs) nb.trainAs = b.trainAs;
         if (b.upg && b.upg.level) { nb.upg = { level: b.upg.level, progress: clamp(+b.upg.progress || 0, 0, 1), time: +b.upg.time || 60, convert: !!b.upg.convert }; this.makeVisual(nb); }
       } catch (e) { console.warn('Skipped a building while loading', b, e); this.keptBuildings.push(b); }
     }
@@ -550,7 +556,7 @@ export class Game {
       if (!(v.job === 'trainee' || v.job === 'trainee_archer') || !v.paid) continue;
       const b = this.buildings.get(v.work); if (!b) continue;
       v.train += sec * eff;
-      if (v.train >= b.def.trainTime) { this.setJob(v, b.def.trains); trained++; }
+      const T = this.trainInfo(b); if (v.train >= T.time) { this.setJob(v, T.to); trained++; }
     }
     this.state.clock += sec; this.state.time = (this.state.time + sec / ECON.dayLength) % 1;
     for (const t of this.nature.trees) if (!t.alive && !t.removed && this.state.clock >= t.regrowAt) { t.alive = true; t.chops = 0; t.grow = 1; this.grid.set(t.cx, t.cz, TREE, false); this.nature.syncTree(t); }

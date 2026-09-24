@@ -50,9 +50,18 @@ export const JOBS = {
   trainee:        { name: 'Spearman trainee', look: 'trainee' },
   trainee_archer: { name: 'Archer trainee',  look: 'trainee_archer' },
   ashigaru:       { name: 'Spearman',        look: 'ashigaru', soldier: true, desc: 'Ashigaru spearman — the backbone of your army. Defends the village against bandits.' },
+  shieldman:      { name: 'Shield-bearer',   look: 'shieldman', soldier: true, desc: 'Tate-ashigaru — a sword and a heavy wooden shield that turns most arrows aside from the front. Leads the charge on a castle.' },
+  samurai:        { name: 'Samurai',         look: 'samurai',   soldier: true, desc: 'A sworn warrior in lacquered armour: twice as tough as a spearman and deadly with the katana.' },
   archer:         { name: 'Archer',          look: 'archer',   soldier: true, desc: 'Yumi archer — climbs your watchtowers and shoots from cover.' },
   berserker:      { name: 'Berserker',       look: 'berserker', soldier: true, commander: true, desc: 'Commander. Climbs enemy walls and draws their fire. Huge damage.' },
   taisho:         { name: 'Taishō',          look: 'taisho',    soldier: true, commander: true, desc: 'Commander. His banner makes nearby troops fight harder; can rally them mid-battle.' },
+};
+
+// What a Dojo can train (chosen in its panel). Better troops need a bigger Keep, more time and more gold.
+export const DOJO_TRAINS = {
+  ashigaru:  { th: 1, time: 90,  cost: { wheat: 20, gold: 8 } },
+  shieldman: { th: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12 } },
+  samurai:   { th: 4, time: 200, cost: { wheat: 40, gold: 45 } },
 };
 
 // Commanders are appointed at the Keep.
@@ -65,6 +74,8 @@ export const COMMANDERS = {
 export const UNITS = {
   ashigaru:  { hp: 120, dmg: 14, cd: 1.0, range: 1.8, speed: 3.3, look: 'ashigaru', r: 0.5 },
   archer:    { hp: 70, dmg: 11, cd: 1.5, range: 21, speed: 3.3, look: 'archer', ranged: true, r: 0.45 },
+  shieldman: { hp: 135, dmg: 12, cd: 1.1, range: 1.8, speed: 3.1, look: 'shieldman', r: 0.55, block: 0.65 },
+  samurai:   { hp: 280, dmg: 25, cd: 1.0, range: 2.0, speed: 3.5, look: 'samurai', r: 0.55 },
   berserker: { hp: 560, dmg: 36, cd: 1.1, range: 2.2, speed: 3.9, look: 'berserker', cleave: 2.4, r: 0.6, climb: true },
   taisho:    { hp: 380, dmg: 22, cd: 1.0, range: 2.0, speed: 3.5, look: 'taisho', aura: 10, r: 0.55 },
   ram:       { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
@@ -144,7 +155,7 @@ export const BUILDINGS = {
   infirmary:  { name: 'Healer’s House', kanji: '薬師', cat: 'military', size: [2, 2], cost: { wood: 90, stone: 40, gold: 15 }, time: 55, h: 4, th: 1, unique: true, heals: true,
                 desc: 'Wounded soldiers rest here and heal four times faster. Herbs dry on racks by the door.' },
   dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 1, maxLevel: 4, limit: [1, 1, 2, 2, 3], grow: { 3: [4, 3] },
-                desc: 'Unemployed villagers train here and graduate as Spearmen.' },
+                desc: 'Unemployed villagers train here and graduate as Spearmen — or, with a bigger Keep, as Shield-bearers or Samurai.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
   strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true,

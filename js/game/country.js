@@ -113,7 +113,7 @@ export class Country {
   }
   // only soldiers scout; a scout is away and can't work or fight at home
   // anyone who isn't tied to a workplace: unemployed villagers first, then soldiers
-  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'idle' || v.job === 'ashigaru' || v.job === 'archer')); }
+  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'idle' || v.job === 'ashigaru' || v.job === 'shieldman' || v.job === 'archer')); }
   sendScout(to) {
     const rank = v => (v.job === 'idle' ? 0 : 1) + (v.post ? 1 : 0);
     const g = this.game, c = this.scoutCandidates().sort((a, b) => rank(a) - rank(b))[0];

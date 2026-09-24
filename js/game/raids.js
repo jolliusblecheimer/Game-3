@@ -6,7 +6,7 @@ import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
 
 const SIDES = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-const SOLDIER_HP = { ashigaru: 120, archer: 70, berserker: 560, taisho: 380 };
+const SOLDIER_HP = { ashigaru: 120, shieldman: 135, samurai: 280, archer: 70, berserker: 560, taisho: 380 };
 const TOUGH = 1.75; // everyone lasts longer in a fight
 const maxHp = v => (SOLDIER_HP[v.job] || 100) * TOUGH;
 
@@ -209,7 +209,7 @@ export class Raids {
         v.heading = Math.atan2(t[0].x - v.pos.x, t[0].z - v.pos.z); v.path = null; v.act = 0.5; v.pose = ranged ? 'shoot' : 'chop';
         if (v.rcd <= 0) {
           v.rcd = ranged ? 1.5 / (1 + g.rb('archFast')) : 1.0 / (1 + (v.job === 'ashigaru' ? g.rb('spearFast') : 0));
-          const dmg = ranged ? UNITS.archer.dmg * (tower ? 1.3 : 1) * (1 + g.rb('archDmg')) : v.job === 'berserker' ? UNITS.berserker.dmg : v.job === 'taisho' ? UNITS.taisho.dmg : UNITS.ashigaru.dmg * (1 + g.rb('spearDmg'));
+          const dmg = ranged ? UNITS.archer.dmg * (tower ? 1.3 : 1) * (1 + g.rb('archDmg')) : v.job === 'ashigaru' ? UNITS.ashigaru.dmg * (1 + g.rb('spearDmg')) : (UNITS[v.job] || UNITS.ashigaru).dmg;
           if (ranged) this.shoot(v, t[0], dmg); else this.hurtBandit(t[0], dmg);
         }
       } else if (!tower && !ranged && (!v.path || (v.chaseT || 0) < this.clock)) {
@@ -281,7 +281,7 @@ export class Raids {
       if (f >= 1) {
         a.done = true; this.game.scene.remove(a.m);
         if (!a.v) this.hurtBandit(a.u, a.dmg);
-        else if (g.villagers.has(a.v.id) && !a.v.hidden) { if (JOBS[a.v.job].soldier) this.hurtSoldier(a.v, a.dmg); else this.hurtVillager(a.v, a.dmg); }
+        else if (g.villagers.has(a.v.id) && !a.v.hidden) { if (UNITS[a.v.job] && UNITS[a.v.job].block && g.rand() < UNITS[a.v.job].block) continue; if (JOBS[a.v.job].soldier) this.hurtSoldier(a.v, a.dmg); else this.hurtVillager(a.v, a.dmg); }
       }
     }
     this.arrows = this.arrows.filter(a => !a.done);

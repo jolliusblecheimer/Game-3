@@ -214,7 +214,7 @@ export function thinkVillager(game, v) {
       return goTo(game, v, game.door(work, 0.4), () => inside(v, J.work / mult, () => pickUp(v, 'gold', J.amount), 'Digging for gold deep inside the mine'), 'Walking to the mine');
     case 'trainee': case 'trainee_archer': {
       if (!v.paid) {
-        const cost = work.def.trainCost;
+        const cost = game.trainInfo(work).cost;
         if (!game.canAfford(cost)) return act(v, 4, 'idle', null, 'Waiting for training supplies');
         game.pay(cost); v.paid = true;
       }
@@ -224,15 +224,15 @@ export function thinkVillager(game, v) {
       const lx = (slot - (n - 1) / 2) * 1.3;
       const spot = archer ? game.local(work, lx, -work.sd * PLOT_CELL / 2 + 2.9) : game.local(work, lx, work.sd * PLOT_CELL / 2 + 1.6);
       const faceTo = archer ? game.local(work, lx, work.sd * PLOT_CELL / 2) : game.local(work, lx * 0.5, 0);
-      const pct = () => Math.min(99, Math.round((v.train || 0) / work.def.trainTime * 100));
+      const T = game.trainInfo(work), pct = () => Math.min(99, Math.round((v.train || 0) / T.time * 100));
       return goTo(game, v, spot, () => act(v, 5, archer ? 'shoot' : 'train', () => {
         v.train = (v.train || 0) + 5 * mult * (1 + game.rb('trainFast'));
-        if (v.train >= work.def.trainTime) {
-          const to = work.def.trains;
+        if (v.train >= game.trainInfo(work).time) {
+          const to = game.trainInfo(work).to;
           game.setJob(v, to); game.state.stats.trained++;
           game.toast(`${v.name} has become ${/^[AEIOU]/.test(JOBS[to].name) ? 'an' : 'a'} ${JOBS[to].name}!`);
         }
-      }, archer ? `Practising the bow (${pct()}%)` : `Drilling with the spear (${pct()}%)`, faceTo), 'Heading to training');
+      }, archer ? `Practising the bow (${pct()}%)` : `${{ shieldman: 'Drilling with sword and shield', samurai: 'Training in the way of the sword' }[T.to] || 'Drilling with the spear'} (${pct()}%)`, faceTo), 'Heading to training');
     }
     case 'archer':
       if (v.post && v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) leaveTower(game, v);
@@ -248,7 +248,7 @@ export function thinkVillager(game, v) {
       }
       if (!(v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) && climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough
-    case 'ashigaru': case 'berserker': case 'taisho': {
+    case 'ashigaru': case 'shieldman': case 'samurai': case 'berserker': case 'taisho': {
       // wounded soldiers rest at the Healer's House
       const healer = v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].find(b => b.def.heals && b.done);
       if (healer) {
@@ -256,7 +256,7 @@ export function thinkVillager(game, v) {
         return goTo(game, v, game.door(healer, 0.6), () => { v.resting = true; inside(v, 15, () => { v.resting = false; }, `Resting at the ${healer.def.name} (${Math.round(v.hpf * 100)}%)`); }, 'Going to the healer to rest');
       }
       // from Keep level 4, spearmen patrol along the walkways of upgraded walls
-      if (v.job === 'ashigaru' && game.thLevel >= 4 && game.rand() < 0.6 && wallPatrol(game, v)) return;
+      if ((v.job === 'ashigaru' || v.job === 'shieldman') && game.thLevel >= 4 && game.rand() < 0.6 && wallPatrol(game, v)) return;
       const gates = [...game.buildings.values()].filter(b => b.done && (b.type === 'gate' || b.type === 'townhall'));
       const g = gates[Math.floor(game.rand() * gates.length)];
       if (!g) return act(v, 4, 'guard', null, 'Standing guard');

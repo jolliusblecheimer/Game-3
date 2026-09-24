@@ -117,3 +117,7 @@ Before the alarm every defender keeps watch, and you can play him:
 - **Silent takedowns.** Strike an unaware guard from behind while sneaking and he drops without a sound (samurai only stagger).
 - **Bodies.** A patrol that finds a body raises the alarm — take out sentries where no one will walk past, or move fast.
 - **After the alarm** a lone soldier or two out in the open tempts up to three defenders through the gate — lead them into your hidden troops. A man who is struck calls the two beside him, and a broken wall draws the nearest men to plug the breach.
+
+## Shield-bearers and samurai
+
+Your Dojo can train more than spearmen: choose what it trains in its panel. **Shield-bearers** (Keep level 2) carry a heavy shield that turns most arrows aside from the front — send them first at a castle. **Samurai** (Keep level 4) are sworn warriors, twice as tough as a spearman and deadly with the katana, but take long to train and cost gold. In battle, select them with 6 and 7.

@@ -263,7 +263,7 @@ export class Battle {
   }
   spawnArmy() {
     const g = this.game, list = this.mission.vids.map(id => g.villagers.get(id)).filter(Boolean);
-    const order = ['berserker', 'taisho', 'ashigaru', 'archer'];
+    const order = ['berserker', 'taisho', 'samurai', 'shieldman', 'ashigaru', 'archer'];
     list.sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
     const sides = this.mission.sides || {}, split = list.some(v => sides[v.id] === 'e');
     // one group from the south; or a west and an east group closing in from both flanks

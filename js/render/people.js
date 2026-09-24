@@ -18,6 +18,7 @@ export const LOOKS = {
   trainee:     { robe: ['#ece6d6'], pants: '#2b3346', hat: 'hachimaki', tool: 'bokken' },
   trainee_archer: { robe: ['#ece6d6'], pants: '#3a2e4a', hat: 'hachimaki', tool: 'yumi', quiver: true },
   ashigaru:    { robe: ['#2e3440'], pants: '#23262d', hat: 'jingasa', tool: 'yari', armor: '#3a3f4a', banner: CLAN },
+  shieldman:   { robe: ['#2e3440'], pants: '#23262d', hat: 'jingasa', tool: 'katana', armor: '#3a3f4a', shield: '#7a2a22' },
   archer:      { robe: ['#34402e'], pants: '#23262d', hat: 'jingasa', tool: 'yumi', armor: '#3c4636', quiver: true },
   samurai:     { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#1c1c22', crest: '#e0b04a' },
   monk:        { robe: ['#c9772e'], pants: '#8f4f1f', hat: 'bald', tool: 'staff' },

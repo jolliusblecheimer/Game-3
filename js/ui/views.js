@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
 import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
 import { RTSCamera } from './camera.js';
-import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES } from '../game/data.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS } from '../game/data.js';
 import { h, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { art, costChips } from './hud.js';
@@ -178,7 +178,7 @@ export class Views {
   }
   armyPicker(site) {
     const g = this.game, C = g.country, soldiers = g.soldiers();
-    const types = ['ashigaru', 'archer', 'berserker', 'taisho'];
+    const types = ['ashigaru', 'shieldman', 'samurai', 'archer', 'berserker', 'taisho'];
     // two groups: the west group (everything, by default) and an east group for a pincer attack
     const pick = Object.fromEntries(types.map(t => [t, [soldiers.filter(v => v.job === t).length, 0]]));
     const haveRams = g.state.rams || 0, rams = [Math.min(haveRams, 2), 0];
@@ -284,7 +284,7 @@ export class Views {
   }
   groups() {
     const mine = this.battle.units.filter(u => u.team === 0 && !u.dead && !u.fled);
-    return [['ashigaru', 'Spearmen', '1'], ['archer', 'Archers', '2'], ['cmd', 'Commanders', '3'], ['ram', 'Rams', '4']].map(([k, name, key]) => ({ k, name, key, units: mine.filter(u => k === 'cmd' ? (u.type === 'berserker' || u.type === 'taisho') : u.type === k) })).filter(g => g.units.length);
+    return [['ashigaru', 'Spearmen', '1'], ['archer', 'Archers', '2'], ['cmd', 'Commanders', '3'], ['ram', 'Rams', '4'], ['shieldman', 'Shields', '6'], ['samurai', 'Samurai', '7']].map(([k, name, key]) => ({ k, name, key, units: mine.filter(u => k === 'cmd' ? (u.type === 'berserker' || u.type === 'taisho') : u.type === k) })).filter(g => g.units.length);
   }
   renderBattleUI() {
     const b = this.battle, site = b.site; if (!this.bTop) return;
@@ -513,7 +513,7 @@ export class Views {
     if (this.mode !== 'battle') return ['b', 'r', 'delete', 'backspace', 'h'].includes(k);
     const b = this.battle, sel = this.selected.filter(u => !u.dead);
     const G = this.groups();
-    if (/^[1-4]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
+    if (/^[1-4]$|^[67]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
     if (k === '5') { this.selectUnits(b.units.filter(u => u.team === 0 && !u.dead && !u.fled)); return true; }
     if (k === 't') { this.armed = 'amove'; this.renderBattleUI(); return true; }
     if (k === 'c') { const on = !sel.every(u => u.sneak || u.U.siege); b.setSneak(sel, on); this.renderBattleUI(); return true; }
@@ -542,6 +542,17 @@ export class Views {
             g.pay(C.cost); g.setJob(cand, type); g.toast(`${cand.name} is now your ${JOBS[type].name}!`); this.hud.renderPanel();
           } }, 'Appoint', costChips(g, C.cost))));
       }
+      p.append(box);
+    }
+    if (b.type === 'dojo' && b.done) {
+      // what the dojo trains: spearmen, shield-bearers (Keep 2) or samurai (Keep 4)
+      const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));
+      for (const [k, T] of Object.entries(DOJO_TRAINS)) {
+        const locked = g.thLevel < T.th;
+        box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, onclick: () => { b.trainAs = k; this.hud.renderPanel(); } },
+          art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? `Keep level ${T.th}` : `${T.time}s · ${this.costText(T.cost)}`))));
+      }
+      box.append(h('p', { class: 'sub' }, 'Trainees already in the yard finish as whatever the dojo trains when they graduate.'));
       p.append(box);
     }
     if (b.type === 'strategy' && b.done) {
