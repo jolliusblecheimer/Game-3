@@ -178,7 +178,7 @@ export function updateVillager(game, v, dt) {
   let pose = 'idle';
   if (v.path) {
     const tgt = v.path[v.pathI], dx = tgt.x - v.pos.x, dz = tgt.z - v.pos.z, d = Math.hypot(dx, dz);
-    const sp = ECON.walkSpeed * (v.carry ? 0.85 : 1) * (game.hungry() ? 0.8 : 1);
+    const sp = ECON.walkSpeed * (v.carry ? 0.85 : 1) * (game.hungry() ? 0.8 : 1) * game.grid.speedAt(v.pos.x, v.pos.z);
     if (d < 0.05) {
       v.pathI++;
       if (v.pathI >= v.path.length) { v.path = null; const cb = v.onArrive; v.onArrive = null; if (cb) cb(); }

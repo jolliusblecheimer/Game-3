@@ -1,10 +1,10 @@
 // Game data: every number that shapes the economy lives here.
 
 export const RES = {
-  wheat: { name: 'Wheat', icon: '🌾' },
-  wood: { name: 'Wood', icon: '🪵' },
-  stone: { name: 'Stone', icon: '🪨' },
-  gold: { name: 'Gold', icon: '🪙' },
+  wheat: { name: 'Wheat', icon: 'wheat' },
+  wood: { name: 'Wood', icon: 'wood' },
+  stone: { name: 'Stone', icon: 'stone' },
+  gold: { name: 'Gold', icon: 'gold' },
 };
 
 export const START = {
@@ -41,17 +41,21 @@ export const JOBS = {
 };
 
 export const CATEGORIES = [
-  { id: 'village', name: 'Village', icon: '🏠' },
-  { id: 'resources', name: 'Resources', icon: '🌾' },
-  { id: 'military', name: 'Military', icon: '⚔️' },
-  { id: 'defense', name: 'Defense', icon: '🏯' },
-  { id: 'beauty', name: 'Harmony', icon: '🌸' },
+  { id: 'village', name: 'Village', icon: 'village' },
+  { id: 'resources', name: 'Resources', icon: 'resources' },
+  { id: 'military', name: 'Military', icon: 'military' },
+  { id: 'defense', name: 'Defense', icon: 'defense' },
+  { id: 'beauty', name: 'Harmony', icon: 'beauty' },
 ];
 
 // size = footprint in grid cells (1 cell = 2 × 2 world units), before rotation.
 export const BUILDINGS = {
   townhall:   { name: 'Tenshu Keep', kanji: '天守', cat: null, size: [4, 4], cost: {}, time: 0, housing: 6, storage: 500, unique: true, dropoff: 'all', h: 12,
                 desc: 'The heart of your clan. Stores goods and shelters your first villagers.' },
+  road:       { name: 'Dirt Road', kanji: '道', cat: 'village', size: [1, 1], cost: {}, time: 0, walkable: true, line: true, road: 1.5, h: 0.2,
+                desc: 'A packed-earth path. Villagers walk 50% faster on roads and choose them when they can. Free, and laid instantly.' },
+  stoneroad:  { name: 'Stone Road', kanji: '石畳', cat: 'village', size: [1, 1], cost: { stone: 3 }, time: 0, walkable: true, line: true, road: 1.9, h: 0.2,
+                desc: 'Paved with cut stone. Villagers walk 90% faster. Laid instantly.' },
   house:      { name: 'Minka House', kanji: '民家', cat: 'village', size: [2, 2], cost: { wood: 40, stone: 10 }, time: 22, housing: 4, h: 4.5,
                 desc: 'A thatched family home. Room for 4 more villagers.' },
   storehouse: { name: 'Kura Storehouse', kanji: '蔵', cat: 'village', size: [2, 3], cost: { wood: 60, stone: 40 }, time: 30, storage: 400, dropoff: 'all', h: 5,

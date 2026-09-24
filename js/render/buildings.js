@@ -23,6 +23,27 @@ function hangingLantern(b, x, y, z) {
   b.g.cyl(0.16, 0.16, 0.36, 8, '#ff9b6a', [x, y, z]);
   b.m.cyl(0.17, 0.17, 0.05, 8, DARK, [x, y + 0.2, z]); b.m.cyl(0.17, 0.17, 0.05, 8, DARK, [x, y - 0.2, z]);
 }
+// Road tile: a centre patch plus an arm towards each connected neighbour.
+function roadTile(m, conn, stone) {
+  const base = stone ? '#8f8a80' : '#a68a66', W = 1.55;
+  const arms = [['e', 1, 0], ['w', -1, 0], ['s', 0, 1], ['n', 0, -1]].filter(([k]) => conn && conn[k]);
+  m.box(W, 0.07, W, base, [0, 0.035, 0], [0, 0, 0], 0.03);
+  for (const [, ax, az] of arms) m.box(ax ? 1.0 : W, 0.07, az ? 1.0 : W, base, [ax * 0.5, 0.035, az * 0.5], [0, 0, 0], 0.03);
+  const r = (i, k) => ((i * 7919 + k * 104729) % 1000) / 1000;
+  if (stone) {
+    // paving slabs
+    const slab = (x, z, i) => m.box(0.44 + r(i, 1) * 0.1, 0.03, 0.44 + r(i, 2) * 0.1, ['#a39e93', '#9a958a', '#b0ab9f', '#8f8a7f'][i % 4], [x, 0.085, z], [0, r(i, 3) * 0.2, 0], 0.04);
+    let i = 0;
+    for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) slab(x * 0.5, z * 0.5, i++);
+    for (const [, ax, az] of arms) for (let t = 1; t <= 2; t++) for (let s = -1; s <= 1; s++) slab(ax ? ax * (0.5 + t * 0.25) : s * 0.5, az ? az * (0.5 + t * 0.25) : s * 0.5, i++);
+  } else {
+    // wheel ruts and pebbles
+    const alongX = arms.some(([, ax]) => ax), alongZ = arms.some(([, , az]) => az);
+    if (alongX || !alongZ) for (const o of [-0.35, 0.35]) m.box(alongX ? 1.9 : 1.2, 0.02, 0.1, '#8c7253', [0, 0.075, o]);
+    if (alongZ) for (const o of [-0.35, 0.35]) m.box(0.1, 0.02, 1.9, '#8c7253', [o, 0.075, 0]);
+    for (let i = 0; i < 4; i++) m.box(0.1, 0.05, 0.1, '#9d978b', [(r(i, 5) - 0.5) * 1.3, 0.08, (r(i, 6) - 0.5) * 1.3], [0, r(i, 7) * 3, 0]);
+  }
+}
 function bush(m, x, z, s = 1, hex = '#4f7d3a') { m.ball(0.55 * s, hex, [x, 0.4 * s, z], [1.2, 0.9, 1.1]); }
 
 const MODELS = {
@@ -322,6 +343,8 @@ const MODELS = {
     m.cyl(1.0, 1.0, 0.02, 12, '#f4c7d3', [0, 0.02, 0]);
   },
   lantern(b) { stoneLantern(b, 0, 0, 1.15); },
+  road(b, w, d, conn) { roadTile(b.m, conn, false); },
+  stoneroad(b, w, d, conn) { roadTile(b.m, conn, true); },
   torii(b) {
     const m = b.m;
     for (const x of [-1.4, 1.4]) { m.cyl(0.16, 0.19, 3.2, 8, VERM, [x, 1.6, 0]); m.cyl(0.24, 0.24, 0.3, 8, DARK, [x, 0.15, 0]); }

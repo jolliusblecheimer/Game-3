@@ -50,6 +50,13 @@ export class Input {
     this.makeGhost();
     this.hud.onPlacing(this.placing);
   }
+  endLine() {
+    if (!this.placing || !this.placing.lineStart) return false;
+    this.placing.lineStart = null;
+    if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
+    this.hud.placingHint(true, 'Click where the line should start');
+    return true;
+  }
   cancelPlacing() {
     if (this.ghost) { this.stage.scene.remove(this.ghost); this.ghost.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.ghost = null; }
     if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
@@ -131,9 +138,12 @@ export class Input {
       if (!P.lineStart) { P.lineStart = [cx, cz]; this.updateGhost(cx, cz); this.hud.placingHint(true, 'Now click where the line should end'); return; }
       const { valid, afford } = this.lineInfo || { valid: [], afford: 0 };
       let n = 0; for (const [x, z] of valid.slice(0, afford)) if (game.place(P.type, x, z, 0)) n++;
-      if (n) { this.hud.sound('place'); this.hud.toast(`Placed ${n} × ${def.name}`); }
-      P.lineStart = null; if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
+      if (n) this.hud.sound('place');
+      // keep drawing: the next segment starts where this one ended (Esc to finish)
+      if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
+      P.lineStart = n ? [cx, cz] : null;
       this.updateGhost(cx, cz);
+      this.hud.placingHint(true, n ? 'Click to continue the line · Esc to finish' : 'Click where the line should start');
       return;
     }
     if (!this.ghostOk) { this.hud.toast(this.hud.lastWhy || 'Can’t build here', 'warn'); return; }
