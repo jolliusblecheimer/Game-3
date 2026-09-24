@@ -48,7 +48,7 @@ export class Game {
   get thLevel() { const k = this.keep; return k ? k.level : 1; }
   housing() {
     let h = 0;
-    for (const b of this.buildings.values()) if (b.done) { if (b.type === 'townhall') h += TOWNHALL[b.level].housing; else if (b.def.housing) h += b.def.housing + 2 * (b.level - 1); }
+    for (const b of this.buildings.values()) if (b.done) { if (b.type === 'townhall') h += TOWNHALL[b.level].housing; else if (b.def.housing) h += b.def.housing + (b.def.housingUp || 2) * (b.level - 1); }
     return h;
   }
   storageCap() {

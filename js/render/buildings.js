@@ -164,6 +164,34 @@ const MODELS = {
     for (const x of [-0.9, -0.55, -0.2]) { m.box(0.02, 0.6, 0.02, '#c9b58a', [x, 2.0, -1.75]); for (let k = 0; k < 4; k++) m.ball(0.06, '#e07a2e', [x, 1.78 + k * 0.14, -1.75]); }
     b.g.box(0.06, 0.7, 0.9, PAPER, [-1.57, 1.5, -0.2]); lattice(m, -1.6, 1.5, -0.2, 0.9, 0.7, -1);
   },
+  // a row house: four homes side by side under one long tiled roof, each with its own door and curtain
+  nagaya(b, w, d) {
+    const m = b.m, L = b.level || 1, W = w - 0.5, D = d - 1.3, units = 4, uw = W / units;
+    m.box(w - 0.1, 0.4, d - 0.1, STONE, [0, 0.2, 0]); courses(m, w - 0.1, d - 0.1, w - 0.1, d - 0.1, 0.4, 0, 1);
+    m.box(W, 1.9, D, PLASTER, [0, 0.4 + 0.95, -0.35]);
+    m.box(W + 0.1, 0.14, D + 0.1, WOOD, [0, 2.32, -0.35]); m.box(W + 0.1, 0.08, 0.06, WOOD, [0, 1.25, D / 2 - 0.33]); m.box(W + 0.1, 0.08, 0.06, WOOD, [0, 1.25, -D / 2 - 0.37]);
+    for (let i = 0; i <= units; i++) { const x = -W / 2 + i * uw; m.box(0.16, 1.95, 0.16, WOOD, [x, 1.37, D / 2 - 0.35]); m.box(0.16, 1.95, 0.16, WOOD, [x, 1.37, -D / 2 - 0.35]); }
+    const cols = ['#2f4a7a', '#7a2f2a', '#3f5f3a', '#5a3f6a'];
+    for (let i = 0; i < units; i++) {
+      const x = -W / 2 + (i + 0.5) * uw;
+      // sliding door with a noren curtain, a small window, a pot plant or a bucket
+      b.g.box(0.75, 1.3, 0.06, PAPER, [x - 0.3, 1.1, D / 2 - 0.33]); for (let k = -1; k <= 1; k++) m.box(0.03, 1.3, 0.04, WOOD, [x - 0.3 + k * 0.25, 1.1, D / 2 - 0.3]);
+      for (let k = 0; k < 2; k++) m.box(0.34, 0.42, 0.03, cols[i], [x - 0.47 + k * 0.35, 1.6, D / 2 - 0.26]);
+      b.g.box(0.45, 0.4, 0.06, '#ffcf7a', [x + 0.45, 1.5, D / 2 - 0.33]); lattice(m, x + 0.45, 1.5, D / 2 - 0.33, 0.45, 0.4);
+      backWindow(b, x, 1.55, -D / 2 - 0.37, 0.6, 0.45, PAPER);
+      if (i % 2) { m.cyl(0.14, 0.11, 0.22, 7, '#7a4a32', [x + 0.5, 0.55, D / 2 + 0.25]); m.ball(0.2, '#35653c', [x + 0.5, 0.8, D / 2 + 0.25], [1.3, 0.6, 1.1]); }
+      else { m.cyl(0.16, 0.14, 0.3, 8, WOOD, [x + 0.55, 0.55, D / 2 + 0.25]); m.cyl(0.13, 0.13, 0.02, 8, '#2e4a58', [x + 0.55, 0.71, D / 2 + 0.25]); }
+    }
+    // shared eaves walkway and a shared well at the end
+    m.box(W + 0.3, 0.1, 0.7, WOOD_L, [0, 0.45, D / 2 + 0.05]);
+    m.roof(W, D, 1.6, ROOF, 2.38, { over: 0.6, ridge: 0.3, cz: -0.35 });
+    for (let i = 1; i < units; i++) m.box(0.08, 0.5, D + 0.9, ROOF_D, [-W / 2 + i * uw, 2.75, -0.35]); // fire walls between the homes
+    const wx = w / 2 - 0.35, wz = -d / 2 + 0.35;
+    m.cyl(0.26, 0.3, 0.45, 10, STONE, [wx, 0.62, wz]); m.cyl(0.21, 0.21, 0.03, 10, '#2e4a58', [wx, 0.84, wz]);
+    for (let r = 0; r < 2; r++) for (let i = 0; i < 3 - r; i++) m.cyl(0.07, 0.07, 0.55, 6, '#8a6a4a', [-w / 2 + 0.35, 0.5 + r * 0.13, -0.8 + i * 0.15 + r * 0.07], [Math.PI / 2, 0, 0]);
+    hangingLantern(b, -W / 2 + 0.3, 1.9, D / 2 - 0.05);
+    if (L >= 2) hangingLantern(b, W / 2 - 0.3, 1.9, D / 2 - 0.05);
+  },
   storehouse(b) {
     const m = b.m;
     m.box(3.8, 0.4, 5.6, STONE, [0, 0.2, 0]);

@@ -152,7 +152,7 @@ export class Hud {
       row('camp', `Raids grow with your village: about one raider for every four villagers (now ${g.raids.popBand()})${g.thLevel >= 4 ? ' — the warlords now send real soldiers' : ''}`);
       return rows;
     }
-    if (d.housing) row('house', `Homes for ${d.housing + 2 * (L - 1)} villagers`);
+    if (d.housing) row('house', `Homes for ${d.housing + (d.housingUp || 2) * (L - 1)} villagers${!b && (d.maxLevel || 1) > 1 ? ` (+${d.housingUp || 2} per upgrade)` : ''}`);
     if (d.storage) row('storage', `Stores ${d.storage + 300 * (L - 1)} more of every resource`);
     if (d.jobs) {
       const J = JOBS[d.job], n = d.jobs + (L - 1);

@@ -129,6 +129,8 @@ export const BUILDINGS = {
                 desc: 'Paved with cut stone. Villagers walk 90% faster. Laid instantly.' },
   house:      { name: 'Minka House', kanji: '民家', cat: 'village', size: [2, 2], cost: { wood: 60, stone: 15 }, time: 45, housing: 4, h: 4.5, th: 1, maxLevel: 3, limit: [4, 6, 8, 10, 12],
                 desc: 'A thatched family home with room for 4 villagers (+2 per upgrade).' },
+  nagaya:     { name: 'Nagaya Row House', kanji: '長屋', cat: 'village', size: [3, 2], cost: { wood: 150, stone: 70, gold: 20 }, time: 90, housing: 12, housingUp: 4, h: 4.5, th: 3, maxLevel: 3, limit: [0, 0, 2, 4, 6],
+                desc: 'A long tiled terrace where four families live side by side under one roof: room for 12 villagers (+4 per upgrade) on little more ground than a Minka House.' },
   storehouse: { name: 'Kura Storehouse', kanji: '蔵', cat: 'village', size: [2, 3], cost: { wood: 90, stone: 60 }, time: 60, storage: 400, dropoff: 'all', h: 5, th: 1, maxLevel: 4, limit: [1, 2, 3, 4, 5],
                 desc: 'Stores 400 more of every resource (+300 per upgrade). Workers drop off goods here too.' },
   farm:       { name: 'Wheat Field', kanji: '畑', cat: 'resources', size: [4, 4], cost: { wood: 45 }, time: 35, jobs: 2, job: 'farmer', walkable: true, h: 1.5, th: 1, maxLevel: 5, limit: [2, 3, 4, 5, 6], grow: { 3: [5, 5], 5: [6, 6] },
