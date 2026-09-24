@@ -58,7 +58,8 @@ export class Grid {
     return t;
   }
   // Returns a list of world points from `from` to `to`, or null if unreachable.
-  findPath(from, to) {
+  // partial: if the goal can't be reached, lead as close to it as possible instead of giving up
+  findPath(from, to, partial = false) {
     const n = this.n;
     let [sx, sz] = this.toCell(from.x, from.z);
     sx = Math.max(0, Math.min(n - 1, sx)); sz = Math.max(0, Math.min(n - 1, sz));
@@ -73,11 +74,12 @@ export class Grid {
     const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let k = 0; for (;;) { const l = 2 * k + 1, r = l + 1; let m = k; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } } return top[1]; };
     const hfn = (cx, cz) => { const dx = Math.abs(cx - gx), dz = Math.abs(cz - gz); return ((dx + dz) + (Math.SQRT2 - 2) * Math.min(dx, dz)) / Grid.MAX_SPEED; };
     g[start] = 0; push(start, hfn(sx, sz));
-    let found = false, iter = 0;
+    let found = false, iter = 0, best = start, bestH = Infinity;
     while (heap.length && iter++ < n * n * 1.5) {
       const cur = pop(); if (closed[cur]) continue; closed[cur] = 1;
       if (cur === end) { found = true; break; }
       const cx = cur % n, cz = (cur / n) | 0;
+      if (partial) { const hh = hfn(cx, cz); if (hh < bestH) { bestH = hh; best = cur; } }
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dz) continue;
         const nx = cx + dx, nz = cz + dz;
@@ -87,11 +89,12 @@ export class Grid {
         if (cost < g[ni]) { g[ni] = cost; came[ni] = cur; push(ni, cost + hfn(nx, nz)); }
       }
     }
-    if (!found) return null;
-    const cells = []; for (let c = end; c !== -1 && c !== start; c = came[c]) cells.push(c);
+    let last = end;
+    if (!found) { if (!partial || best === start) return null; last = best; }
+    const cells = []; for (let c = last; c !== -1 && c !== start; c = came[c]) cells.push(c);
     cells.reverse();
     const pts = cells.map(c => this.center(c % n, (c / n) | 0));
-    if (exactGoal) pts[pts.length - 1] = { x: to.x, z: to.z };
+    if (exactGoal && found) pts[pts.length - 1] = { x: to.x, z: to.z };
     // string-pulling: skip points we can see past
     // (a shortcut is only taken if it's no slower than following the path — keeps villagers on roads)
     const cum = [0]; // walking time along the path up to each point

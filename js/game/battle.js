@@ -123,10 +123,12 @@ function ramModel() {
 }
 
 const HP_SCALE = 3.5;        // everyone is much tougher in battle: fights last longer
-const SIGHT = { ground: 13, high: 20, bush: 4 };
+const SIGHT = { ground: 13, high: 20, bush: 4, alert: 22 }; // after the alarm everyone looks everywhere, and further
 const FOV = 2.3;             // a man on the ground sees about 130° ahead of him (towers see all round)
 const HEAR = 3.2;            // ...and hears footsteps this close behind him (sneaking: half)
 const CAPTURE_TIME = 12;
+const WALL_SCALE = 2;        // walls, gates and towers are this much stronger than their base hp
+const FORTIFIED = 0.8;       // men fighting inside their own walls take this share of the damage
 
 /*
  * Before the alarm every defender keeps watch:
@@ -199,7 +201,8 @@ export class Battle {
     L.structs.forEach(s => { for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) typeAt.set(key(x, z), s.type); });
     L.structs.forEach((s, i) => {
       const D = STRUCT[s.type], id = i + 1;
-      const st = { ...s, id, def: D, hp: D.hp || 0, maxHp: D.hp || 0, dead: false, isStruct: true, r: 1, team: this.defend ? 0 : 1 };
+      const hp = (D.hp || 0) * WALL_SCALE; // walls and gates keep pace with the tougher troops
+      const st = { ...s, id, def: D, hp, maxHp: hp, dead: false, isStruct: true, r: 1, team: this.defend ? 0 : 1 };
       const fam = FAMILY[s.type];
       const conn = fam ? { n: fam.includes(typeAt.get(key(s.cx, s.cz - 1))), s: fam.includes(typeAt.get(key(s.cx, s.cz + 1))), e: fam.includes(typeAt.get(key(s.cx + 1, s.cz))), w: fam.includes(typeAt.get(key(s.cx - 1, s.cz))) } : null;
       const [a, b] = s.rot % 2 ? [s.d, s.w] : [s.w, s.d];
@@ -351,7 +354,7 @@ export class Battle {
   known(u) { return this.defend || this.t - u.spotted < 3; }
   raiseAlarm(by, msg) {
     if (this.alarm) return;
-    this.alarm = true; this.phase = 'alarm';
+    this.alarm = true; this.phase = 'alarm'; this.lastHitT = this.t;
     this.fx.push({ kind: 'banner', text: msg || 'Spotted! The war horn sounds — defenders to your posts!', t: 0 });
     if (by) this.fx.push({ kind: 'shout', x: by.x, z: by.z, y: (by.y || 0) + 2.9, text: '!', t: 0, cls: 'x' });
     for (const u of this.units) if (u.team === 1 && u.role !== 'post') { u.path = null; u.target = null; u.inv = null; u.st = 'alert'; }
@@ -393,7 +396,8 @@ export class Battle {
     // soldiers chasing someone (or running away) pass through their own side's gates
     const G = this.grid, opened = [];
     if (u.aggro || u.fleeing || u.inv) for (const st of this.structs) if (st.def.gate && !st.dead && st.team === u.team) for (let cz = st.cz; cz < st.cz + st.d; cz++) for (let cx = st.cx; cx < st.cx + st.w; cx++) { const i = G.idx(cx, cz); if (!G.pass[i]) { G.pass[i] = 1; opened.push(i); } }
-    const p = G.findPath({ x: u.x, z: u.z }, { x, z }); u.path = p; u.pathI = 0; u.repathT = 1.5;
+    // your troops told to go somewhere walled off walk as close as they can get
+    const p = G.findPath({ x: u.x, z: u.z }, { x, z }, u.team === 0 && (u.order.kind === 'move' || u.order.kind === 'amove')); u.path = p; u.pathI = 0; u.repathT = 1.5;
     for (const i of opened) G.pass[i] = 0;
   }
   ability(u, point) {
@@ -431,7 +435,7 @@ export class Battle {
       for (const k in u.buffs) { u.buffs[k] -= dt; if (u.buffs[k] <= 0) delete u.buffs[k]; }
       u.abilityCd = Math.max(0, u.abilityCd - dt); u.cd -= dt * (u.buffs.rally ? 1.4 : 1);
       if (u.team === 0) u.hidden = this.bush(u.x, u.z);
-      if (u.post) { const s = this.structs[u.post - 1]; if (s.dead) { u.post = null; u.y = 0; u.hp -= u.maxHp * 0.4; if (u.hp <= 0) { this.kill(u); continue; } } }
+      if (u.post) { const s = this.structs[u.post - 1]; if (s.dead) { u.post = null; u.y = 0; u.hp -= u.maxHp * 0.4; if (u.hp <= 0) { this.kill(u); continue; } if (u.team === 1) { u.role = 'guard'; u.pos = { x: u.x, z: u.z }; u.holdR = 8; } } }
       u.thinkT -= dt;
       if (u.thinkT <= 0) { u.thinkT = u.team ? 0.4 + this.rand() * 0.3 : 0.25; this.think(u); }
       // pulled out of the fight, your soldiers bind their wounds: 6s without being hit and 4s without striking
@@ -440,6 +444,7 @@ export class Battle {
       this.act(u, dt);
     }
     this.separate();
+    this.unstick();
     for (const a of this.arrows) {
       a.t += dt;
       if (a.t >= a.dur) {
@@ -473,21 +478,21 @@ export class Battle {
   dropStones(dt) {
     for (const u of this.units) {
       if (u.dead || !u.U.siege || !(u.target && u.target.def && u.target.def.gate)) continue;
-      const defenders = this.units.filter(o => o.team !== u.team && !o.dead && (o.y || 0) > 1 && Math.hypot(o.x - u.target.x, o.z - u.target.z) < 12).length;
+      const defenders = this.units.filter(o => o.team !== u.team && !o.dead && (o.y || 0) > 1 && Math.hypot(o.x - u.target.x, o.z - u.target.z) < 16).length;
       if (!defenders) continue;
       const res = u.team === 0 && this.rb('ramHp') ? 0.5 : 1;
-      this.damage(u, 7 * defenders * res * dt * 2, null);
+      this.damage(u, 7 * HP_SCALE * defenders * res * dt, null);
       if (Math.random() < dt * 2) this.fx.push({ kind: 'dust', x: u.x, z: u.z, t: 0 });
     }
   }
   think(u) {
     if (u.team === 0) {
       if (u.order.kind === 'retreat' || u.climbing) return;
-      if (u.order.kind === 'attack') { const t = u.order.target; if (t && !t.dead && !t.fled) { u.target = t; return; } u.order = { kind: 'idle' }; }
+      if (u.order.kind === 'attack') { const t = u.order.target; if (t && !t.dead && !t.fled) { u.target = t; return; } u.order = { kind: 'idle' }; if (u.U.siege) { u.target = this.nearestTarget(u, 60); return; } }
       if (u.order.kind === 'move' && u.path) return;
       if (u.noReachT > this.t) return;
       // your troops only strike on their own when the enemy knows you're here, or when they're told to
-      const range = u.order.kind === 'hold' || u.post ? u.S.range + ((u.y || 0) > 1 ? 5 : 0) + 0.5 : u.U.siege ? 16 : u.U.ranged ? u.S.range + 2 : 9;
+      const range = u.order.kind === 'hold' || u.post ? u.S.range + ((u.y || 0) > 1 ? 5 : 0) + 0.5 : u.U.siege ? 16 : u.U.ranged ? u.S.range + 2 : 12;
       u.target = (this.alarm || this.defend) ? this.nearestTarget(u, range) : null;
       if (!u.target && u.order.kind === 'amove' && !u.path) this.pathTo(u, u.order.x, u.order.z);
       return;
@@ -523,14 +528,18 @@ export class Battle {
     if (u.fleeing) return;
     if (this.chaseAggro(u)) return;
     const gate = this.gate, breached = !gate || gate.dead || this.structs.some(s => (s.type === 'wall' || s.type === 'palisade') && s.dead);
-    if (u.U.siege) { u.target = gate && !gate.dead ? gate : this.nearestStruct(u); return; }
+    if (u.U.siege) { u.target = gate && !gate.dead ? gate : this.units.filter(o => o.team === 0 && !o.dead && o.post).map(o => this.structs[o.post - 1]).find(s => s && !s.dead) || this.nearestStruct(u); return; }
     if (u.U.ranged) { u.target = this.nearestTarget(u, u.S.range + 2); if (!u.target && !u.path) { const g = gate || this.W(32, this.box[3]); this.pathTo(u, g.x + (this.rand() - 0.5) * 14, g.z + 13); } return; }
     if (!breached && this.t < 60) {
       u.target = this.nearestTarget(u, 3);
       if (!u.target && !u.path) { const g = gate || this.W(32, this.box[3]); this.pathTo(u, g.x + (this.rand() - 0.5) * 12, g.z + 9); }
       return;
     }
-    u.target = this.nearestTarget(u, 60);
+    u.target = u.noReachT > this.t ? null : this.nearestTarget(u, 60);
+    // nobody to reach: batter the gate if it stands, else bring down what the defenders stand on
+    if (!u.target && gate && !gate.dead) u.target = gate;
+    // defenders out of reach up on the towers and walls: bring down what they stand on
+    if (!u.target) { const perch = this.units.filter(o => o.team === 0 && !o.dead && !o.fled && o.post).map(o => this.structs[o.post - 1]).filter(s => s && !s.dead).sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z))[0]; if (perch) u.target = perch; }
     if (!u.target && !breached) u.target = gate && !gate.dead ? gate : this.nearestStruct(u);
   }
   /* ---------- keeping watch (before the alarm) ---------- */
@@ -538,6 +547,7 @@ export class Battle {
   seeing(e, o) {
     const d = Math.hypot(o.x - e.x, o.z - e.z), high = (e.y || 0) > 1.5;
     let sight = high ? SIGHT.high : SIGHT.ground;
+    if (this.alarm) sight = Math.max(sight, SIGHT.alert);
     if (e.st === 'suspicious' || e.st === 'investigate') sight *= 1.25; // eyes wide open
     if (o.sneak) sight *= 0.5;
     if (o.hidden) sight = Math.min(sight, SIGHT.bush);
@@ -670,6 +680,13 @@ export class Battle {
   nearestTarget(u, range) {
     let best = null, bd = Infinity;
     if (u.U.siege) {
+      // a ram goes for the nearest gate it can actually get to (through any gap already made); only failing that, the nearest wall
+      const gates = this.structs.filter(s => !s.dead && s.def.gate && s.team !== u.team).sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z));
+      for (const gt of gates) {
+        const dx = u.x - gt.x, dz = u.z - gt.z, d = Math.hypot(dx, dz) || 1, R = structRadius(gt) + u.r + 0.6;
+        const p = this.grid.findPath({ x: u.x, z: u.z }, { x: gt.x + dx / d * R, z: gt.z + dz / d * R }), end = p && p[p.length - 1];
+        if (end && Math.hypot(end.x - gt.x, end.z - gt.z) <= R + 2.5) return gt;
+      }
       for (const s of this.structs) {
         if (s.dead || !s.maxHp || s.def.keep || s.team === u.team) continue;
         const d = Math.hypot(s.x - u.x, s.z - u.z) - (s.def.gate ? 6 : 0);
@@ -683,8 +700,10 @@ export class Battle {
       if (u.team === 0 && o.team === 1 && o.hidden) continue;
       if (!this.canHit(u, o)) continue;
       let d = Math.hypot(o.x - u.x, o.z - u.z);
+      if (d >= range) continue;
       if (u.team === 1 && o.buffs.taunt) d -= 25;
-      if (d < range && d < bd) { bd = d; best = o; }
+      if (u.U.ranged && o.U.siege) d += 40;   // arrows barely scratch a ram: shoot the men first
+      if (d < bd) { bd = d; best = o; }
     }
     return best;
   }
@@ -715,7 +734,10 @@ export class Battle {
         if (t.isStruct) { const dx = u.x - t.x, dz = u.z - t.z, d = Math.hypot(dx, dz) || 1, R = structRadius(t) + u.r + 0.6; this.pathTo(u, t.x + dx / d * R, t.z + dz / d * R); }
         else this.pathTo(u, t.x, t.z);
         const end = u.path && u.path[u.path.length - 1];
-        if (!u.path || (end && Math.hypot(end.x - t.x, end.z - t.z) > (t.isStruct ? structRadius(t) + 3 : 4))) { u.target = null; u.path = null; u.aggro = null; u.noReachT = this.t + 2.5; if (u.order.kind === 'attack') u.order = { kind: 'idle' }; return; }
+        if (!u.path || (end && Math.hypot(end.x - t.x, end.z - t.z) > (t.isStruct ? structRadius(t) + 3 : 4))) {
+          const wall = u.U.siege && this.blockerToward(u, t);
+          if (wall && wall !== t) { u.target = wall; if (u.order.kind === 'attack') u.order = { kind: 'attack', target: wall }; u.path = null; u.repathT = 0; return; }
+          u.target = null; u.path = null; u.aggro = null; u.noReachT = this.t + 2.5; if (u.order.kind === 'attack') u.order = { kind: 'idle' }; return; }
       }
     }
     if (u.path && sp > 0) {
@@ -751,7 +773,7 @@ export class Battle {
     }
     if (u.U.ranged) {
       if ((t.y || 0) > 1 && (u.y || 0) < 1) dmg *= 0.8;
-      if ((u.y || 0) > 1) dmg *= 1.25;
+      if ((u.y || 0) > 1) dmg *= 1.5;   // shooting down from a wall or tower
       const d = Math.hypot(t.x - u.x, t.z - u.z);
       this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: (u.y || 0) + 1.5, dmg, t: 0, dur: 0.15 + d / 38 });
       u.swing = 0.5; return;
@@ -768,9 +790,10 @@ export class Battle {
     }
     if (t.dead) return;
     if (t.buffs.shield) dmg *= 0.5;
+    if (from && !from.isStruct && this.inside(t.x, t.z) && t.team === (this.defend ? 0 : 1) && !this.inside(from.x, from.z)) dmg *= FORTIFIED; // behind their own walls
     if (t.team === 0 && t.type === 'ashigaru' && t.order.kind === 'hold') dmg *= 1 - this.rb('spearWall');
     if (t.U.arrowResist && from && from.U.ranged) dmg *= t.U.arrowResist;
-    t.hp -= dmg; t.hitT = 0.25; t.lastHurt = this.t;
+    t.hp -= dmg; t.hitT = 0.25; t.lastHurt = this.t; this.lastHitT = this.t;
     if (from && !from.isStruct && from.team !== t.team) {
       const d = Math.hypot(from.x - t.x, from.z - t.z);
       // being hit gives the attacker away — unless they shoot from a bush far off
@@ -792,11 +815,14 @@ export class Battle {
     u.dead = true; u.hp = 0; u.deadT = 0; u.path = null;
     if (u.team === 1 && !this.over) {
       const alive = this.units.filter(o => o.team === 1 && !o.dead && !o.fled).length;
-      if (alive <= Math.ceil(this.initialEnemies * 0.22) && alive > 0 && !this.routed) {
-        this.routed = true; this.fx.push({ kind: 'banner', text: 'The enemy breaks and runs!', t: 0 });
-        for (const o of this.units) if (o.team === 1 && !o.dead) { o.fleeing = true; o.post = null; o.y = 0; o.target = null; this.pathTo(o, o.x, this.defend ? BATTLE_ORIGIN.z + HALF - 2 : BATTLE_ORIGIN.z - HALF + 2); o.order = { kind: 'retreat' }; }
-      }
+      const onlyBows = alive > 0 && !this.units.some(o => o.team === 1 && !o.dead && !o.fled && !o.U.ranged && !o.U.siege);
+      if ((alive <= Math.ceil(this.initialEnemies * 0.22) || onlyBows) && alive > 0 && !this.routed) this.rout('The enemy breaks and runs!');
     }
+  }
+  // the enemy gives up: everyone climbs down and runs for the edge of the field
+  rout(text) {
+    this.routed = true; this.fx.push({ kind: 'banner', text, t: 0 });
+    for (const o of this.units) if (o.team === 1 && !o.dead) { o.fleeing = true; o.post = null; o.y = 0; o.target = null; o.aggro = null; this.pathTo(o, o.x, this.defend ? BATTLE_ORIGIN.z + HALF - 2 : BATTLE_ORIGIN.z - HALF + 2); o.order = { kind: 'retreat' }; }
   }
   destroy(s) {
     s.dead = true; s.hp = 0; s.collapse = 0;
@@ -821,6 +847,25 @@ export class Battle {
       }
     }
   }
+  // the first enemy wall, gate or tower on the straight line from u towards t
+  blockerToward(u, t) {
+    const dx = t.x - u.x, dz = t.z - u.z, d = Math.hypot(dx, dz);
+    for (let k = 1; k < d; k += 0.8) { const s = this.structAt(u.x + dx * k / d, u.z + dz * k / d); if (s && !s.dead && s.def.blocks && s.team !== u.team && s.maxHp) return s; }
+    return null;
+  }
+  // a soldier on the ground who has ended up inside a wall, tower or shut gate steps out to the nearest open ground
+  unstick() {
+    for (const u of this.units) {
+      if (u.dead || u.fled || u.post || u.climbing || (u.y || 0) > 1 || u.U.siege) continue;
+      const s = this.structAt(u.x, u.z);
+      if (!s || !s.def.blocks || s.dead) { u.inWallT = 0; continue; }
+      if (s.def.gate && s.team === u.team && u.path) continue;          // walking out through his own gate
+      u.inWallT = (u.inWallT || 0) + 1; if (u.inWallT < 6) continue;
+      const w = this.grid.nearestWalkable(...this.cellOf(u.x, u.z), 4);
+      if (w) { const c = this.W(w[0], w[1]); u.x = c.x; u.z = c.z; u.path = null; u.repathT = 0; }
+      u.inWallT = 0;
+    }
+  }
   nudge(u, dx, dz) {
     if (u.climbing) { u.x += dx; u.z += dz; return; }
     const [cx, cz] = this.cellOf(u.x + dx, u.z + dz);
@@ -830,7 +875,18 @@ export class Battle {
     const mine = this.units.filter(u => u.team === 0 && !u.dead && !u.fled);
     const foes = this.units.filter(u => u.team === 1 && !u.dead && !u.fled);
     if (!mine.length) { this.finish(this.retreating ? 'retreat' : 'defeat'); return; }
-    for (const f of foes) if (f.fleeing) this.escape(f);
+    for (const f of foes) if (f.fleeing) {
+      this.escape(f);
+      // a man running for it with nowhere to go simply gets away
+      if (!f.path) { f.noPathT = (f.noPathT || 0) + dt; if (f.noPathT > 4) { f.fled = true; f.obj.visible = false; } } else f.noPathT = 0;
+    }
+    // neither side can get at the other: after 40s without a blow the weaker side gives up
+    if (this.alarm && !this.routed && this.t - (this.lastHitT ?? this.t) > 40) {
+      const fightingNow = foes.filter(f => !f.fleeing);
+      if (mine.length >= fightingNow.length) this.rout(this.defend ? 'The attackers give up and withdraw!' : 'The last defenders lay down their arms!');
+      else { this.fx.push({ kind: 'banner', text: 'Neither side can reach the other — your men pull back', t: 0 }); this.retreat(); }
+      this.lastHitT = this.t;
+    }
     const fighting = foes.filter(f => !f.fleeing);
     const keep = this.keep;
     if (this.defend) {
