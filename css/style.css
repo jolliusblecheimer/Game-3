@@ -327,3 +327,4 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .rnode .cost .c svg { width: 18px; height: 18px; }
 .rnode.locked { opacity: 1; background: #f4eee0; }
 .rnode.locked > b, .rnode.locked > small { opacity: .6; }
+.rnode.locked .btn { opacity: .55; }
