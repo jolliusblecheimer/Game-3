@@ -68,7 +68,7 @@ export class Hud {
       const R = g.raids, show = R.alarmed;
       el.hidden = !show; if (!show) return;
       el.textContent = '';
-      el.append(icon('camp', 20), h('b', null, `Bandit raid! ${R.alive().length} bandit${R.alive().length === 1 ? '' : 's'} in the village`),
+      el.append(icon(R.source ? 'castle' : 'camp', 20), h('b', null, `${R.source ? 'Attack' : 'Bandit raid'}! ${R.bandName(R.alive().length)} in the village`),
         h('small', null, 'Your soldiers fight, archers shoot from towers, everyone else hides.'));
     });
     R.append(this.raidBanner);
@@ -149,7 +149,7 @@ export class Hud {
     if (type === 'townhall') {
       const T = TOWNHALL[L];
       row('house', `Homes for ${T.housing} villagers`); row('storage', `Stores ${T.storage} of every resource`);
-      row('camp', `Bandit raids grow with your village: about one bandit for every four villagers (now ${g.raids.popBand()})`);
+      row('camp', `Raids grow with your village: about one raider for every four villagers (now ${g.raids.popBand()})${g.thLevel >= 4 ? ' — the warlords now send real soldiers' : ''}`);
       return rows;
     }
     if (d.housing) row('house', `Homes for ${d.housing + 2 * (L - 1)} villagers`);
@@ -334,7 +334,7 @@ export class Hud {
       const u = g.upgradeInfo(k), next = unlocksAt(L + 1);
       p.append(h('div', { class: 'upgrade keepup' },
         h('div', { class: 'jrow' }, icon('castle', 20), h('b', null, `Keep level ${L + 1}`), u && !u.busy ? h('span', { class: 'sub' }, fmtTime(u.time)) : null),
-        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') ),
+        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + (L + 1 === 4 ? '. From now on the warlords’ castles send real soldiers to raid you instead of bandits' : '') ),
         u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
           u.why ? h('p', { class: 'why' }, u.why) : null] : null));
     } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));

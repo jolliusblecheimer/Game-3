@@ -89,6 +89,8 @@ export const SITES = {
   ruins:   { name: 'Old Ruins',     tier: 0, count: 3, dist: [70, 260],  icon: 'torii',    loot: { gold: 80, stone: 60 } },
   // small and close to home: a first target for two spearmen (kept last so older maps keep their places)
   hideout: { name: 'Bandit Hideout', tier: 0.5, count: 3, dist: [32, 75], gap: 22, icon: 'camp', loot: { wheat: 90, wood: 70, gold: 30 }, tribute: { wheat: 3, wood: 2 }, threat: 1 },
+  // warlords' castles (kept last so older maps keep their places): known from the start; from Keep level 4 their soldiers raid you
+  warlord: { name: 'Warlord Castle', tier: 4, count: 2, dist: [115, 170], icon: 'castle', known: true, loot: { wheat: 700, wood: 600, stone: 500, gold: 400 }, tribute: { wheat: 8, stone: 6, gold: 10 }, threat: 18 },
 };
 export const PLACE_NAMES = ['Kiyosu', 'Nagashino', 'Okehazama', 'Inabayama', 'Kanegasaki', 'Odawara', 'Takatenjin', 'Mikatagahara', 'Anegawa', 'Sekigahara', 'Kawanakajima',
   'Itami', 'Takamatsu', 'Nanao', 'Hachigata', 'Shizugatake', 'Yamazaki', 'Toriimoto', 'Kurosawa', 'Hanamaki', 'Shirakawa', 'Aizu', 'Yoshino', 'Matsumoto'];

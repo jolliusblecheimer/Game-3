@@ -60,7 +60,7 @@ function siteModel(type, seed) {
     const w = new Mesher(seed, 0.05);
     for (const [x, z, a] of [[0, -6, 0], [0, 6, 0], [-6, 0, 1], [6, 0, 1]]) { w.box(a ? 1.2 : 11, 2.2, a ? 11 : 1.2, '#8e897e', [x, 1.1, z]); w.box(a ? 1.0 : 11, 0.9, a ? 11 : 1.0, '#efe7d6', [x, 2.6, z]); }
     g.add(w.mesh(MAT.flat)); add(buildModel('house', 4, 4, seed), 3, -2, 0.6);
-  } else if (type === 'castle') {
+  } else if (type === 'castle' || type === 'warlord') {
     add(buildModel('townhall', 8, 8, seed), 0, -1, 0.95);
     const w = new Mesher(seed, 0.05);
     for (const [x, z, a] of [[0, -9, 0], [0, 9, 0], [-9, 0, 1], [9, 0, 1]]) { w.frustum(a ? 2.4 : 18, a ? 18 : 2.4, a ? 1.6 : 18, a ? 18 : 1.6, 2.6, '#8e897e', [x, 0, z]); w.box(a ? 1.2 : 17, 1.1, a ? 17 : 1.2, '#efe7d6', [x, 3.1, z]); }

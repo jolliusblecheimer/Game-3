@@ -59,15 +59,19 @@ export class Raids {
     const g = this.game, n = this.bandSize();
     this.side = Object.keys(SIDES)[Math.floor(g.rand() * 4)];
     const [sx, sz] = SIDES[this.side], weak = !this.firstDone;
+    // from Keep level 4 the warlords send real soldiers instead of bandits
+    const src = this.firstDone && g.thLevel >= 4 ? g.country.warlordSource() : null;
+    this.source = src ? src.id : null;
+    const kind = i => !src ? (weak || (this.count <= 1 && i % 2) ? 'outlaw' : 'bandit') : ['enemy_ashigaru', 'enemy_shield', 'enemy_ashigaru', 'enemy_archer', 'enemy_shield', 'enemy_archer', 'enemy_ashigaru', 'enemy_samurai'][i % 8];
     this.count = (this.count || 0) + 1;
     this.active = true; this.alarm = false; this.bandits = []; this.stolen = {}; this.killed = 0; this.victims = 0;
     for (let i = 0; i < n; i++) {
       const along = (g.rand() - 0.5) * 30, edge = PLOT.half - 1.2;
       const x = sx ? sx * edge : along, z = sz ? sz * edge : along;
-      const p = new Person('bandit', 900 + i * 17 + Math.floor(this.clock));
+      const type = kind(i), U = UNITS[type];
+      const p = new Person(U.look, 900 + i * 17 + Math.floor(this.clock));
       p.group.position.set(x, 0, z); g.scene.add(p.group);
-      const U = weak || (this.count <= 2 && i % 2) ? UNITS.outlaw : UNITS.bandit; // early bands are mostly outlaws
-      const u = { x, z, hp: U.hp * TOUGH, maxHp: U.hp * TOUGH, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
+      const u = { type, U, ranged: !!U.ranged, x, z, hp: U.hp * TOUGH, maxHp: U.hp * TOUGH, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
       p.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'bandit' }; });
       this.bandits.push(u);
     }
@@ -79,11 +83,13 @@ export class Raids {
     const g = this.game;
     if (!this.active || this.alarm) return;
     this.alarm = true;
-    const n = this.alive().length, band = `${n} bandit${n === 1 ? '' : 's'}`;
+    const n = this.alive().length, band = this.bandName(n);
     g.toast(why || (by ? `${by.name} spotted ${band} sneaking in from the ${this.side}! Villagers run for cover.` : `You raise the alarm: ${band} from the ${this.side}! Your soldiers move in, villagers run for cover.`), 'bad');
     for (const v of g.villagers.values()) v.reset = true;
     g.emit('raid');
   }
+  // "3 bandits" or "5 soldiers of Odawara Castle"
+  bandName(n) { const s = this.source && this.game.country.site(this.source); return s ? `${n} soldier${n === 1 ? '' : 's'} of ${s.name} Castle` : `${n} bandit${n === 1 ? '' : 's'}`; }
   alive() { return this.bandits.filter(b => !b.dead && !b.gone); }
 
   // bandits can't walk through gates (your people can)
@@ -123,6 +129,15 @@ export class Raids {
         this.face(u, foe[0].pos.x - u.x, foe[0].pos.z - u.z, dt); pose = 'chop';
         if (u.cd <= 0) { u.cd = 1; this.hurtSoldier(foe[0], u.dmg); }
         this.pose(u, pose, dt); continue;
+      }
+      // enemy archers loose arrows at anyone out in the open (and give themselves away doing it)
+      if (u.ranged && !u.carry) {
+        const shot = [...g.villagers.values()].filter(v => !v.hidden && !v.away).map(v => [v, Math.hypot(v.pos.x - u.x, v.pos.z - u.z)]).sort((a, b) => a[1] - b[1])[0];
+        if (shot && shot[1] < 15 && (this.alarm || shot[1] < 11)) {
+          this.face(u, shot[0].pos.x - u.x, shot[0].pos.z - u.z, dt);
+          if (u.cd <= 0) { u.cd = 1.8; this.enemyShoot(u, shot[0], u.dmg); if (!this.alarm) this.raiseAlarm(null, `Arrows! ${this.bandName(this.alive().length)} are attacking the village!`); }
+          this.pose(u, 'shoot', dt); continue;
+        }
       }
       // villagers caught outside are attacked
       if (!u.carry) {
@@ -215,7 +230,7 @@ export class Raids {
     if (u.carry) { u.gone = true; u.person.group.visible = false; return; }
     if (u.state === 'breach') return;
     // plunder!
-    this.raiseAlarm(null, `Bandits are looting your ${u.goalB ? u.goalB.def.name : 'storehouse'}! Villagers run for cover.`);
+    this.raiseAlarm(null, `${this.source ? 'Enemy soldiers' : 'Bandits'} are looting your ${u.goalB ? u.goalB.def.name : 'storehouse'}! Villagers run for cover.`);
     u.carry = {};
     for (const r in RES) { const take = Math.min(60, Math.floor(g.state.res[r] * RAIDS.steal / Math.max(1, this.alive().length) * 2)); if (take > 0) { g.state.res[r] -= take; u.carry[r] = take; this.stolen[r] = (this.stolen[r] || 0) + take; } }
     u.person.setCarry('gold'); u.repath = 0; u.path = null;
@@ -226,8 +241,8 @@ export class Raids {
     v.vhp = (v.vhp == null ? 34 : v.vhp) - dmg;
     if (v.vhp <= 0) {
       this.victims++;
-      g.toast(`${v.name} was killed by bandits!`, 'bad'); g.killVillager(v.id);
-      this.raiseAlarm(null, 'Screams in the village — bandits! Everyone runs for cover.');
+      g.toast(`${v.name} was killed by ${this.source ? 'enemy soldiers' : 'bandits'}!`, 'bad'); g.killVillager(v.id);
+      this.raiseAlarm(null, `Screams in the village — ${this.source ? 'enemy soldiers' : 'bandits'}! Everyone runs for cover.`);
     }
   }
   hurtSoldier(v, dmg) {
@@ -249,12 +264,25 @@ export class Raids {
     this.game.scene.add(m);
     this.arrows.push({ m, from, u, dmg, t: 0, dur: 0.2 + Math.hypot(u.x - from.x, u.z - from.z) / 35 });
   }
+  // an enemy archer shoots at one of your people
+  enemyShoot(u, v, dmg) {
+    const m = new THREE.Mesh(this.arrowGeo, MAT.flat);
+    const from = { x: u.x, y: 1.6, z: u.z };
+    this.game.scene.add(m);
+    this.arrows.push({ m, from, v, dmg, t: 0, dur: 0.2 + Math.hypot(v.pos.x - from.x, v.pos.z - from.z) / 35 });
+  }
   updateArrows(dt) {
+    const g = this.game;
     for (const a of this.arrows) {
-      a.t += dt; const f = Math.min(1, a.t / a.dur), tx = a.u.x, tz = a.u.z;
-      const x = a.from.x + (tx - a.from.x) * f, z = a.from.z + (tz - a.from.z) * f, y = a.from.y + (1.2 - a.from.y) * f + Math.sin(f * Math.PI) * 2;
-      a.m.position.set(x, y, z); a.m.lookAt(tx, 1.2, tz);
-      if (f >= 1) { a.done = true; this.hurtBandit(a.u, a.dmg); this.game.scene.remove(a.m); }
+      a.t += dt; const f = Math.min(1, a.t / a.dur);
+      const tx = a.v ? a.v.pos.x : a.u.x, tz = a.v ? a.v.pos.z : a.u.z, ty = a.v ? (a.v.elev || 0) + 1.2 : 1.2;
+      const x = a.from.x + (tx - a.from.x) * f, z = a.from.z + (tz - a.from.z) * f, y = a.from.y + (ty - a.from.y) * f + Math.sin(f * Math.PI) * 2;
+      a.m.position.set(x, y, z); a.m.lookAt(tx, ty, tz);
+      if (f >= 1) {
+        a.done = true; this.game.scene.remove(a.m);
+        if (!a.v) this.hurtBandit(a.u, a.dmg);
+        else if (g.villagers.has(a.v.id) && !a.v.hidden) { if (JOBS[a.v.job].soldier) this.hurtSoldier(a.v, a.dmg); else this.hurtVillager(a.v, a.dmg); }
+      }
     }
     this.arrows = this.arrows.filter(a => !a.done);
   }
@@ -269,8 +297,8 @@ export class Raids {
     this.bandits = []; this.arrows = []; this.active = false; this.alarm = false; this.firstDone = true;
     // soldiers keep their wounds and heal over time (faster at a Healer's House)
     for (const v of g.villagers.values()) { v.reset = true; if (v.rhp != null) { const f = v.rhp / maxHp(v); v.hpf = f >= 0.99 ? null : Math.max(0.05, f); } v.rhp = null; v.vhp = null; }
-    if (stolen.length) g.toast(`The raid is over. The bandits got away with ${stolen.map(([r, v]) => `${v} ${RES[r].name.toLowerCase()}`).join(', ')}.`, 'warn');
-    else if (!this.victims) { g.toast(`Raid repelled! ${this.killed} bandit${this.killed === 1 ? '' : 's'} defeated${bounty ? ` — ${bounty} gold bounty` : ''}.`); g.state.stats.raidsBeaten = (g.state.stats.raidsBeaten || 0) + 1; }
+    if (stolen.length) g.toast(`The raid is over. The ${this.source ? 'enemy' : 'bandits'} got away with ${stolen.map(([r, v]) => `${v} ${RES[r].name.toLowerCase()}`).join(', ')}.`, 'warn');
+    else if (!this.victims) { g.toast(`Raid repelled! ${this.bandName(this.killed)} defeated${bounty ? ` — ${bounty} gold bounty` : ''}.`); g.state.stats.raidsBeaten = (g.state.stats.raidsBeaten || 0) + 1; }
     this.schedule();
     g.emit('raidEnd');
   }

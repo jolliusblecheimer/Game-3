@@ -54,6 +54,15 @@ export class Country {
     this.nextId = 1;
     this.fogDirty = true;
     this.reveal(0, 0, WAR.homeReveal);
+    this.revealKnown();
+  }
+  // places everyone knows about (the warlords' castles) show on the map from the start
+  revealKnown() { for (const s of this.sites) if (SITES[s.type].known) this.reveal(s.x, s.z, 14); }
+  // the warlord castle whose soldiers raid you: the nearest one still standing
+  warlordSource() {
+    let best = null, bd = Infinity;
+    for (const s of this.sites) { if (s.type !== 'warlord') continue; const st = this.status(s); if (st === 'ruined' || st === 'held') continue; const d = Math.hypot(s.x, s.z); if (d < bd) { bd = d; best = s; } }
+    return best;
   }
   get clock() { return this.game.state.clock; }
   site(id) { return this.sites.find(s => s.id === id); }
@@ -253,6 +262,7 @@ export class Country {
     this.state = o.state || {}; this.missions = Array.isArray(o.missions) ? o.missions : []; this.holds = o.holds || {}; this.nextId = o.nextId || 1;
     // a battle can't be saved mid-fight: an army that was fighting simply waits at the gates again
     for (const m of this.missions) if (m.phase === 'battle') m.phase = 'ready';
+    this.revealKnown();
     this.fogDirty = true;
   }
 }

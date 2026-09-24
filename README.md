@@ -98,3 +98,7 @@ Soldiers keep their wounds after battles and raids and heal slowly at home. Buil
 - **Shield-bearers** turn aside most arrows from the front — hit them from the side or behind.
 - **Attack from two sides:** when you march, split your troops into a west and an east group; they start on opposite flanks.
 - Plundered places are crossed out on the map.
+
+## Warlord castles
+
+Two **Warlord Castles** stand closer in and are marked on the map from the start (the Daimyō Castles lie further out). From **Keep level 4**, the nearest warlord castle still standing sends real soldiers against your village instead of bandits — spearmen, shield-bearers, archers who shoot at anyone outside, and samurai. Take or burn the castle and its raids stop; when both have fallen, only bandits are left.
