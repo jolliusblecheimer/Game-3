@@ -46,6 +46,7 @@ export class Hud {
   live = (el, fn) => { this.lives.push({ el, fn }); fn(el); return el; };
   tick() {
     this.lives = this.lives.filter(l => l.el.isConnected); for (const l of this.lives) l.fn(l.el);
+    this.layout();
     if (this.barTh !== undefined && this.barTh !== this.game.thLevel) this.renderBar(); // the Keep changed level: unlock cards
   }
 
@@ -65,7 +66,8 @@ export class Hud {
       el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
-    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, menu));
+    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
+    this.renderMute();
     // raid warnings under the top bar
     this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }), el => {
       const R = g.raids, show = R.alarmed;
@@ -400,13 +402,36 @@ export class Hud {
     setTimeout(() => t.remove(), 5000);
   }
   sound(kind) {
-    if (!this.settings.sound) return;
+    if (!this.settings.sound || this.settings.muted) return;
     try {
       this.ac = (this.music && this.music.ctx) || this.ac || new (window.AudioContext || window.webkitAudioContext)();
       const notes = { place: [392, 523], done: [523, 659, 784], click: [660], war: [196, 147, 196] }[kind] || [440];
       notes.forEach((f, i) => { const t = this.ac.currentTime + i * 0.09, o = this.ac.createOscillator(), gn = this.ac.createGain(); o.type = 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.05, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(gn).connect(this.ac.destination); o.start(t); o.stop(t + 0.32); });
     } catch (_) { /* sound optional */ }
   }
+  // keep the floating pieces of the screen out of each other's way, whatever the screen size
+  layout() {
+    const vis = e => e && !e.hidden && !e.closest('[hidden]') && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
+    const H = window.innerHeight, narrow = window.innerWidth <= 1000;
+    // messages go below whatever sits at the top centre (raid banner, placing hint, battle bar)
+    let top = 62;
+    for (const e of [this.raidBanner, this.hint, document.querySelector('.btop'), document.querySelector('.mapside')]) if (vis(e)) { const r = e.getBoundingClientRect(); if (r.left < 16 + 420) top = Math.max(top, r.bottom + 8); }
+    this.toasts.style.top = top + 'px';
+    // the build menu sits above the clan panel when they share the bottom row
+    if (vis(this.clan) && vis(this.bar)) this.bar.style.bottom = narrow ? (this.clan.getBoundingClientRect().height + 22) + 'px' : '';
+    // the side panel stops above the Turn / Move buttons and the build menu
+    const tools = document.querySelector('.camtools');
+    if (vis(this.panel)) {
+      let limit = H - 12;
+      if (vis(tools)) limit = Math.min(limit, tools.getBoundingClientRect().top - 10);
+      if (narrow && vis(this.bar)) limit = Math.min(limit, this.bar.getBoundingClientRect().top - 10);
+      this.panel.style.maxHeight = Math.max(160, limit - this.panel.getBoundingClientRect().top) + 'px';
+    }
+  }
+  // one switch for all sound: music and effects
+  toggleMute() { this.settings.muted = !this.settings.muted; this.saveSettings(); this.applySound(); this.renderMute(); this.toast(this.settings.muted ? 'Sound off' : 'Sound on'); }
+  applySound() { if (this.music) { this.music.setOn(!this.settings.muted && this.settings.music !== false); if (!this.settings.muted && this.settings.music !== false) this.music.unlock(); } }
+  renderMute() { if (!this.muteBtn) return; this.muteBtn.textContent = ''; this.muteBtn.append(icon(this.settings.muted ? 'muted' : 'sound', 20)); this.muteBtn.classList.toggle('off', !!this.settings.muted); }
   cycleSpeed() { if (this.paused) { this.paused = false; } else this.speed = this.speed >= 3 ? 1 : this.speed + 1; this.tick(); }
 
   /* ---------- army overview ---------- */
@@ -522,7 +547,7 @@ export class Hud {
     this.openModal('Menu', h('div', { class: 'menu' },
       toggle('Welcome new families when there is room', () => s.welcome, v => { s.welcome = v; }),
       toggle('Scrolling moves the camera instead of zooming', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
-      toggle('Music', () => this.settings.music, v => { this.settings.music = v; this.saveSettings(); if (this.music) { this.music.setOn(v); if (v) this.music.unlock(); } }),
+      toggle('Music', () => this.settings.music, v => { this.settings.music = v; this.saveSettings(); this.applySound(); }),
       h('label', { class: 'toggle vol' }, h('span', null, 'Music volume'), h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(this.settings.musicVol ?? 0.6), oninput: e => { this.settings.musicVol = +e.target.value; if (this.music) this.music.setVolume(this.settings.musicVol); }, onchange: () => this.saveSettings() })),
       h('div', { class: 'row' }, h('span', null, 'Music style: '), [['mix', 'Mix'], ['piano', 'Ambient piano'], ['chip', 'Tenka theme (chiptune)'], ['calm', 'Calm koto']].map(([k, label]) => h('button', { class: 'btn small ' + ((this.settings.musicStyle || 'mix') === k ? '' : 'ghost'), onclick: e => { this.settings.musicStyle = k; this.saveSettings(); if (this.music) { this.music.setStyle(k); this.music.unlock(); } e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, label))),
       toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
@@ -579,6 +604,7 @@ export class Hud {
       return;
     }
     if (!this.modal.hidden) return;
+    if (k === 'n') return this.toggleMute();
     if (k === 'r') return I.rotatePlacing();
     if (k === 'g') return I.setMoveMode(!I.moveMode);
     if (k === 'b') { this.buildOpen = !this.buildOpen; return this.renderBar(); }

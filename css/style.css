@@ -365,3 +365,13 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .jobcard:disabled { opacity: .5; }
 .toggle.vol { display: flex; align-items: center; gap: 12px; }
 .toggle.vol input[type=range] { flex: 1; accent-color: var(--verm); }
+
+/* narrow screens (portrait iPad): the build menu leaves the right edge free for the Turn / Move buttons */
+@media (max-width: 1000px) {
+  .buildbar { left: 12px; transform: none; width: calc(100% - 92px); min-width: 0; }
+  .buildbar.closed { width: auto; }
+}
+/* the map hint never runs under the Map button */
+.maphint { white-space: normal; text-align: center; max-width: calc(100% - 290px); }
+@media (max-width: 700px) { .maphint { display: none; } }
+.top .mute.off { color: var(--verm); border-color: var(--verm); }

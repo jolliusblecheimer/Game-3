@@ -70,7 +70,13 @@ export class Music {
     document.addEventListener('visibilitychange', () => { if (!this.ctx) return; if (document.hidden) this.ctx.suspend(); else if (this.on) this.ctx.resume(); });
     return c;
   }
-  setOn(on) { this.on = on; if (!this.ctx) return; this.master.gain.setTargetAtTime(on ? this.vol * 0.9 : 0, this.ctx.currentTime, 0.4); if (on) this.ctx.resume(); }
+  // off really means off: fade out, then stop the whole audio engine (iPad Safari doesn't always honour a volume of 0)
+  setOn(on) {
+    this.on = on; if (!this.ctx) return;
+    clearTimeout(this.offT);
+    if (on) { this.ctx.resume(); this.master.gain.cancelScheduledValues(this.ctx.currentTime); this.master.gain.setTargetAtTime(this.vol * 0.9, this.ctx.currentTime, 0.3); this.nextT = this.ctx.currentTime + 0.1; }
+    else { this.master.gain.cancelScheduledValues(this.ctx.currentTime); this.master.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08); this.offT = setTimeout(() => { if (!this.on && this.ctx) this.ctx.suspend(); }, 400); }
+  }
   setVolume(v) { this.vol = v; if (this.ctx && this.on) this.master.gain.setTargetAtTime(v * 0.9, this.ctx.currentTime, 0.2); }
   setMood(m, now = false) {
     if (!MOODS[m] || (m === this.mood && !now)) return;

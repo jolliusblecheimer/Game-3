@@ -78,7 +78,7 @@ function boot() {
   hud.renderBar(); // the build menu was drawn before the save was loaded: redraw it for the real Keep level
   if (away) setTimeout(() => hud.showAway(away), 400);
 
-  window.addEventListener('resize', () => stage.resize());
+  window.addEventListener('resize', () => { stage.resize(); hud.layout(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
   window.addEventListener('pagehide', () => saveNow());
   stage.resize();
@@ -105,7 +105,7 @@ function boot() {
   }
   // the soundtrack starts with the first touch or key (browsers don't allow sound before that)
   const music = new Music(); hud.music = music;
-  music.on = hud.settings.music !== false; music.vol = hud.settings.musicVol ?? 0.6; music.style = hud.settings.musicStyle || 'mix';
+  music.on = hud.settings.music !== false && !hud.settings.muted; music.vol = hud.settings.musicVol ?? 0.6; music.style = hud.settings.musicStyle || 'mix';
   const wake = () => { if (music.on) music.unlock(); };
   window.addEventListener('pointerdown', wake); window.addEventListener('keydown', wake);
   requestAnimationFrame(frame);
