@@ -124,4 +124,10 @@ Your Dojo can train more than spearmen: choose what it trains in its panel. **Sh
 
 ## Music
 
-A calm soundtrack is generated live in the browser (nothing to download): by day a koto plays slow phrases in the Japanese yo scale over a soft drone, with the occasional shakuhachi; at night it turns to the in scale with wind chimes; raids and battles bring taiko drums. It starts with your first tap. Switch it off or set its volume in the menu.
+The soundtrack is generated live in the browser — nothing to download. By default it plays a **Mix** that rotates like a game soundtrack: a few minutes of one piece, a quiet pause, then the next:
+
+- **Ambient piano** — slow ringing chords and a few quiet notes, lots of space.
+- **Tenka theme** — the game's own melody as a C64-style chiptune: pulse-wave lead, shimmering arpeggios, bouncing bass, drums.
+- **Calm koto** — koto phrases over a drone, shakuhachi, wind chimes at night; made up as it plays.
+
+Raids and battles break in with an up-tempo version of the Tenka theme. It all starts with your first tap; pick a style, switch music off or set the volume in the menu.

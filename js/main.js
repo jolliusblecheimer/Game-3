@@ -105,7 +105,7 @@ function boot() {
   }
   // the soundtrack starts with the first touch or key (browsers don't allow sound before that)
   const music = new Music(); hud.music = music;
-  music.on = hud.settings.music !== false; music.vol = hud.settings.musicVol ?? 0.6;
+  music.on = hud.settings.music !== false; music.vol = hud.settings.musicVol ?? 0.6; music.style = hud.settings.musicStyle || 'mix';
   const wake = () => { if (music.on) music.unlock(); };
   window.addEventListener('pointerdown', wake); window.addEventListener('keydown', wake);
   requestAnimationFrame(frame);
