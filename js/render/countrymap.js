@@ -39,7 +39,13 @@ function cloudCanvas(size) {
 function siteModel(type, seed) {
   const g = new THREE.Group(), add = (m, x, z, s = 1, ry = 0) => { m.position.set(x, 0, z); m.scale.setScalar(s); m.rotation.y = ry; g.add(m); };
   const r = mulberry32(seed);
-  if (type === 'bandits') {
+  if (type === 'hideout') {
+    const m = new Mesher(seed, 0.08);
+    for (let i = 0; i < 2; i++) { const a = i * 2.4 + r(); m.cone(1.2, 2.0, 6, i % 2 ? '#8a6a44' : '#6f5537', [Math.cos(a) * 2, 1.0, Math.sin(a) * 2]); }
+    m.cyl(0.45, 0.5, 0.25, 8, '#5a4a3a', [0, 0.12, 0]); m.cone(0.3, 0.7, 6, '#ff9a4a', [0, 0.55, 0]);
+    for (let i = 0; i < 5; i++) { const a = r() * Math.PI * 2, d = 3 + r() * 2; m.ball(0.9, '#3f5a2e', [Math.cos(a) * d, 0.7, Math.sin(a) * d]); }
+    g.add(m.mesh(MAT.flat));
+  } else if (type === 'bandits') {
     const m = new Mesher(seed, 0.08);
     for (let i = 0; i < 4; i++) { const a = i * 1.6 + r(); m.cone(1.6, 2.6, 6, i % 2 ? '#8a6a44' : '#7a5d3c', [Math.cos(a) * 3, 1.3, Math.sin(a) * 3]); }
     m.cyl(0.6, 0.7, 0.3, 8, '#5a4a3a', [0, 0.15, 0]); m.cone(0.4, 0.9, 6, '#ff9a4a', [0, 0.7, 0]);

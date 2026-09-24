@@ -34,8 +34,11 @@ export class Input {
     const objs = [];
     for (const b of this.game.buildings.values()) objs.push(b.root);
     for (const v of this.game.villagers.values()) if (v.person.group.visible) objs.push(v.person.group);
+    for (const u of this.game.raids.alive()) objs.push(u.person.group);
     const hits = this.ray.intersectObjects(objs, true);
     // prefer villagers (they're small and usually in front)
+    const bh = hits.find(h => h.object.userData.pick && h.object.userData.pick.kind === 'bandit');
+    if (bh) return bh.object.userData.pick;
     const vh = hits.find(h => h.object.userData.pick && h.object.userData.pick.kind === 'villager');
     const h = vh || hits.find(h => h.object.userData.pick);
     return h ? h.object.userData.pick : null;
@@ -333,7 +336,9 @@ export class Input {
       this.commitPlacing(e.shiftKey || D.shift);
       return;
     }
-    this.select(this.pick(e.clientX, e.clientY));
+    const p = this.pick(e.clientX, e.clientY);
+    if (p && p.kind === 'bandit') { this.game.raids.raiseAlarm(null); return; }
+    this.select(p);
   }
   onWheel(e) {
     e.preventDefault();

@@ -94,9 +94,9 @@ function findTree(game, camp, v) {
 }
 function goHome(game, v, status) {
   const homes = [...game.buildings.values()].filter(b => b.done && (b.def.housing || b.type === 'townhall'));
-  const home = game.raids.active ? homes.sort((a, b) => dist(game.center(a), v.pos) - dist(game.center(b), v.pos))[0] : homes[v.id % Math.max(1, homes.length)];
+  const home = game.raids.alarmed ? homes.sort((a, b) => dist(game.center(a), v.pos) - dist(game.center(b), v.pos))[0] : homes[v.id % Math.max(1, homes.length)];
   if (!home) return act(v, 4, 'idle', null, status);
-  return goTo(game, v, game.door(home, 0.5), () => inside(v, game.raids.active ? 4 : 20, null, status), game.raids.active ? 'Running inside to hide' : 'Heading home for the night');
+  return goTo(game, v, game.door(home, 0.5), () => inside(v, game.raids.alarmed ? 4 : 20, null, status), game.raids.alarmed ? 'Running inside to hide' : 'Heading home for the night');
 }
 
 // walk a stretch of wall walkway: climb up at one end, patrol along the top, climb down
@@ -140,10 +140,10 @@ function climbTower(game, v) {
 
 export function thinkVillager(game, v) {
   v.site = null; v.building = null; v.hidden = false;
-  if (v.carry && !game.raids.active) return deliver(game, v);
+  if (v.carry && !game.raids.alarmed) return deliver(game, v);
   const J = JOBS[v.job], work = v.work ? game.buildings.get(v.work) : null;
   // bandits! soldiers stand ready (the raid code moves them), everyone else hides
-  if (game.raids.active) {
+  if (game.raids.alarmed) {
     if (J.soldier) {
       if (v.job === 'archer' && !v.post && climbTower(game, v)) return;
       return act(v, 0.5, 'guard', null, v.post ? 'Shooting from the tower' : 'Ready to fight the bandits');
@@ -201,7 +201,7 @@ export function thinkVillager(game, v) {
       const faceTo = archer ? game.local(work, lx, work.sd * PLOT_CELL / 2) : game.local(work, lx * 0.5, 0);
       const pct = () => Math.min(99, Math.round((v.train || 0) / work.def.trainTime * 100));
       return goTo(game, v, spot, () => act(v, 5, archer ? 'shoot' : 'train', () => {
-        v.train = (v.train || 0) + 5 * mult;
+        v.train = (v.train || 0) + 5 * mult * (1 + game.rb('trainFast'));
         if (v.train >= work.def.trainTime) {
           const to = work.def.trains;
           game.setJob(v, to); game.state.stats.trained++;
@@ -251,7 +251,7 @@ export function updateVillager(game, v, dt) {
   let pose = 'idle';
   if (v.path) {
     const tgt = v.path[v.pathI], dx = tgt.x - v.pos.x, dz = tgt.z - v.pos.z, d = Math.hypot(dx, dz);
-    const sp = ECON.walkSpeed * (v.carry ? 0.85 : 1) * (game.hungry() ? 0.8 : 1) * game.grid.speedAt(v.pos.x, v.pos.z) * (game.raids.active ? 1.4 : 1);
+    const sp = ECON.walkSpeed * (v.carry ? 0.85 : 1) * (game.hungry() ? 0.8 : 1) * game.grid.speedAt(v.pos.x, v.pos.z) * (game.raids.alarmed ? 1.4 : 1);
     if (d < 0.05) {
       v.pathI++;
       if (v.pathI >= v.path.length) { v.path = null; const cb = v.onArrive; v.onArrive = null; if (cb) cb(); }

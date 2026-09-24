@@ -51,7 +51,11 @@ export function makeLayout(site) {
   const wallArchers = (n, zRow, x0, x1) => { const walls = S.map((s, i) => [s, i]).filter(([s]) => s.type === 'wall' && s.cz === zRow && s.cx > x0 && s.cx < x1); for (let i = 0; i < n && walls.length; i++) { const [, idx] = walls.splice(Math.floor(r() * walls.length), 1)[0]; D.push({ type: 'enemy_archer', post: idx, slot: 0 }); } };
 
   const T = site.tier;
-  if (T <= 1) {
+  if (site.type === 'hideout') {
+    // a few huts in the woods, no walls: three outlaws and a lookout
+    for (let i = 0; i < 2; i++) deco('house', 27, 18, 37, 26, 2, 2);
+    defenders('outlaw', 3, [27, 18, 37, 26]);
+  } else if (T <= 1) {
     ring('palisade', 25, 16, 39, 28, { gate: null, gateN: true });
     for (let i = 0; i < 3; i++) deco(i === 2 ? 'lumber' : 'house', 27, 18, 37, 26, 2, 2);
     defenders('bandit', 7 + Math.floor(r() * 3), [27, 18, 37, 26]);
@@ -244,7 +248,7 @@ export class Battle {
     const foes = this.units.filter(u => u.team === 1 && !u.post), gate = this.gate, keep = this.keep;
     const bx = this.box, gx = gate ? gate.x : this.W(Math.round((bx[0] + bx[2]) / 2), 0).x, gz = gate ? gate.z : this.W(0, bx[3]).z;
     const kx = keep ? keep.x : gx, kz = keep ? keep.z + 6 : gz - 10;
-    const spears = foes.filter(u => u.type === 'enemy_ashigaru' || u.type === 'bandit');
+    const spears = foes.filter(u => u.type === 'enemy_ashigaru' || u.type === 'bandit' || u.type === 'outlaw');
     // sentries walk a loop just inside the walls
     const nSentry = Math.min(spears.length, this.site.tier >= 3 ? 3 : 2);
     const inner = [[bx[0] + 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[3] - 1.5], [bx[0] + 1.5, bx[3] - 1.5]].map(([x, z]) => this.W(Math.round(x), Math.round(z)));

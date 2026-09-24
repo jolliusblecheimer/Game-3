@@ -76,7 +76,8 @@ export class Game {
     if (this.hasResearch(id)) return 'Researched';
     if (![...this.buildings.values()].some(b => b.type === 'strategy' && b.done)) return 'Build a Strategy Hall first';
     if (this.state.research.active) return 'Scholars are busy with another study';
-    const prev = RESEARCH[r.tree].nodes[r.i - 1]; if (prev && !this.hasResearch(prev.id)) return `Needs ${prev.name} first`;
+    const miss = (r.node.req || []).filter(id => !this.hasResearch(id)).map(id => this.researchNode(id).node.name);
+    if (miss.length) return `Needs ${miss.join(' and ')} first`;
     if (!this.canAfford(r.node.cost)) return 'Not enough resources';
     return '';
   }
@@ -446,7 +447,6 @@ export class Game {
     const farm = [...this.buildings.values()].find(b => b.type === 'farm');
     const vs = [...this.villagers.values()];
     this.setJob(vs[0], 'farmer', farm.id); this.setJob(vs[1], 'farmer', farm.id);
-    this.raids.schedule(true);
     this.toast('Welcome, lord. Your people await your command.');
   }
   serialize() {

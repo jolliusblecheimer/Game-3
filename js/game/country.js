@@ -30,7 +30,7 @@ function generateSites(seed, height) {
         const a = r() * Math.PI * 2, d = S.dist[0] + r() * (S.dist[1] - S.dist[0]);
         const x = Math.cos(a) * d, z = Math.sin(a) * d;
         if (height(x, z) < 1.5 || height(x, z) > 32) continue;
-        if (sites.some(s => Math.hypot(s.x - x, s.z - z) < 42)) continue;
+        if (sites.some(s => Math.hypot(s.x - x, s.z - z) < (S.gap || 42))) continue;
         let name; do { name = PLACE_NAMES[Math.floor(r() * PLACE_NAMES.length)]; } while (used.has(name) && used.size < PLACE_NAMES.length);
         used.add(name);
         sites.push({ id: id++, type, x, z, name, tier: S.tier, seed: Math.floor(r() * 1e9) });
@@ -100,10 +100,12 @@ export class Country {
     this.game.emit('away');
   }
   // only soldiers scout; a scout is away and can't work or fight at home
-  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'ashigaru' || v.job === 'archer')); }
+  // anyone who isn't tied to a workplace: unemployed villagers first, then soldiers
+  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'idle' || v.job === 'ashigaru' || v.job === 'archer')); }
   sendScout(to) {
-    const g = this.game, c = this.scoutCandidates().sort((a, b) => (a.post ? 1 : 0) - (b.post ? 1 : 0))[0];
-    if (!c) return g.toast('Only soldiers can scout — train a spearman or archer first', 'warn');
+    const rank = v => (v.job === 'idle' ? 0 : 1) + (v.post ? 1 : 0);
+    const g = this.game, c = this.scoutCandidates().sort((a, b) => rank(a) - rank(b))[0];
+    if (!c) return g.toast('Nobody free to scout — workers stay at their jobs. Make someone unemployed, or train a soldier.', 'warn');
     if (!g.canAfford(WAR.scoutCost)) return g.toast('Scouts need 10 wheat for the journey', 'warn');
     g.pay(WAR.scoutCost);
     const dist = Math.hypot(to.x, to.z), dur = Math.max(8, dist / (WAR.scoutSpeed * this.speedMult('scout')));

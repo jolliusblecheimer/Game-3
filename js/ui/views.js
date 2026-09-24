@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 import { art, costChips } from './hud.js';
 
 const STATUS = { hidden: 'Unexplored', known: 'Not scouted', scouted: 'Scouted', held: 'Yours — held by your garrison', ruined: 'Ruined' };
-const UNIT_NAMES = { bandit: 'Bandits', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
+const UNIT_NAMES = { bandit: 'Bandits', outlaw: 'Outlaws', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
 
 // one wheel step, whether from a mouse wheel (lines) or a trackpad (pixels)
 const clampWheel = e => Math.max(-120, Math.min(120, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY));
@@ -519,7 +519,7 @@ export class Views {
         this.hud.live(h('div', null), el => {
           el.textContent = '';
           if (g.state.ramBuild) { const left = g.state.ramBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a ram… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / 45) * 100}%` }))); }
-          else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cost)) return g.toast('Not enough resources', 'warn'); g.pay(cost); g.state.ramBuild = { done: g.state.clock + 45 }; this.hud.renderPanel(); } }, 'Build a ram (45s)', costChips(g, cost)));
+          else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cost)) return g.toast('Not enough resources', 'warn'); g.pay(cost); g.state.ramBuild = { done: g.state.clock + Math.round(45 * (1 - g.rb('ramBuild'))) }; this.hud.renderPanel(); } }, `Build a ram (${Math.round(45 * (1 - g.rb('ramBuild')))}s)`, costChips(g, cost)));
         })));
     }
   }

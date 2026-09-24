@@ -65,12 +65,11 @@ export class Hud {
     R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, menu));
     // raid warnings under the top bar
     this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }), el => {
-      const R = g.raids, left = R.timeLeft();
-      const show = R.active || (R.warned && left > 0);
+      const R = g.raids, show = R.alarmed;
       el.hidden = !show; if (!show) return;
       el.textContent = '';
-      el.append(icon('camp', 20), R.active ? h('b', null, `Bandit raid! ${R.alive().length} bandits in the village`) : h('b', null, `Bandits approaching from the ${R.side} — ${fmtTime(left)}`),
-        h('small', null, R.active ? 'Your soldiers fight, archers shoot from towers, everyone else hides.' : 'Get your soldiers ready and your gates shut.'));
+      el.append(icon('camp', 20), h('b', null, `Bandit raid! ${R.alive().length} bandit${R.alive().length === 1 ? '' : 's'} in the village`),
+        h('small', null, 'Your soldiers fight, archers shoot from towers, everyone else hides.'));
     });
     R.append(this.raidBanner);
     // bottom-left: the clan at a glance
@@ -350,7 +349,7 @@ export class Hud {
       if (type === 'built') { this.sound('done'); if (data && data.type === 'townhall') this.renderBar(); }
       clearTimeout(this.rt); this.rt = setTimeout(() => this.renderPanel(), 30);
     }
-    if (type === 'raidWarning' || type === 'raid') this.sound('war');
+    if (type === 'raid') this.sound('war');
     if (type === 'hungry' && this.game.state.clock - (this.hungryAt || -99) > 60) { this.hungryAt = this.game.state.clock; this.toast('Out of wheat! Villagers work slowly — add farmers.', 'bad'); }
   }
   toast(text, kind = '') {
@@ -394,28 +393,44 @@ export class Hud {
     this.openModal('Your army', body, [{ label: 'Skill trees', cls: 'ghost', fn: () => setTimeout(() => this.openResearch(), 0) }, { label: 'Close' }], { wide: true });
   }
   /* ---------- skill trees ---------- */
-  openResearch() {
-    const g = this.game, body = h('div', { class: 'trees' });
+  openResearch(tab) {
+    const g = this.game, body = h('div', { class: 'research' });
     const hasHall = [...g.buildings.values()].some(b => b.type === 'strategy' && b.done);
+    const W = 212, H = 186, NW = 186; // column width, row height, node width
+    let cur = tab || this.researchTab || 'spear';
     const render = () => {
       body.textContent = '';
       if (!hasHall) body.append(h('p', { class: 'why' }, 'Build a Strategy Hall (Military, Keep level 2) to start researching.'));
       const A = g.state.research.active;
       if (A) body.append(h('div', { class: 'upgrade' }, h('b', null, `Studying: ${g.researchNode(A.id).node.name}`), this.bar2(() => g.state.research.active ? g.state.research.active.progress : 1)));
-      for (const [key, T] of Object.entries(RESEARCH)) {
-        const col = h('div', { class: 'tree' }, h('div', { class: 'thead' }, T.look ? art('person', T.look, null, 'face') : h('span', { class: 'art face' }, icon(T.icon, 22)), h('b', null, T.name)));
-        T.nodes.forEach((n, i) => {
-          const done = g.hasResearch(n.id), active = A && A.id === n.id, why = g.researchBlock(n.id);
-          const locked = !done && !active && why && why !== 'Not enough resources' && !why.startsWith('Scholars');
-          if (i) col.append(h('div', { class: 'tline' + (done ? ' done' : '') }));
-          col.append(
-            h('div', { class: 'node' + (done ? ' done' : active ? ' active' : locked ? ' locked' : '') },
-              h('b', null, n.name), h('small', null, n.desc),
-              done ? h('span', { class: 'pill' }, '✓ Learned') : active ? h('span', { class: 'pill' }, 'Studying…') : [h('div', { class: 'row' }, costChips(g, n.cost, this.live), h('small', { class: 'sub' }, fmtTime(n.time))),
-                h('button', { class: 'btn small', disabled: why ? true : null, title: why || 'Start studying', onclick: () => { if (g.startResearch(n.id)) render(); } }, why && why !== 'Not enough resources' ? why : 'Research')]));
-        });
-        body.append(col);
+      body.append(h('div', { class: 'rtabs' }, Object.entries(RESEARCH).map(([key, T]) => {
+        const n = T.nodes.filter(x => g.hasResearch(x.id)).length;
+        return h('button', { class: 'rtab' + (key === cur ? ' on' : ''), onclick: () => { cur = this.researchTab = key; render(); } },
+          T.look ? art('person', T.look, null, 'face') : h('span', { class: 'art face' }, icon(T.icon, 22)), h('span', null, h('b', null, T.name), h('small', null, `${n} / ${T.nodes.length} learned`)));
+      })));
+      const T = RESEARCH[cur], rows = Math.max(...T.nodes.map(n => n.r)) + 1, byId = Object.fromEntries(T.nodes.map(n => [n.id, n]));
+      const graph = h('div', { class: 'rgraph', style: `width:${3 * W}px;height:${rows * H}px` });
+      // branch lines
+      const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', 3 * W); svg.setAttribute('height', rows * H);
+      for (const n of T.nodes) for (const id of n.req || []) {
+        const p = byId[id]; if (!p) continue;
+        const x1 = p.c * W + W / 2, y1 = p.r * H + H - 38, x2 = n.c * W + W / 2, y2 = n.r * H, my = (y1 + y2) / 2;
+        const path = document.createElementNS(NS, 'path');
+        path.setAttribute('d', `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`);
+        path.setAttribute('class', g.hasResearch(id) ? 'done' : '');
+        svg.append(path);
       }
+      graph.append(svg);
+      for (const n of T.nodes) {
+        const done = g.hasResearch(n.id), active = A && A.id === n.id, why = g.researchBlock(n.id);
+        const locked = !done && !active && why && why !== 'Not enough resources' && !why.startsWith('Scholars');
+        graph.append(h('div', { class: 'node rnode' + (done ? ' done' : active ? ' active' : locked ? ' locked' : ''), style: `left:${n.c * W + (W - NW) / 2}px;top:${n.r * H}px;width:${NW}px` },
+          h('b', null, n.name), h('small', null, n.desc),
+          done ? h('span', { class: 'pill' }, '✓ Learned') : active ? h('span', { class: 'pill' }, 'Studying…') : [h('div', { class: 'row' }, costChips(g, n.cost, this.live), h('small', { class: 'sub' }, fmtTime(n.time))),
+            h('button', { class: 'btn small', disabled: why ? true : null, title: why || 'Start studying', onclick: () => { if (g.startResearch(n.id)) render(); } }, why && why !== 'Not enough resources' ? why : 'Research')]));
+      }
+      body.append(h('div', { class: 'rwrap' }, graph));
     };
     render();
     this.openModal('Skill trees', body, [{ label: 'Close' }], { wide: true });

@@ -32,11 +32,11 @@ export const ECON = {
 // Town Hall levels: everything else grows from here.
 export const TOWNHALL = [
   null,
-  { housing: 8,  storage: 500,  raid: 3 },
-  { housing: 10, storage: 800,  raid: 5, cost: { wood: 240, stone: 140, gold: 30 },  time: 150, needPop: 12 },
-  { housing: 12, storage: 1200, raid: 8, cost: { wood: 520, stone: 400, gold: 120 }, time: 240, needPop: 16 },
-  { housing: 14, storage: 1800, raid: 12, cost: { wood: 850, stone: 750, gold: 300 }, time: 330, needPop: 21 },
-  { housing: 16, storage: 2600, raid: 16, cost: { wood: 1300, stone: 1200, gold: 600 }, time: 420, needPop: 26 },
+  { housing: 8,  storage: 500,  raid: 2 },
+  { housing: 10, storage: 800,  raid: 4, cost: { wood: 240, stone: 140, gold: 30 },  time: 150, needPop: 12 },
+  { housing: 12, storage: 1200, raid: 6, cost: { wood: 520, stone: 400, gold: 120 }, time: 240, needPop: 16 },
+  { housing: 14, storage: 1800, raid: 9, cost: { wood: 850, stone: 750, gold: 300 }, time: 330, needPop: 21 },
+  { housing: 16, storage: 2600, raid: 13, cost: { wood: 1300, stone: 1200, gold: 600 }, time: 420, needPop: 26 },
 ];
 export const MAX_TH = 5;
 
@@ -71,6 +71,7 @@ export const UNITS = {
   enemy_ram: { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
   // enemies
   bandit:         { hp: 85, dmg: 11, cd: 1.0, range: 1.8, speed: 3.2, look: 'bandit', r: 0.5 },
+  outlaw:         { hp: 50, dmg: 7, cd: 1.1, range: 1.7, speed: 3.0, look: 'bandit', r: 0.5 },
   enemy_ashigaru: { hp: 115, dmg: 13, cd: 1.0, range: 1.8, speed: 3.1, look: 'enemy_ashigaru', r: 0.5 },
   enemy_archer:   { hp: 65, dmg: 10, cd: 1.6, range: 20, speed: 3.1, look: 'enemy_archer', ranged: true, r: 0.45 },
   enemy_samurai:  { hp: 260, dmg: 24, cd: 1.0, range: 2.0, speed: 3.4, look: 'enemy_samurai', r: 0.55 },
@@ -84,6 +85,8 @@ export const SITES = {
   fort:    { name: 'Clan Fort',     tier: 3, count: 3, dist: [150, 240], icon: 'castle',   loot: { wheat: 450, wood: 400, stone: 300, gold: 200 }, tribute: { stone: 8, gold: 5 }, threat: 12 },
   castle:  { name: 'Daimyō Castle', tier: 4, count: 2, dist: [215, 285], icon: 'castle',   loot: { wheat: 800, wood: 700, stone: 600, gold: 450 }, tribute: { wheat: 10, stone: 8, gold: 12 }, threat: 20 },
   ruins:   { name: 'Old Ruins',     tier: 0, count: 3, dist: [70, 260],  icon: 'torii',    loot: { gold: 80, stone: 60 } },
+  // small and close to home: a first target for two spearmen (kept last so older maps keep their places)
+  hideout: { name: 'Bandit Hideout', tier: 0.5, count: 3, dist: [32, 75], gap: 22, icon: 'camp', loot: { wheat: 90, wood: 70, gold: 30 }, tribute: { wheat: 3, wood: 2 }, threat: 1 },
 };
 export const PLACE_NAMES = ['Kiyosu', 'Nagashino', 'Okehazama', 'Inabayama', 'Kanegasaki', 'Odawara', 'Takatenjin', 'Mikatagahara', 'Anegawa', 'Sekigahara', 'Kawanakajima',
   'Itami', 'Takamatsu', 'Nanao', 'Hachigata', 'Shizugatake', 'Yamazaki', 'Toriimoto', 'Kurosawa', 'Hanamaki', 'Shirakawa', 'Aizu', 'Yoshino', 'Matsumoto'];
@@ -168,46 +171,59 @@ export const BUILDINGS = {
 
 // Bandits raid the village now and then; the band grows with your Town Hall.
 export const RAIDS = {
-  firstAfter: 2.5 * 720,   // no raids in the first days
+  // no raids until you have your first soldier; the first band is small and weak
+  firstDelay: [200, 360],  // seconds after your first soldier
   every: [1100, 1700],     // game seconds between raids
-  warning: 60,             // seconds of warning before they arrive
+  sight: 16,               // how far a soldier on the ground spots sneaking bandits (towers and walls: 26)
   steal: 0.12,             // share of each resource a band carries off if they reach storage
   bounty: 6,               // gold per bandit defeated
 };
 
-// Skill trees, researched at the Strategy Hall. Each branch is a chain: a node needs the one before it.
+// Skill trees, researched at the Strategy Hall. Each tree branches: a node needs every node in `req`.
+// c = column (0 left, 1 middle, 2 right), r = row (top to bottom).
 export const RESEARCH = {
   spear: { name: 'Spearmen', look: 'ashigaru', nodes: [
-    { id: 'spear1', name: 'Spear Drill', desc: 'Spearmen hit 15% harder.', cost: { gold: 60, wheat: 60 }, time: 120, fx: { spearDmg: 0.15 } },
-    { id: 'spear2', name: 'Lacquered Armour', desc: 'Spearmen have 25% more health.', cost: { gold: 120, wood: 80 }, time: 180, fx: { spearHp: 0.25 } },
-    { id: 'spear3', name: 'Spear Wall', desc: 'Holding spearmen take 30% less damage.', cost: { gold: 200, stone: 120 }, time: 240, fx: { spearWall: 0.3 } },
-    { id: 'spear4', name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', cost: { gold: 320, wheat: 200 }, time: 300, fx: { spearFast: 0.15 } },
+    { id: 'spear1', c: 1, r: 0, name: 'Spear Drill', desc: 'Spearmen hit 15% harder.', cost: { gold: 60, wheat: 60 }, time: 120, fx: { spearDmg: 0.15 } },
+    { id: 'spear2', c: 0, r: 1, req: ['spear1'], name: 'Lacquered Armour', desc: 'Spearmen have 25% more health.', cost: { gold: 120, wood: 80 }, time: 180, fx: { spearHp: 0.25 } },
+    { id: 'spear3', c: 0, r: 2, req: ['spear2'], name: 'Spear Wall', desc: 'Holding spearmen take 30% less damage.', cost: { gold: 200, stone: 120 }, time: 240, fx: { spearWall: 0.3 } },
+    { id: 'spear4', c: 2, r: 1, req: ['spear1'], name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', cost: { gold: 160, wheat: 150 }, time: 200, fx: { spearFast: 0.15 } },
+    { id: 'spear5', c: 2, r: 2, req: ['spear4'], name: 'Dojo Masters', desc: 'Trainees at the Dojo and Kyūdō Range learn 30% faster.', cost: { gold: 180, wood: 120 }, time: 220, fx: { trainFast: 0.3 } },
+    { id: 'spear6', c: 1, r: 3, req: ['spear3', 'spear5'], name: 'Way of the Yari', desc: 'Spearmen hit another 20% harder.', cost: { gold: 380, wheat: 250 }, time: 360, fx: { spearDmg: 0.2 } },
   ] },
   archer: { name: 'Archers', look: 'archer', nodes: [
-    { id: 'arch1', name: 'Longbows', desc: 'Archers shoot 20% further.', cost: { gold: 60, wood: 80 }, time: 120, fx: { archRange: 0.2 } },
-    { id: 'arch2', name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', cost: { gold: 120, wood: 120 }, time: 180, fx: { archDmg: 0.2 } },
-    { id: 'arch3', name: 'Volley Fire', desc: 'Archers loose arrows 20% faster.', cost: { gold: 200, wood: 160 }, time: 240, fx: { archFast: 0.2 } },
-    { id: 'arch4', name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', cost: { gold: 300, wheat: 150 }, time: 300, fx: { archEyes: 1 } },
+    { id: 'arch1', c: 1, r: 0, name: 'Longbows', desc: 'Archers shoot 20% further.', cost: { gold: 60, wood: 80 }, time: 120, fx: { archRange: 0.2 } },
+    { id: 'arch2', c: 0, r: 1, req: ['arch1'], name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', cost: { gold: 120, wood: 120 }, time: 180, fx: { archDmg: 0.2 } },
+    { id: 'arch5', c: 0, r: 2, req: ['arch2'], name: 'Bodkin Points', desc: 'Arrows punch through armour: another 15% damage.', cost: { gold: 200, stone: 100 }, time: 240, fx: { archDmg: 0.15 } },
+    { id: 'arch3', c: 2, r: 1, req: ['arch1'], name: 'Volley Fire', desc: 'Archers loose arrows 20% faster.', cost: { gold: 140, wood: 140 }, time: 200, fx: { archFast: 0.2 } },
+    { id: 'arch4', c: 2, r: 2, req: ['arch3'], name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', cost: { gold: 220, wheat: 150 }, time: 260, fx: { archEyes: 1 } },
+    { id: 'arch6', c: 1, r: 3, req: ['arch5', 'arch4'], name: 'Master of the Bow', desc: 'Archers shoot 15% further and 10% faster.', cost: { gold: 380, wood: 250 }, time: 360, fx: { archRange: 0.15, archFast: 0.1 } },
   ] },
   command: { name: 'Commanders', look: 'berserker', nodes: [
-    { id: 'cmd1', name: 'Iron Hide', desc: 'Commanders have 30% more health.', cost: { gold: 150, stone: 100 }, time: 180, fx: { cmdHp: 0.3 } },
-    { id: 'cmd2', name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', cost: { gold: 240, wood: 150 }, time: 240, fx: { cmdCd: 0.3 } },
-    { id: 'cmd3', name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', cost: { gold: 360, wheat: 200 }, time: 300, fx: { bloodlust: 1 } },
-    { id: 'cmd4', name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', cost: { gold: 480, stone: 250 }, time: 360, fx: { banner: 1 } },
+    { id: 'cmd1', c: 1, r: 0, name: 'Iron Hide', desc: 'Commanders have 30% more health.', cost: { gold: 150, stone: 100 }, time: 180, fx: { cmdHp: 0.3 } },
+    { id: 'cmd2', c: 0, r: 1, req: ['cmd1'], name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', cost: { gold: 240, wood: 150 }, time: 240, fx: { cmdCd: 0.3 } },
+    { id: 'cmd3', c: 0, r: 2, req: ['cmd2'], name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', cost: { gold: 360, wheat: 200 }, time: 300, fx: { bloodlust: 1 } },
+    { id: 'cmd5', c: 2, r: 1, req: ['cmd1'], name: 'War Council', desc: 'Commanders have another 20% more health.', cost: { gold: 240, stone: 150 }, time: 240, fx: { cmdHp: 0.2 } },
+    { id: 'cmd4', c: 2, r: 2, req: ['cmd5'], name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', cost: { gold: 400, stone: 250 }, time: 320, fx: { banner: 1 } },
+    { id: 'cmd6', c: 1, r: 3, req: ['cmd3', 'cmd4'], name: 'Living Legend', desc: 'Abilities recharge another 20% faster.', cost: { gold: 600, wheat: 300 }, time: 420, fx: { cmdCd: 0.2 } },
   ] },
   siege: { name: 'Siege', look: null, icon: 'ram', nodes: [
-    { id: 'siege1', name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', cost: { gold: 100, wood: 150 }, time: 150, fx: { ramHp: 0.5 } },
-    { id: 'siege2', name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', cost: { gold: 200, stone: 150 }, time: 240, fx: { ramDmg: 0.4 } },
+    { id: 'siege1', c: 1, r: 0, name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', cost: { gold: 100, wood: 150 }, time: 150, fx: { ramHp: 0.5 } },
+    { id: 'siege2', c: 0, r: 1, req: ['siege1'], name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', cost: { gold: 200, stone: 150 }, time: 240, fx: { ramDmg: 0.4 } },
+    { id: 'siege3', c: 2, r: 1, req: ['siege1'], name: 'Carpenters’ Guild', desc: 'Rams are built 40% faster.', cost: { gold: 150, wood: 200 }, time: 200, fx: { ramBuild: 0.4 } },
+    { id: 'siege4', c: 1, r: 2, req: ['siege2', 'siege3'], name: 'Swinging Crew', desc: 'Rams hit another 30% harder.', cost: { gold: 320, stone: 200 }, time: 300, fx: { ramDmg: 0.3 } },
   ] },
   logistics: { name: 'Scouts & Marches', look: null, icon: 'scout', nodes: [
-    { id: 'log1', name: 'Swift Scouts', desc: 'Scouts travel 25% faster.', cost: { gold: 40, wheat: 60 }, time: 90, fx: { scoutSpeed: 1 } },
-    { id: 'log2', name: 'Mountain Paths', desc: 'Armies march 25% faster.', cost: { gold: 100, wheat: 100 }, time: 150, fx: { marchSpeed: 1 } },
-    { id: 'log3', name: 'Spy Network', desc: 'Scouts see much further around them.', cost: { gold: 180, wheat: 120 }, time: 210, fx: { scoutSight: 1 } },
-    { id: 'log4', name: 'Supply Lines', desc: 'Marches cost half the wheat, and further scout trips cost more but reveal more.', cost: { gold: 260, wheat: 200 }, time: 270, fx: { supply: 1 } },
+    { id: 'log1', c: 1, r: 0, name: 'Swift Scouts', desc: 'Scouts travel 25% faster.', cost: { gold: 40, wheat: 60 }, time: 90, fx: { scoutSpeed: 1 } },
+    { id: 'log3', c: 0, r: 1, req: ['log1'], name: 'Spy Network', desc: 'Scouts see much further around them.', cost: { gold: 140, wheat: 120 }, time: 180, fx: { scoutSight: 1 } },
+    { id: 'log5', c: 0, r: 2, req: ['log3'], name: 'Mountain Guides', desc: 'Scouts travel another 25% faster.', cost: { gold: 200, wheat: 150 }, time: 220, fx: { scoutSpeed: 1 } },
+    { id: 'log2', c: 2, r: 1, req: ['log1'], name: 'Mountain Paths', desc: 'Armies march 25% faster.', cost: { gold: 100, wheat: 100 }, time: 150, fx: { marchSpeed: 1 } },
+    { id: 'log4', c: 2, r: 2, req: ['log2'], name: 'Supply Lines', desc: 'Marches cost half the wheat.', cost: { gold: 260, wheat: 200 }, time: 270, fx: { supply: 1 } },
   ] },
   defense: { name: 'Village Defense', look: null, icon: 'wall', nodes: [
-    { id: 'def1', name: 'Mortar Walls', desc: 'Walls, gates and palisades are 30% stronger.', cost: { gold: 80, stone: 150 }, time: 150, fx: { wallHp: 0.3 } },
-    { id: 'def2', name: 'Watch Drums', desc: 'Raids are spotted earlier: two minutes of warning.', cost: { gold: 120, wood: 100 }, time: 180, fx: { earlyWarn: 1 } },
-    { id: 'def3', name: 'Murder Holes', desc: 'Your towers drop stones on attackers at your gates.', cost: { gold: 220, stone: 220 }, time: 260, fx: { murder: 1 } },
+    { id: 'def1', c: 1, r: 0, name: 'Mortar Walls', desc: 'Walls, gates and palisades are 30% stronger.', cost: { gold: 80, stone: 150 }, time: 150, fx: { wallHp: 0.3 } },
+    { id: 'def2', c: 0, r: 1, req: ['def1'], name: 'Watchmen', desc: 'Your soldiers spot sneaking bandits from 50% further away.', cost: { gold: 120, wood: 100 }, time: 180, fx: { earlyWarn: 1 } },
+    { id: 'def4', c: 0, r: 2, req: ['def2'], name: 'Bounty Hunters', desc: 'Double gold for every bandit your people defeat.', cost: { gold: 160, wheat: 150 }, time: 200, fx: { bounty: 1 } },
+    { id: 'def3', c: 2, r: 1, req: ['def1'], name: 'Murder Holes', desc: 'Your towers drop stones on attackers at your gates.', cost: { gold: 220, stone: 220 }, time: 260, fx: { murder: 1 } },
+    { id: 'def5', c: 2, r: 2, req: ['def3'], name: 'Stone Keep', desc: 'Walls, gates and palisades another 30% stronger.', cost: { gold: 260, stone: 300 }, time: 300, fx: { wallHp: 0.3 } },
   ] },
 };

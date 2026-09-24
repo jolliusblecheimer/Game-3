@@ -74,3 +74,15 @@ js/render/          3D: stage (sky, light, day/night), terrain, buildings, peopl
 js/ui/              camera, input, interface
 lib/                three.js
 ```
+
+## Bandit raids
+
+Bandits only come once you have your first soldier, and the first band is two weak outlaws that one spearman can handle. They sneak in quietly: villagers keep working until one of your soldiers spots them (towers and walls see further). If you see them first, click a bandit to raise the alarm. Too slow, and they kill villagers caught outside or loot your storage.
+
+## Hideouts
+
+Small bandit hideouts lie close to your village on the map: three outlaws and no walls, a good first target for two spearmen.
+
+## Scouts
+
+Unemployed villagers and soldiers can scout. Workers stay at their jobs.
