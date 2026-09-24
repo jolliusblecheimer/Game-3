@@ -1,7 +1,8 @@
 {
-"v": "20260924-220110",
+"v": "20260924-221035",
 "files": [
 "css/style.css",
+"js/audio/music.js",
 "js/game/battle.js",
 "js/game/country.js",
 "js/game/data.js",

@@ -9,6 +9,7 @@ import { Input } from './ui/input.js';
 import { Hud } from './ui/hud.js';
 import { Views } from './ui/views.js';
 import { h } from './util.js';
+import { Music } from './audio/music.js';
 
 const BACKUP_KEY = 'tenka.save.backup';
 
@@ -99,14 +100,19 @@ function boot() {
     const c = view && view.active ? view.cam : cam;
     stage.update(dt, c.target, stage.camera.position);
     stage.render();
-    tickT += dt; if (tickT > 0.25) { tickT = 0; hud.tick(); }
+    tickT += dt; if (tickT > 0.25) { tickT = 0; hud.tick(); music.setMood(views.mode === 'battle' && view && view.active ? 'battle' : game.raids.alarmed ? 'raid' : (game.state.time < 0.22 || game.state.time > 0.8) ? 'night' : 'day'); }
     saveT += dt; if (saveT > 15) { saveT = 0; saveNow(); }
   }
+  // the soundtrack starts with the first touch or key (browsers don't allow sound before that)
+  const music = new Music(); hud.music = music;
+  music.on = hud.settings.music !== false; music.vol = hud.settings.musicVol ?? 0.6;
+  const wake = () => { if (music.on) music.unlock(); };
+  window.addEventListener('pointerdown', wake); window.addEventListener('keydown', wake);
   requestAnimationFrame(frame);
   document.getElementById('loading').remove();
   // debug: advance the game by hand (used for testing when the tab isn't animating)
   const advance = (sec = 1) => { for (let t = 0; t < sec; t += 0.05) { game.update(0.05); for (const f of hooks.frame) f(0.05); } step(0); };
-  window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks };
+  window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks, music };
 }
 
 try { boot(); }

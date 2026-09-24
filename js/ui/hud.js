@@ -31,7 +31,7 @@ export class Hud {
     this.root = $('#ui');
     this.cat = 'village';
     this.buildOpen = true;
-    this.settings = { scrollPans: true, sound: false };
+    this.settings = { scrollPans: true, sound: false, music: true, musicVol: 0.6 };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem('tenka.ui') || '{}')); } catch (_) { /* no storage */ }
     // scrolling now zooms by default (two-finger scroll / mouse wheel); drag to move
     if (!this.settings.zoomV) { this.settings.scrollPans = false; this.settings.zoomV = 1; this.saveSettings(); }
@@ -402,7 +402,7 @@ export class Hud {
   sound(kind) {
     if (!this.settings.sound) return;
     try {
-      this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)();
+      this.ac = (this.music && this.music.ctx) || this.ac || new (window.AudioContext || window.webkitAudioContext)();
       const notes = { place: [392, 523], done: [523, 659, 784], click: [660], war: [196, 147, 196] }[kind] || [440];
       notes.forEach((f, i) => { const t = this.ac.currentTime + i * 0.09, o = this.ac.createOscillator(), gn = this.ac.createGain(); o.type = 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.05, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(gn).connect(this.ac.destination); o.start(t); o.stop(t + 0.32); });
     } catch (_) { /* sound optional */ }
@@ -522,7 +522,9 @@ export class Hud {
     this.openModal('Menu', h('div', { class: 'menu' },
       toggle('Welcome new families when there is room', () => s.welcome, v => { s.welcome = v; }),
       toggle('Scrolling moves the camera instead of zooming', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
-      toggle('Sound', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
+      toggle('Music', () => this.settings.music, v => { this.settings.music = v; this.saveSettings(); if (this.music) { this.music.setOn(v); if (v) this.music.unlock(); } }),
+      h('label', { class: 'toggle vol' }, h('span', null, 'Music volume'), h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(this.settings.musicVol ?? 0.6), oninput: e => { this.settings.musicVol = +e.target.value; if (this.music) this.music.setVolume(this.settings.musicVol); }, onchange: () => this.saveSettings() })),
+      toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.')),
       [{ label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
