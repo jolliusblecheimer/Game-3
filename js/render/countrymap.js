@@ -36,6 +36,16 @@ function cloudCanvas(size) {
   return c;
 }
 
+// your clan's war banner (nobori): planted on your village and every place you hold
+function clanBanner(seed) {
+  const g = new THREE.Group(), m = new Mesher(seed, 0.02), cloth = new Mesher(seed + 1, 0.02);
+  m.cyl(0.18, 0.22, 11, 6, '#3b2619', [0, 5.5, 0]); m.cone(0.3, 0.8, 6, '#d9b24a', [0, 11.3, 0]);
+  m.box(2.4, 0.16, 0.16, '#3b2619', [1.1, 10.6, 0]);
+  cloth.box(2.2, 6.2, 0.1, '#b8342a', [1.2, 7.4, 0]); cloth.box(2.2, 0.35, 0.12, '#1c1a17', [1.2, 10.35, 0]);
+  cloth.cyl(0.75, 0.75, 0.14, 16, '#f5efe0', [1.2, 8.6, 0], [Math.PI / 2, 0, 0]); cloth.cyl(0.42, 0.42, 0.16, 16, '#b8342a', [1.2, 8.6, 0], [Math.PI / 2, 0, 0]);
+  g.add(m.mesh(MAT.flat)); const c = cloth.mesh(MAT.flat); g.add(c); g.userData.cloth = c;
+  return g;
+}
 function siteModel(type, seed) {
   const g = new THREE.Group(), add = (m, x, z, s = 1, ry = 0) => { m.position.set(x, 0, z); m.scale.setScalar(s); m.rotation.y = ry; g.add(m); };
   const r = mulberry32(seed);
@@ -129,12 +139,17 @@ export class CountryMap {
     const home = new THREE.Group();
     const keep = buildModel('townhall', 8, 8, 1); keep.scale.setScalar(0.9); home.add(keep);
     for (let i = 0; i < 6; i++) { const a = i * 1.05, hm = buildModel('house', 4, 4, i); hm.scale.setScalar(0.7); hm.position.set(Math.cos(a) * 9, 0, Math.sin(a) * 9); hm.rotation.y = -a; home.add(hm); }
+    const hb = clanBanner(7); hb.position.set(-6, 0, -6); home.add(hb);
     home.position.set(0, this.h(0, 0), 0); home.traverse(o => { if (o.isMesh) { o.castShadow = true; o.userData.mapPick = { kind: 'home' }; } });
     this.root.add(home);
+    this.banners = [hb];
     for (const s of this.country.sites) {
       const g = siteModel(s.type, s.seed); g.position.set(s.x, this.h(s.x, s.z), s.z);
       g.traverse(o => { if (o.isMesh) o.userData.mapPick = { kind: 'site', id: s.id }; });
       this.root.add(g); this.siteObjs.set(s.id, g);
+      const b = clanBanner(s.seed); b.position.set(s.x + 6, this.h(s.x + 6, s.z - 4), s.z - 4); b.visible = false;
+      b.traverse(o => { if (o.isMesh) o.userData.mapPick = { kind: 'site', id: s.id }; });
+      this.root.add(b); s._banner = b; this.banners.push(b);
     }
   }
   buildFog() {
@@ -145,10 +160,10 @@ export class CountryMap {
     this.fogTex = new THREE.CanvasTexture(this.fogCanvas); this.fogTex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshBasicMaterial({ map: this.fogTex, transparent: true, depthWrite: false, fog: false, toneMapped: false });
     const geo = new THREE.PlaneGeometry(MAP.half * 2, MAP.half * 2); geo.rotateX(-Math.PI / 2);
-    this.fog = new THREE.Mesh(geo, mat); this.fog.position.y = 58; this.fog.renderOrder = 5;
+    this.fog = new THREE.Mesh(geo, mat); this.fog.position.y = 24; this.fog.renderOrder = 5;
     this.root.add(this.fog);
     // a lower cloud layer that hugs the hills gives the fog some depth
-    this.fog2 = new THREE.Mesh(geo, mat); this.fog2.position.y = 34; this.fog2.renderOrder = 4; this.root.add(this.fog2);
+    this.fog2 = new THREE.Mesh(geo, mat); this.fog2.position.y = 12; this.fog2.renderOrder = 4; this.root.add(this.fog2);
     this.redrawFog();
   }
   redrawFog() {
@@ -172,9 +187,11 @@ export class CountryMap {
     const C = this.country;
     if (C.fogDirty) this.redrawFog();
     this.fog.material.map.offset.set(Math.sin(t * 0.01) * 0.003, 0);
+    this.banners.forEach((b, i) => { if (b.visible) b.userData.cloth.rotation.y = Math.sin(t * 1.3 + i) * 0.18; });
     for (const s of C.sites) {
       const st = C.status(s), obj = this.siteObjs.get(s.id);
       obj.visible = st !== 'hidden';
+      s._banner.visible = st === 'held';
       obj.traverse(o => { if (o.isMesh && o.material === MAT.flat && st === 'ruined' && s.type !== 'ruins') o.scale.y = 0.35; });
     }
     // missions on the move

@@ -57,7 +57,10 @@ export class Country {
     this.revealKnown();
   }
   // places everyone knows about (the warlords' castles) show on the map from the start
-  revealKnown() { for (const s of this.sites) if (SITES[s.type].known) this.reveal(s.x, s.z, 14); }
+  revealKnown() {
+    for (const s of this.sites) if (SITES[s.type].known) this.reveal(s.x, s.z, 14);
+    for (const id of Object.keys(this.holds)) { const s = this.site(+id); if (s) this.reveal(s.x, s.z, 22); } // your own places are never under the clouds
+  }
   // the warlord castle whose soldiers raid you: the nearest one still standing
   warlordSource() {
     let best = null, bd = Infinity;
@@ -244,6 +247,7 @@ export class Country {
     this.away(guardVids, 'hold:' + site.id);
     this.holds[site.id] = { tributeT: this.clock + 60, checkT: this.clock + WAR.holdCheckEvery };
     this.setStatus(site, 'held');
+    this.reveal(site.x, site.z, 22);
   }
   recall(site) {
     const vids = [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id).map(v => v.id);

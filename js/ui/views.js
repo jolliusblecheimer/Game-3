@@ -67,16 +67,21 @@ export class Views {
     // labels over places
     const cam = this.stage.camera, W = window.innerWidth, H = window.innerHeight, C = this.game.country;
     const items = [{ key: 'home', x: 0, z: 0, text: 'Your village', cls: 'home', ic: 'castle' }];
-    for (const s of C.sites) { const st = C.status(s); if (st === 'hidden') continue; items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub: SITES[s.type].name + (st === 'ruined' ? (s.type === 'ruins' ? ' · searched' : ' · plundered') : ''), cls: st, ic: SITES[s.type].icon }); }
+    for (const s of C.sites) {
+      const st = C.status(s); if (st === 'hidden') continue;
+      const sub = st === 'held' ? `Yours · ${C.garrison(s).length} on guard` : SITES[s.type].name + (st === 'ruined' ? (s.type === 'ruins' ? ' · searched' : ' · plundered') : '');
+      items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub, cls: st, ic: st === 'held' ? 'flag' : SITES[s.type].icon });
+    }
     for (const m of C.missions) if (m.kind === 'army' && m.phase === 'ready') { const s = C.site(m.site); items.push({ key: 'm' + m.id, x: s.x, z: s.z + 14, text: 'Your army is waiting', cls: 'army', ic: 'flag', mission: m }); }
     const seen = new Set();
     for (const it of items) {
       seen.add(it.key);
       let el = this.labels.querySelector(`[data-k="${it.key}"]`);
+      if (el && el.dataset.ic !== it.ic) { el.remove(); el = null; } // e.g. a place you just took: show your banner
       if (!el) {
         el = h('button', { class: 'maplabel ' + it.cls, 'data-k': it.key, onclick: () => { if (it.mission) this.openBattle(it.mission); else if (it.site) this.selectSite(it.site); else this.selectHome(); } },
           icon(it.ic, 20), h('span', null, h('b', null, it.text), it.sub ? h('small', null, it.sub) : null));
-        el.dataset.sub = it.sub || '';
+        el.dataset.sub = it.sub || ''; el.dataset.ic = it.ic;
         this.labels.append(el);
       }
       el.className = 'maplabel ' + it.cls + (this.sel && this.sel.site === it.site && it.site ? ' on' : '');

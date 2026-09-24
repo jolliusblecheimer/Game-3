@@ -352,3 +352,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .panel.mappanel { max-height: calc(100% - 90px); }
 .bbanner { font-size: clamp(17px, 3vw, 28px); width: max-content; max-width: calc(100vw - 40px); white-space: normal; text-align: center; line-height: 1.25; }
 .sheet h2 { font-size: clamp(19px, 3vw, 24px); }
+/* places you hold: your colours */
+.maplabel.held { background: var(--verm); color: #fff5ec; border: 2px solid var(--verm-d); }
+.maplabel.held small { color: #ffd9cc; }
