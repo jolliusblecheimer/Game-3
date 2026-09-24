@@ -1,5 +1,5 @@
-// All on-screen interface: resource bar, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON } from '../game/data.js';
+// All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { THUMBS } from '../render/thumbs.js';
@@ -22,6 +22,8 @@ export function costChips(game, cost, live) {
     return el;
   }) : h('span', { class: 'c free' }, 'Free'));
 }
+// what each Town Hall level unlocks
+function unlocksAt(level) { return Object.entries(BUILDINGS).filter(([, d]) => (d.th || 1) === level && d.cat).map(([, d]) => d.name); }
 
 export class Hud {
   constructor(game) {
@@ -39,39 +41,63 @@ export class Hud {
   saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
 
-  /* ---------- live values (updated 4× per second) ---------- */
   live = (el, fn) => { this.lives.push({ el, fn }); fn(el); return el; };
   tick() { this.lives = this.lives.filter(l => l.el.isConnected); for (const l of this.lives) l.fn(l.el); }
 
   build() {
     const g = this.game, R = this.root;
     R.textContent = '';
-    const pill = (ic, title, fn, cls = '') => this.live(h('div', { class: 'res ' + cls, title }), el => {
-      const [b, small] = fn(); el.textContent = '';
-      el.append(icon(typeof ic === 'function' ? ic() : ic, 20), h('b', null, b), small ? h('small', null, small) : '');
-    });
+    // top: resources on the left, time and menu on the right
     const res = h('div', { class: 'resbar' });
-    for (const r in RES) res.append(pill(RES[r].icon, RES[r].name, () => [fmt(g.state.res[r]), '/' + fmt(g.storageCap())]));
-    for (const r in RES) res.children[Object.keys(RES).indexOf(r)].dataset.res = r;
-    const pop = pill('people', 'Villagers / homes', () => { const idle = g.idleVillagers().length; return [`${g.pop}/${g.housing()}`, idle ? ` ${idle} idle` : '']; });
-    const army = pill('soldier', 'Soldiers', () => [String(g.soldiers().length)]);
-    const harm = pill('sakura', 'Harmony: beauty buildings make villagers work faster', () => [`+${g.harmony()}%`]);
+    for (const r in RES) res.append(this.live(h('div', { class: 'res', title: RES[r].name }), el => {
+      const v = g.state.res[r], cap = g.storageCap(); el.textContent = '';
+      el.append(icon(RES[r].icon, 20), h('b', null, fmt(v)), h('small', null, '/' + fmt(cap)));
+      el.classList.toggle('full', v >= cap * 0.95); el.classList.toggle('empty', v <= 0);
+    }));
     const night = () => g.state.time < 0.22 || g.state.time > 0.8;
     const clock = this.live(h('button', { class: 'res clock', title: 'Pause (Space) · speed (F)', onclick: () => this.cycleSpeed() }), el => {
       const hr = Math.floor(g.state.time * 24); el.textContent = '';
       el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
-    this.mapBtn = h('button', { class: 'res mapbtn', title: 'Country map (M)', onclick: () => this.onMap && this.onMap() }, icon('map', 20), h('b', null, 'Map'));
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
-    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, pop, army, harm, h('div', { class: 'spacer' }), clock, this.mapBtn, menu));
+    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, menu));
+    // raid warnings under the top bar
+    this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }), el => {
+      const R = g.raids, left = R.timeLeft();
+      const show = R.active || (R.warned && left > 0);
+      el.hidden = !show; if (!show) return;
+      el.textContent = '';
+      el.append(icon('camp', 20), R.active ? h('b', null, `Bandit raid! ${R.alive().length} bandits in the village`) : h('b', null, `Bandits approaching from the ${R.side} — ${fmtTime(left)}`),
+        h('small', null, R.active ? 'Your soldiers fight, archers shoot from towers, everyone else hides.' : 'Get your soldiers ready and your gates shut.'));
+    });
+    R.append(this.raidBanner);
+    // bottom-left: the clan at a glance
+    this.clan = h('section', { class: 'clan' }); R.append(this.clan);
+    this.renderClan();
+    // bottom-centre: build menu
     this.bar = h('section', { class: 'buildbar' }); R.append(this.bar);
     this.info = h('div', { class: 'info', hidden: true }); R.append(this.info);
     this.renderBar();
+    // bottom-right: map
+    this.mapBtn = h('button', { class: 'mapbig', title: 'Country map (M)', onclick: () => this.onMap && this.onMap() }, icon('map', 34), h('b', null, 'Map'));
+    R.append(this.mapBtn);
     this.panel = h('aside', { class: 'panel', hidden: true }); R.append(this.panel);
     this.hint = h('div', { class: 'hint', hidden: true }); R.append(this.hint);
     this.toasts = h('div', { class: 'toasts' }); R.append(this.toasts);
     this.modal = h('div', { class: 'modal', hidden: true }); R.append(this.modal);
-    R.append(h('div', { class: 'keys' }, 'Drag: move · Scroll: pan · Pinch: zoom · Q/E: rotate · B: build · H: help'));
+  }
+  renderClan() {
+    const g = this.game, C = this.clan; C.textContent = '';
+    const row = (ic, label, fn, title) => this.live(h('div', { class: 'crow', title }, icon(ic, 20), h('span', null, label), h('b')), el => { el.lastChild.textContent = fn(); });
+    C.append(
+      h('button', { class: 'crest', title: 'Select the Keep', onclick: () => { const k = g.keep; if (k) this.input.select({ kind: 'building', id: k.id }); } },
+        h('span', { class: 'kanji' }, '天守'), this.live(h('span', null), el => { el.textContent = `Keep · level ${g.thLevel}`; })),
+      row('people', 'Villagers', () => `${g.pop} / ${g.housing()}`, 'Villagers / homes'),
+      this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
+      row('build', 'Builders', () => String(g.countJob('builder'))),
+      row('soldier', 'Soldiers', () => { const all = g.soldiers(true).length, here = g.soldiers().length; return all > here ? `${here} (+${all - here} away)` : String(here); }),
+      row('sakura', 'Harmony', () => `+${g.harmony()}%`, 'Beauty buildings make villagers work faster'),
+    );
   }
 
   /* ---------- build menu ---------- */
@@ -85,56 +111,83 @@ export class Hud {
     bar.append(tabs);
     if (!this.buildOpen) return;
     const row = h('div', { class: 'cards' });
+    if (this.cat === 'village') {
+      row.append(h('div', { class: 'card tool', role: 'button', tabindex: '0', title: 'Mark trees and boulders for your builders to clear',
+        onclick: () => this.input.startClearing(), onpointerenter: e => { if (e.pointerType !== 'touch') this.showToolInfo(e.currentTarget); }, onpointerleave: () => this.hideInfo() },
+        h('span', { class: 'art thumb' }, icon('demolish', 40)), h('span', { class: 'nm' }, 'Clear land'), h('span', { class: 'cost' }, h('span', { class: 'c free' }, 'Builders do it'))));
+    }
     for (const [type, d] of Object.entries(BUILDINGS)) {
       if (d.cat !== this.cat) continue;
+      const locked = (d.th || 1) > g.thLevel;
       const infoBtn = h('button', { class: 'infobtn', title: 'What does it do?', onclick: e => { e.stopPropagation(); this.toggleInfo(type, card); } }, icon('info', 16));
-      const card = h('div', { class: 'card', role: 'button', tabindex: '0', onclick: () => this.input.startPlacing(type),
+      const card = h('div', { class: 'card' + (locked ? ' locked' : ''), role: 'button', tabindex: '0',
+        onclick: () => { if (locked) { this.toggleInfo(type, card); this.toast(`Upgrade your Keep to level ${d.th} to build the ${d.name}`, 'warn'); } else this.input.startPlacing(type); },
         onpointerenter: e => { if (e.pointerType !== 'touch') this.showInfo(type, card); }, onpointerleave: () => this.hideInfo() },
-        art('building', type, d.kanji, 'thumb'), h('span', { class: 'nm' }, d.name), costChips(g, d.cost, this.live), infoBtn);
+        art('building', type, d.kanji, 'thumb'), h('span', { class: 'nm' }, d.name),
+        locked ? h('span', { class: 'lock' }, `Keep level ${d.th}`) : costChips(g, d.cost, this.live), infoBtn);
       card.dataset.type = type;
       row.append(card);
     }
     bar.append(row);
   }
-  infoRows(type) {
-    const d = BUILDINGS[type], rows = [];
+  infoRows(type, b = null) {
+    const g = this.game, d = BUILDINGS[type], L = b ? b.level : 1, rows = [];
     const row = (ic, text) => rows.push(h('div', { class: 'irow' }, icon(ic, 18), h('span', null, text)));
-    if (d.housing) row('house', `Homes for ${d.housing} villagers`);
-    if (d.storage) row('storage', `Stores ${d.storage} more of every resource`);
+    if (type === 'townhall') {
+      const T = TOWNHALL[L];
+      row('house', `Homes for ${T.housing} villagers`); row('storage', `Stores ${T.storage} of every resource`); row('build', `Room for ${T.builders} builders`);
+      row('camp', `Bandit raids come in bands of about ${T.raid}`);
+      return rows;
+    }
+    if (d.housing) row('house', `Homes for ${d.housing + 2 * (L - 1)} villagers`);
+    if (d.storage) row('storage', `Stores ${d.storage + 300 * (L - 1)} more of every resource`);
     if (d.jobs) {
-      const J = JOBS[d.job];
-      if (d.trains) row('katana', `${d.jobs} recruits at a time → ${JOBS[d.trains].name} in ${d.trainTime}s (each costs ${this.costText(d.trainCost)})`);
-      else row(J.res ? RES[J.res].icon : 'worker', `Up to ${d.jobs} ${J.name.toLowerCase()}s, each bringing ${J.amount} ${RES[J.res].name.toLowerCase()} per trip`);
+      const J = JOBS[d.job], n = d.jobs + (L - 1);
+      if (d.trains) row('katana', `${n} trainees at a time → ${JOBS[d.trains].name} after ${d.trainTime}s (each costs ${this.costText(d.trainCost)})`);
+      else row(J.res ? RES[J.res].icon : 'worker', `Up to ${n} ${J.name.toLowerCase()}s, each bringing ${J.amount} ${RES[J.res].name.toLowerCase()} per trip${L > 1 ? ` — ${Math.round((g.levelMult(b) - 1) * 100)}% faster` : ''}`);
     }
     if (d.dropoff === 'wood') row('wood', 'Woodcutters drop logs here — build it near trees');
     if (d.dropoff === 'all' && type !== 'townhall') row('storage', 'Workers deliver goods here — build it near fields and mines');
     if (d.beauty) row('sakura', `+${d.beauty} beauty — raises Harmony, so everyone works faster`);
     if (d.relax) row('people', d.relax === 'pray' ? 'Villagers with free time come here to pray' : 'Villagers with free time come here to relax');
-    if (d.garrison) row('soldier', `${d.garrison} archers can stand watch up here`);
+    if (d.garrison) row('soldier', `${d.garrison} archers stand watch up here${L > 1 ? `, shooting ${4 * (L - 1)} further` : ''}`);
     if (d.road) row('road', `Villagers walk ${Math.round((d.road - 1) * 100)}% faster and follow roads`);
-    if (d.blocks) row('wall', 'Blocks attackers — they must break through or go around');
-    if (type === 'gate') row('wall', 'Your people pass through; enemies must break it down');
+    if (d.hp) row('wall', `Strength ${b ? `${Math.round(b.hp)} / ${g.maxHp(b)}` : d.hp} — bandits must break it to get through`);
+    if (type === 'gate') row('wall', 'Your people pass through; bandits must break it down');
     if (type === 'hedge') row('soldier', 'Troops standing in a hedge are hidden from enemies');
-    if (type === 'spikes') row('wall', 'Slows attackers who push through');
+    if (type === 'spikes') row('wall', 'Slows attackers and wounds them as they push through');
+    if (d.upgradeTo) row('up', `Can be rebuilt as a ${BUILDINGS[d.upgradeTo].name} at Keep level ${BUILDINGS[d.upgradeTo].th}`);
+    else if ((d.maxLevel || 1) > 1 && !b) row('up', `Can be upgraded up to level ${d.maxLevel}${d.grow ? ' — it grows bigger at levels ' + Object.keys(d.grow).join(' and ') : ''}`);
     return rows;
   }
   infoCard(type) {
-    const d = BUILDINGS[type], [w, dd] = d.size;
+    const d = BUILDINGS[type], [w, dd] = d.size, locked = (d.th || 1) > this.game.thLevel;
     return h('div', { class: 'icard' },
       h('div', { class: 'ihead' }, art('building', type, d.kanji, 'big'), h('div', null, h('h3', null, d.name), h('span', { class: 'kan' }, d.kanji))),
       h('p', null, d.desc),
-      h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, d.time ? `Builds in ${d.time}s (faster with more helpers)` : 'Laid instantly')),
+      locked ? h('div', { class: 'irow warnrow' }, icon('castle', 18), h('span', null, `Unlocks at Keep level ${d.th}`)) : null,
+      h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, d.time ? `Your builders need about ${fmtTime(d.time)}` : 'Laid instantly')),
       h('div', { class: 'irow' }, icon('grid', 18), h('span', null, `Size ${w} × ${dd}` + (d.line ? ' — drawn as a line' : ''))),
       this.infoRows(type),
       h('div', { class: 'irow costrow' }, h('b', null, 'Cost'), costChips(this.game, d.cost, this.live)));
   }
-  showInfo(type, card, pinned = false) {
-    if (this.infoPinned && !pinned) return;
-    this.info.textContent = ''; this.info.append(this.infoCard(type));
-    this.info.hidden = false; this.infoType = type;
+  showToolInfo(card) {
+    this.info.textContent = '';
+    this.info.append(h('div', { class: 'icard' }, h('div', { class: 'ihead' }, h('span', { class: 'art big' }, icon('demolish', 44)), h('div', null, h('h3', null, 'Clear land'))),
+      h('p', null, 'Click one corner, then the other, to mark every tree and boulder in between. Your builders fell the trees and break up the rocks, bringing back wood and stone.'),
+      h('div', { class: 'irow' }, icon('build', 18), h('span', null, 'Needs builders — assign them at the Keep'))));
+    this.placeInfo(card);
+  }
+  placeInfo(card) {
+    this.info.hidden = false;
     const r = card.getBoundingClientRect(), bw = this.info.offsetWidth || 320;
     this.info.style.left = Math.max(12, Math.min(window.innerWidth - bw - 12, r.left + r.width / 2 - bw / 2)) + 'px';
     this.info.style.bottom = (window.innerHeight - this.bar.getBoundingClientRect().top + 10) + 'px';
+  }
+  showInfo(type, card, pinned = false) {
+    if (this.infoPinned && !pinned) return;
+    this.info.textContent = ''; this.info.append(this.infoCard(type));
+    this.infoType = type; this.placeInfo(card);
   }
   toggleInfo(type, card) {
     if (this.infoPinned && this.infoType === type) { this.hideInfo(true); return; }
@@ -146,20 +199,21 @@ export class Hud {
     document.querySelectorAll('.card').forEach(c => c.classList.toggle('on', !!P && c.dataset.type === P.type && !P.moveId));
     this.hideInfo(true);
     if (!P) { this.hint.hidden = true; return; }
-    const def = BUILDINGS[P.type];
     this.hint.hidden = false;
+    if (P.type === 'clear') { this.hintBase = 'Clear land'; this.placingHint(true, 'Click one corner of the area'); return; }
+    const def = BUILDINGS[P.type];
     this.hintBase = P.moveId ? `Moving ${def.name}` : `Placing ${def.name}`;
     this.placingHint(true, def.line ? 'Click where the line should start' : '');
   }
   placingHint(ok, why) {
     if (!this.hint || this.hint.hidden) return;
     this.lastWhy = why;
-    const P = this.input && this.input.placing;
+    const P = this.input && this.input.placing, line = P && (P.type === 'clear' || BUILDINGS[P.type].line);
     this.hint.textContent = '';
     this.hint.append(...[h('b', null, this.hintBase || ''), why ? h('span', { class: ok ? '' : 'bad' }, ' — ' + why) : null,
-      h('small', null, `  R: rotate · Esc: ${P && P.lineStart ? 'finish line' : 'cancel'}${P && !P.moveId && !BUILDINGS[P.type].line ? ' · Shift+click: place more' : ''}`),
+      h('small', null, line ? '  Esc: finish' : `  R: rotate · Esc: cancel${P && !P.moveId ? ' · Shift+click: place more' : ''}`),
       h('button', { class: 'mini', onclick: () => this.input.cancelPlacing() }, icon('close', 14), 'Done'),
-      BUILDINGS[P ? P.type : 'house'].line ? null : h('button', { class: 'mini', onclick: () => this.input.rotatePlacing() }, icon('rotate', 14), 'Rotate')].filter(Boolean));
+      line ? null : h('button', { class: 'mini', onclick: () => this.input.rotatePlacing() }, icon('rotate', 14), 'Rotate')].filter(Boolean));
   }
 
   /* ---------- selection panel ---------- */
@@ -172,61 +226,92 @@ export class Hud {
     const close = h('button', { class: 'x', title: 'Close (Esc)', onclick: () => this.input.select(null) }, icon('close', 16));
     if (sel.kind === 'building') {
       const b = g.buildings.get(sel.id); if (!b) { p.hidden = true; return; }
-      const d = b.def;
+      const d = b.def, maxL = d.maxLevel || 1;
       p.append(close, h('div', { class: 'phead' }, art('building', b.type, d.kanji, 'big'), h('div', null, h('h2', null, d.name),
-        this.live(h('p', { class: 'sub' }), el => { el.textContent = b.done ? 'Complete' : `Under construction · ${Math.floor(b.progress * 100)}%`; }))),
+        this.live(h('p', { class: 'sub' }), el => { el.textContent = !b.done ? `Under construction · ${Math.floor(b.progress * 100)}%` : b.upg ? `Upgrading to level ${b.upg.level} · ${Math.floor(b.upg.progress * 100)}%` : maxL > 1 ? `Level ${b.level} of ${maxL}` : 'Complete'; }))),
         h('p', { class: 'desc' }, d.desc));
-      if (!b.done) {
-        p.append(this.bar2(() => b.progress), this.live(h('p', { class: 'sub' }), el => {
-          const n = [...g.villagers.values()].filter(v => v.site === b.id).length;
-          el.textContent = n ? `${n} villager${n > 1 ? 's' : ''} building` : g.state.settings.autoBuild ? 'Waiting for an idle villager to come and build' : 'Auto-build is off — turn it on in the menu';
+      if (!b.done || b.upg) {
+        p.append(this.bar2(() => b.done ? b.upg && b.upg.progress : b.progress), this.live(h('p', { class: 'sub' }), el => {
+          const n = [...g.villagers.values()].filter(v => v.site === b.id).length, builders = g.countJob('builder');
+          el.textContent = n ? `${n} builder${n > 1 ? 's' : ''} at work` : builders ? 'Waiting for a free builder' : 'No builders! Assign villagers as builders at the Keep.';
         }));
       }
-      const rows = this.infoRows(b.type);
+      const rows = this.infoRows(b.type, b);
       if (rows.length) p.append(h('div', { class: 'irows' }, rows));
-      if (d.jobs) {
+      if (d.hp) p.append(this.bar2(() => b.hp / g.maxHp(b), 'hp'));
+      // workers (the Keep's workers are its builders)
+      const slots = g.jobSlots(b);
+      if (slots && b.done) {
         const J = JOBS[d.job];
         p.append(h('div', { class: 'jobs' },
-          h('div', { class: 'jrow' }, icon(d.trains ? 'katana' : 'worker', 18), h('b', null, d.trains ? 'Recruits' : `${J.name}s`),
-            this.live(h('span', { class: 'count' }), el => { el.textContent = `${b.workers.length} / ${d.jobs}`; }),
-            h('button', { class: 'mini', title: 'Remove a worker', onclick: () => { g.assign(b, -1); this.renderPanel(); } }, '−'),
-            h('button', { class: 'mini', title: 'Add an idle villager', onclick: () => { g.assign(b, +1); this.renderPanel(); } }, '+')),
+          h('div', { class: 'jrow' }, art('person', J.look, null, 'face'), h('b', null, d.trains ? `${J.name}s` : `${J.name}s`),
+            this.live(h('span', { class: 'count' }), el => { el.textContent = `${b.workers.length} / ${g.jobSlots(b)}`; }),
+            h('button', { class: 'mini', title: 'Send one back to being unemployed', onclick: () => { g.assign(b, -1); this.renderPanel(); } }, '−'),
+            h('button', { class: 'mini', title: 'Hire an unemployed villager', onclick: () => { g.assign(b, +1); this.renderPanel(); } }, '+')),
+          this.live(h('p', { class: 'sub' }), el => { const n = g.idleVillagers().length; el.textContent = n ? `${n} unemployed villager${n > 1 ? 's' : ''} can be hired` : 'Nobody is unemployed right now'; }),
           h('ul', { class: 'names' }, b.workers.map(id => {
             const v = g.villagers.get(id); if (!v) return null;
             return h('li', null, art('person', JOBS[v.job].look, null, 'face'), h('div', null, h('button', { class: 'link', onclick: () => this.input.select({ kind: 'villager', id }) }, v.name),
               d.trains ? this.bar2(() => (v.train || 0) / d.trainTime) : this.live(h('small', null), el => { el.textContent = v.status; })));
           }))));
       }
-      if (d.garrison) {
+      if (d.garrison && b.done) {
         p.append(this.live(h('p', { class: 'sub' }), el => {
           const n = [...g.villagers.values()].filter(v => v.post && v.post.b === b.id).length;
           el.textContent = `Archers on watch: ${n} / ${d.garrison}` + (g.countJob('archer') ? '' : ' — train archers at a Kyūdō Range');
         }));
       }
+      if (b.type === 'townhall') this.keepSection(p, b);
+      else this.upgradeSection(p, b);
       const actions = h('div', { class: 'actions' });
-      actions.append(h('button', { class: 'btn ghost', title: 'Move (M)', onclick: () => this.input.startPlacing(b.type, b.id) }, icon('move', 16), 'Move'));
+      actions.append(h('button', { class: 'btn ghost', title: 'Move', onclick: () => this.input.startPlacing(b.type, b.id) }, icon('move', 16), 'Move'));
       if (b.type !== 'townhall') actions.append(h('button', { class: 'btn danger', title: 'Demolish (Delete)', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? 'Really demolish?' : 'Demolish'));
       p.append(actions);
       if (this.extraPanel) this.extraPanel(p, b);
     } else {
       const v = g.villagers.get(sel.id); if (!v) { p.hidden = true; return; }
       const J = JOBS[v.job], work = v.work ? g.buildings.get(v.work) : null;
-      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work ? ` · ${work.def.name}` : '')))),
+      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work && v.job !== 'builder' ? ` · ${work.def.name}` : '')))),
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
-      if (v.job === 'trainee' && work) p.append(this.bar2(() => (v.train || 0) / work.def.trainTime));
+      if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / work.def.trainTime));
       const actions = h('div', { class: 'actions' });
       actions.append(h('button', { class: 'btn ghost', onclick: () => { this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } }, icon('eye', 16), 'Follow'));
-      if (v.job !== 'idle' && !J.soldier) actions.append(h('button', { class: 'btn ghost', onclick: () => { g.setJob(v, 'idle'); this.renderPanel(); } }, icon('stop', 16), 'Stop working'));
+      if (v.job !== 'idle' && !J.soldier) actions.append(h('button', { class: 'btn ghost', onclick: () => { g.setJob(v, 'idle'); this.renderPanel(); } }, icon('stop', 16), 'Make unemployed'));
       p.append(actions);
       if (v.job === 'idle') {
-        const open = [...g.buildings.values()].filter(b => b.done && b.def.jobs && b.workers.length < b.def.jobs);
-        p.append(h('p', { class: 'sub' }, open.length ? 'Give a job:' : 'No free jobs — build a field, camp, quarry, mine or dojo.'),
-          h('div', { class: 'jobgrid' }, open.slice(0, 8).map(b => h('button', { class: 'btn ghost small', onclick: () => { g.setJob(v, b.def.job, b.id); this.renderPanel(); } }, art('building', b.type, null, 'tiny'), JOBS[b.def.job].name))));
+        // jobs shown as the person they'd become
+        const opts = [...g.buildings.values()].filter(b => b.done && g.jobSlots(b) && b.workers.length < g.jobSlots(b));
+        p.append(h('h3', { class: 'jobh' }, 'Give a job'),
+          opts.length ? h('div', { class: 'jobgrid' }, opts.slice(0, 9).map(b => {
+            const J2 = JOBS[b.def.job];
+            return h('button', { class: 'jobcard', onclick: () => { g.setJob(v, b.def.job, b.id); this.renderPanel(); } }, art('person', J2.look, null, 'face'),
+              h('span', null, h('b', null, J2.name), h('small', null, `${b.def.name} · ${b.workers.length}/${g.jobSlots(b)}`)));
+          })) : h('p', { class: 'sub' }, 'No free jobs — build a field, lumber camp, quarry or dojo, or add builders at the Keep.'));
       }
     }
   }
-  bar2(frac) { const i = h('i'); return this.live(h('div', { class: 'bar' }, i), () => { i.style.width = Math.min(100, Math.max(0, frac() * 100)).toFixed(1) + '%'; }); }
+  upgradeSection(p, b) {
+    const g = this.game, u = g.upgradeInfo(b);
+    if (!u || u.busy || u.max) { if (u && u.max && (b.def.maxLevel || 1) > 1) p.append(h('p', { class: 'sub' }, 'Fully upgraded.')); return; }
+    p.append(h('div', { class: 'upgrade' },
+      h('div', { class: 'jrow' }, icon('up', 18), h('b', null, u.name), h('span', { class: 'sub' }, fmtTime(u.time))),
+      u.grows ? h('p', { class: 'sub' }, 'It will grow bigger.') : null,
+      h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(b)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade')),
+      u.why ? h('p', { class: 'why' }, u.why) : null));
+  }
+  keepSection(p, k) {
+    const g = this.game, L = k.level;
+    if (L < MAX_TH) {
+      const u = g.upgradeInfo(k), next = unlocksAt(L + 1);
+      p.append(h('div', { class: 'upgrade keepup' },
+        h('div', { class: 'jrow' }, icon('castle', 20), h('b', null, `Keep level ${L + 1}`), u && !u.busy ? h('span', { class: 'sub' }, fmtTime(u.time)) : null),
+        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, +1 builder` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + '. Raids get bigger.'),
+        u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
+          u.why ? h('p', { class: 'why' }, u.why) : null] : null));
+    } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));
+  }
+  bar2(frac, cls = '') { const i = h('i'); return this.live(h('div', { class: 'bar ' + cls }, i), () => { i.style.width = Math.min(100, Math.max(0, (frac() || 0) * 100)).toFixed(1) + '%'; }); }
   costText(c) { return Object.keys(c).map(r => `${c[r]} ${RES[r].name.toLowerCase()}`).join(' + '); }
   demolishSelected() {
     if (!this.sel || this.sel.kind !== 'building') return;
@@ -239,15 +324,16 @@ export class Hud {
   onGame(type, data) {
     if (type === 'toast') this.toast(data.text, data.kind);
     if (['build', 'built', 'demolish', 'move', 'job', 'villager'].includes(type)) {
-      if (type === 'built') this.sound('done');
+      if (type === 'built') { this.sound('done'); if (data && data.type === 'townhall') this.renderBar(); }
       clearTimeout(this.rt); this.rt = setTimeout(() => this.renderPanel(), 30);
     }
+    if (type === 'raidWarning' || type === 'raid') this.sound('war');
     if (type === 'hungry' && this.game.state.clock - (this.hungryAt || -99) > 60) { this.hungryAt = this.game.state.clock; this.toast('Out of wheat! Villagers work slowly — add farmers.', 'bad'); }
   }
   toast(text, kind = '') {
     const t = h('div', { class: 'toast ' + kind }, text);
     this.toasts.append(t); while (this.toasts.children.length > 4) this.toasts.firstChild.remove();
-    setTimeout(() => t.remove(), 4200);
+    setTimeout(() => t.remove(), 5000);
   }
   sound(kind) {
     if (!this.settings.sound) return;
@@ -269,10 +355,11 @@ export class Hud {
   showHelp() {
     const rows = [['Drag the ground', 'Move the camera'], ['Two-finger scroll', 'Move the camera'], ['Pinch  /  Z X', 'Zoom'], ['Q / E', 'Rotate the camera'], ['W A S D  /  arrows', 'Move the camera'],
       ['Click', 'Select a building or villager'], ['Hover a build card', 'See what it does (or tap its ⓘ)'], ['B', 'Show / hide the build menu'], ['R', 'Rotate while placing'],
-      ['Shift + click', 'Keep placing the same building'], ['Walls & roads', 'Click start, click end — keeps going until Esc'], ['M', 'Country map'],
+      ['Walls, roads & clearing', 'Click start, click end — keeps going until Esc'], ['M', 'Country map'],
       ['Delete', 'Demolish (press twice)'], ['Space', 'Pause'], ['F', 'Game speed 1× / 2× / 3×'], ['Esc', 'Cancel / close']];
     this.openModal('How to play', h('div', null,
-      h('p', null, 'Build your clan’s village in the valley. Villagers do the work: give them jobs at fields, camps, quarries and mines — idle villagers build new buildings on their own. Roads speed everyone up. Houses bring new families; shrines and gardens raise Harmony. Train soldiers, then open the Map to scout the country and raid rival strongholds.'),
+      h('p', null, 'Grow your clan slowly and calmly. Unemployed villagers get jobs at fields, camps, quarries and mines, and builders (assigned at the Keep) build, upgrade and clear land. New families arrive only now and then, so every villager counts.'),
+      h('p', null, 'Upgrade your Keep to unlock new buildings and bigger upgrades — but a richer village draws bigger bandit raids, so keep walls, towers and soldiers ready. When you are strong enough, open the Map to scout the country and raid your rivals.'),
       h('dl', { class: 'kv keys2' }, rows.map(([k, v]) => [h('dt', null, k), h('dd', null, v)]))));
   }
   openMenu() {
@@ -280,8 +367,8 @@ export class Hud {
     const toggle = (label, get, set) => h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: get() ? true : null, onchange: e => set(e.target.checked) }), label);
     let q = 'auto'; try { q = localStorage.getItem('tenka.quality') || 'auto'; } catch (_) { /* */ }
     this.openModal('Menu', h('div', { class: 'menu' },
-      toggle('Idle villagers build automatically', () => s.autoBuild, v => { s.autoBuild = v; }),
-      toggle('Welcome new villagers when there is room', () => s.welcome, v => { s.welcome = v; }),
+      toggle('Unemployed villagers help build when builders are busy', () => s.autoBuild, v => { s.autoBuild = v; }),
+      toggle('Welcome new families when there is room', () => s.welcome, v => { s.welcome = v; }),
       toggle('Two-finger scroll moves the camera (off: zooms)', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
       toggle('Sound', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
@@ -291,7 +378,6 @@ export class Hud {
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
        { label: 'Close' }]);
   }
-  // Copy your save as text (to move it to another device or keep it safe), or paste one in.
   openSaveCode() {
     this.saver();
     let code = '';
@@ -321,9 +407,8 @@ export class Hud {
     this.openModal('While you were away…', h('div', null,
       h('p', null, `${fmtTime(r.sec)} passed in the valley. Your people kept working${r.sec >= ECON.offlineCapHours * 3600 ? ' (up to 4 hours count)' : ''}.`),
       h('div', { class: 'chips' }, rows),
-      r.built ? h('p', null, `${r.built} building${r.built > 1 ? 's' : ''} finished.`) : null,
-      r.trained ? h('p', null, `${r.trained} recruit${r.trained > 1 ? 's' : ''} finished training.`) : null,
-      r.extra || null));
+      r.built ? h('p', null, `${r.built} building job${r.built > 1 ? 's' : ''} finished.`) : null,
+      r.trained ? h('p', null, `${r.trained} trainee${r.trained > 1 ? 's' : ''} finished training.`) : null));
   }
 
   /* ---------- keyboard ---------- */

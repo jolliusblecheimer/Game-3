@@ -50,6 +50,18 @@ export class Input {
     this.makeGhost();
     this.hud.onPlacing(this.placing);
   }
+  // Clear land: click one corner, then the other, to mark trees and rocks for the builders.
+  startClearing() {
+    this.cancelPlacing();
+    this.placing = { type: 'clear', lineStart: null, rot: 0 };
+    this.select(null);
+    this.hud.onPlacing(this.placing);
+  }
+  clearCells(a, b) {
+    const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), z0 = Math.min(a[1], b[1]), z1 = Math.max(a[1], b[1]), cells = [];
+    for (let z = z0; z <= z1 && cells.length < 900; z++) for (let x = x0; x <= x1; x++) cells.push([x, z]);
+    return cells;
+  }
   endLine() {
     if (!this.placing || !this.placing.lineStart) return false;
     this.placing.lineStart = null;
@@ -65,6 +77,7 @@ export class Input {
   }
   makeGhost() {
     if (this.ghost) { this.stage.scene.remove(this.ghost); this.ghost = null; }
+    if (this.placing.type === 'clear') return;
     const P = this.placing, def = BUILDINGS[P.type], [a, b] = def.size;
     const g = new THREE.Group();
     const model = buildModel(P.type, a * PLOT.cell, b * PLOT.cell, 1);
@@ -82,7 +95,9 @@ export class Input {
   }
   // footprint min-corner so the pointer is at the building's centre
   cellFor(p, type, rot) {
-    const [w, d] = this.game.footprint(type, rot);
+    if (type === 'clear') return this.game.grid.toCell(p.x, p.z);
+    const mb = this.placing && this.placing.moveId && this.game.buildings.get(this.placing.moveId);
+    const [w, d] = this.game.footprint(type, rot, mb ? mb.level : 1);
     return [Math.round((p.x + PLOT.half) / PLOT.cell - w / 2), Math.round((p.z + PLOT.half) / PLOT.cell - d / 2)];
   }
   lineCells(start, end) {
@@ -92,9 +107,18 @@ export class Input {
     return cells.slice(0, 60);
   }
   updateGhost(cx, cz) {
-    const P = this.placing; if (!P || !this.ghost) return;
+    const P = this.placing; if (!P) return;
+    if (P.type === 'clear') {
+      this.lastCell = [cx, cz];
+      const cells = P.lineStart ? this.clearCells(P.lineStart, [cx, cz]) : [[cx, cz]];
+      this.drawLine(cells, cells, cells.length);
+      if (P.lineStart) { const n = this.countMarkable(cells); this.hud.placingHint(true, `${n} tree${n === 1 ? '' : 's'} and boulders to clear — click to mark`); }
+      return;
+    }
+    if (!this.ghost) return;
     this.lastCell = [cx, cz];
-    const game = this.game, [w, d] = game.footprint(P.type, P.rot), c = game.worldCenter(cx, cz, w, d);
+    const mb = P.moveId && this.game.buildings.get(P.moveId);
+    const game = this.game, [w, d] = game.footprint(P.type, P.rot, mb ? mb.level : 1), c = game.worldCenter(cx, cz, w, d);
     const def = BUILDINGS[P.type];
     this.ghost.position.set(c.x, 0, c.z); this.ghost.rotation.y = P.rot * Math.PI / 2;
     let ok, why;
@@ -125,10 +149,22 @@ export class Input {
     }
     this.lineTiles = g; this.stage.scene.add(g);
   }
+  countMarkable(cells) {
+    const set = new Set(cells.map(c => c.join(','))), g = this.game;
+    return g.nature.trees.filter(t => !t.removed && set.has(t.cx + ',' + t.cz)).length + g.nature.rocks.filter(r => !r.removed && set.has(r.cx + ',' + r.cz)).length;
+  }
   commitPlacing(shift) {
     const P = this.placing, game = this.game, def = BUILDINGS[P.type];
     if (!this.lastCell) return;
     const [cx, cz] = this.lastCell;
+    if (P.type === 'clear') {
+      if (!P.lineStart) { P.lineStart = [cx, cz]; this.updateGhost(cx, cz); return; }
+      const a = P.lineStart, n = game.markArea(Math.min(a[0], cx), Math.min(a[1], cz), Math.max(a[0], cx), Math.max(a[1], cz));
+      P.lineStart = null; if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
+      this.hud.toast(n ? `${n} marked for clearing${game.countJob('builder') ? ' — your builders will see to it' : ' — assign builders at the Keep to clear them'}` : 'No trees or boulders there', n ? '' : 'warn');
+      this.hud.placingHint(true, 'Click one corner of the next area, or Esc to finish');
+      return;
+    }
     if (P.moveId) {
       if (game.move(P.moveId, cx, cz, P.rot)) { this.hud.sound('place'); const id = P.moveId; this.cancelPlacing(); this.select({ kind: 'building', id }); }
       else this.hud.toast('Can’t move it there', 'warn');

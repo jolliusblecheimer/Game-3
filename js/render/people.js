@@ -16,6 +16,7 @@ export const LOOKS = {
   miner:       { robe: ['#4a3f35', '#56473a'], pants: '#2f2a26', hat: 'cloth', tool: 'pick' },
   builder:     { robe: ['#9a5b2e', '#8c5530'], pants: '#3d3228', hat: 'hachimaki', tool: 'mallet' },
   trainee:     { robe: ['#ece6d6'], pants: '#2b3346', hat: 'hachimaki', tool: 'bokken' },
+  trainee_archer: { robe: ['#ece6d6'], pants: '#3a2e4a', hat: 'hachimaki', tool: 'yumi', quiver: true },
   ashigaru:    { robe: ['#2e3440'], pants: '#23262d', hat: 'jingasa', tool: 'yari', armor: '#3a3f4a', banner: CLAN },
   archer:      { robe: ['#34402e'], pants: '#23262d', hat: 'jingasa', tool: 'yumi', armor: '#3c4636', quiver: true },
   samurai:     { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#1c1c22', crest: '#e0b04a' },
@@ -146,7 +147,12 @@ export class Person {
         if (this.carryVisible()) { aL.rotation.x = -2.6; aR.rotation.x = -2.6; aL.rotation.z = 0.25; aR.rotation.z = -0.25; }
         break;
       }
-      case 'work': case 'chop': { const s = Math.sin(t * 5); aR.rotation.x = -1.7 + s * 1.0; aL.rotation.x = -1.1 + s * 0.5; bodyRX = 0.15 + s * 0.08; break; }
+      case 'chop': { const s = Math.sin(t * 5); aR.rotation.x = -1.7 + s * 1.0; aL.rotation.x = -1.1 + s * 0.5; bodyRX = 0.15 + s * 0.08; break; }
+      case 'work': { const s = Math.sin(t * 7); aR.rotation.x = -1.2 + s * 0.35; aL.rotation.x = -1.0; bodyRX = 0.3; lL.rotation.x = -0.3; lR.rotation.x = 0.2; break; }
+      case 'hammer': { const s = Math.max(0, Math.sin(t * 6)); aR.rotation.x = -2.6 + s * 1.9; aL.rotation.x = -0.9; bodyRX = 0.1 + s * 0.12; break; }
+      case 'pickaxe': { const s = Math.sin(t * 3.6); aR.rotation.x = -2.9 + (s + 1) * 1.2; aL.rotation.x = -2.9 + (s + 1) * 1.2; aL.rotation.z = -0.2; bodyRX = 0.05 + (s + 1) * 0.18; break; }
+      case 'kneel': { lL.rotation.x = -1.4; lR.rotation.x = 0.2; bodyY = -0.38; bodyRX = 0.45; const s = Math.sin(t * 2.4); aR.rotation.x = -0.9 + s * 0.3; aL.rotation.x = -0.7 - s * 0.2; break; }
+      case 'drop': { const s = Math.min(1, (t % 1.4) / 0.7); aR.rotation.x = -2.4 + s * 1.2; aL.rotation.x = -2.4 + s * 1.2; bodyRX = s * 0.5; break; }
       case 'dig': { const s = Math.sin(t * 4); aR.rotation.x = -0.6 + s * 0.8; aL.rotation.x = -0.6 + s * 0.8; bodyRX = 0.35 + s * 0.12; break; }
       case 'pray': { aL.rotation.x = -1.2; aR.rotation.x = -1.2; aL.rotation.z = -0.35; aR.rotation.z = 0.35; bodyRX = 0.25 + Math.sin(t * 0.8) * 0.12; break; }
       case 'sit': { lL.rotation.x = -1.5; lR.rotation.x = -1.5; bodyY = -0.5; aL.rotation.x = -0.5; aR.rotation.x = -0.4 + Math.sin(t * 0.7) * 0.2; break; }

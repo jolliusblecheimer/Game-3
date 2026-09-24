@@ -36,11 +36,12 @@ Then open http://localhost:8000.
 
 ## How it works
 
-- **Villagers do the work.** Assign them to fields, lumber camps, quarries and mines. They walk out, work, and carry goods back to the keep or a storehouse. Idle villagers build new buildings on their own.
-- **Resources:** wheat, wood, stone and gold. Villagers eat wheat; new families move in when there are empty houses and spare wheat.
-- **Harmony:** shrines, gardens, koi ponds, tea houses, sakura trees and lanterns make everyone work faster. Idle villagers relax and pray there. At night they go home and the lanterns glow.
-- **Build freely:** place and rotate anything, move buildings later, and draw walls, bamboo palisades, spike barricades and hedges as lines.
-- **Army:** recruits train at the Dojo (Ashigaru spearmen) and the Kyūdō Range (Yumi archers). Archers climb Yagura towers and keep watch.
+- **A slow, calm pace.** You start with 10 villagers. New families arrive only now and then (and only if there is room and wheat), so every villager counts.
+- **Jobs.** Hire unemployed villagers at fields, lumber camps, quarries and mines; they plant and harvest, fell trees, swing picks at the rock face and disappear into the mine, then carry goods into storage. Builders are assigned at the Keep: they build, upgrade, repair walls and clear land.
+- **Progression.** The Keep has 5 levels. Each level adds homes, storage and a builder, and unlocks new buildings (stone roads, gold mine, dojo and towers at 2; stone walls, archery range, shrine and siege workshop at 3; commanders at 4 and 5). Most buildings can be upgraded too, and workplaces grow bigger at levels 3 and 5.
+- **Defense.** Bandits raid the village from time to time — the bigger your Keep, the bigger the band. They break through palisades and walls, fight your soldiers and steal from storage. Spearmen fight them, archers shoot from towers, and everyone else hides indoors. Start with bamboo palisades; stone walls (expensive but strong) come at Keep level 3.
+- **Harmony:** shrines, gardens, koi ponds, tea houses, sakura trees and lanterns make everyone work faster.
+- **Clear land:** mark trees and boulders and your builders remove them.
 
 ## The country and raids
 

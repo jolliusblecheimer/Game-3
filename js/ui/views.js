@@ -430,10 +430,11 @@ export class Views {
       const box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('soldier', 18), h('b', null, 'Commanders')));
       for (const [type, C] of Object.entries(COMMANDERS)) {
         const cur = [...g.villagers.values()].find(v => v.job === type);
+        if (!cur && g.thLevel < C.th) { box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name), h('small', null, `${C.ability}: ${C.abilityDesc}`)), h('span', { class: 'pill' }, `Keep level ${C.th}`))); continue; }
         box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name + (cur ? ` — ${cur.name}` : '')), h('small', null, `${C.ability}: ${C.abilityDesc}`)),
           cur ? h('span', { class: 'pill' }, cur.away ? 'Away' : 'Ready') : h('button', { class: 'btn small', onclick: () => {
-            const cand = g.idleVillagers()[0] || g.soldiers().find(v => v.job === 'ashigaru');
-            if (!cand) return g.toast('No idle villager or spearman to promote', 'warn');
+            const cand = g.soldiers().find(v => v.job === 'ashigaru') || g.idleVillagers()[0];
+            if (!cand) return g.toast('You need a spearman (or an unemployed villager) to promote', 'warn');
             if (!g.canAfford(C.cost)) return g.toast('Not enough resources', 'warn');
             g.pay(C.cost); g.setJob(cand, type); g.toast(`${cand.name} is now your ${JOBS[type].name}!`); this.hud.renderPanel();
           } }, 'Appoint', costChips(g, C.cost))));
