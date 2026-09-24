@@ -198,9 +198,10 @@ export class Country {
       }
       // an enemy force gathers: you get a warning and time to respond
       if (!hold.attack && this.clock >= hold.checkT) {
-        hold.attack = { at: this.clock + WAR.attackWarning, force: Math.round(S.threat * (0.8 + Math.random() * 0.6)) };
+        hold.attack = { at: this.clock + WAR.attackWarning, force: Math.max(1, Math.round(this.attackCap(s) * (0.8 + Math.random() * 0.4))) };
         g.emit('holdAttack', s);
       }
+      if (hold.attack) hold.attack.force = Math.min(hold.attack.force, Math.ceil(this.attackCap(s) * 1.2)); // older saves: no 40-man armies
       if (hold.attack && this.clock >= hold.attack.at && !hold.attack.fighting) this.resolveAttack(s, hold);
       // reinforcements that arrive join the garrison
       for (const m of this.missions) if (m.kind === 'reinforce' && m.site === s.id && m.phase === 'ready') {
@@ -209,6 +210,9 @@ export class Country {
       }
     }
   }
+  // how big a force the enemy sends to take a place back: matched to the garrison you left there
+  // (about 3 men plus 1.5 for each of yours), never more than the place is worth
+  attackCap(site) { return Math.min(SITES[site.type].threat || 3, 3 + 1.5 * this.garrison(site).length); }
   garrison(site) { return [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id); }
   // the garrison fights on its own
   resolveAttack(s, hold) {

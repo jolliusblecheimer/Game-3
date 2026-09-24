@@ -225,7 +225,7 @@ export class Views {
     const guards = C.garrison(site), home = g.soldiers();
     this.hud.sound('war');
     this.hud.openModal(`${site.name} is under attack!`, h('div', null,
-      h('p', null, `Scouts report a force of about ${Math.round(hold.attack.force * 1.1)} enemy soldiers marching on ${site.name}. They will storm it in ${fmtTime(hold.attack.at - C.clock)}.`),
+      h('p', null, `Scouts report a force of about ${hold.attack.force} enemy soldiers marching on ${site.name}. They will storm it in ${fmtTime(hold.attack.at - C.clock)}.`),
       h('p', { class: 'sub' }, `Your garrison: ${guards.length} soldier${guards.length === 1 ? '' : 's'}. The walls, towers and gate are yours now — use them.`)),
       [{ label: 'Lead the defense', cls: 'danger', fn: () => this.openDefense(site) },
        { label: `Send reinforcements (${home.length} at home)`, cls: 'ghost', keep: true, fn: () => this.reinforcePicker(site) },

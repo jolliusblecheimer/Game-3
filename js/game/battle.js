@@ -325,9 +325,9 @@ export class Battle {
     }
   }
   spawnAttackers() {
-    const force = this.mission.force || 8, n = Math.round(force * 1.1), r = this.rand;
+    const force = this.mission.force || 8, n = Math.round(force), r = this.rand;
     const types = []; for (let i = 0; i < n; i++) types.push(i % 10 < 4 ? 'enemy_ashigaru' : i % 10 < 6 ? 'enemy_shield' : i % 10 < 9 ? 'enemy_archer' : 'enemy_samurai');
-    if (this.site.tier >= 4) types.push('enemy_lord');
+    if (this.site.tier >= 4 && n >= 12) types.push('enemy_lord');
     types.forEach((t, i) => { const c = this.W(20 + (i % 24), 0); this.makeUnit(1, t, c.x + (r() - 0.5), this.grid.center(0, 57 + Math.floor(i / 24) * 1.5).z, { attacker: true }); });
     if (this.gate) this.makeUnit(1, 'enemy_ram', this.W(32, 0).x, this.grid.center(0, 61).z, { attacker: true, ram: true });
   }
