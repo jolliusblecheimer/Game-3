@@ -66,14 +66,21 @@ export class Input {
     if (!this.placing || !this.placing.lineStart) return false;
     this.placing.lineStart = null;
     if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
-    this.hud.placingHint(true, 'Click where the line should start');
+    this.hud.placingHint(true, 'Click where the line should start, or drag to draw it');
     return true;
+  }
+  // Move mode: grab any building and drop it somewhere else
+  setMoveMode(on) {
+    this.moveMode = !!on;
+    if (on) { this.cancelPlacing(); this.select(null); }
+    this.hud.onMoveMode(this.moveMode);
   }
   cancelPlacing() {
     if (this.ghost) { this.stage.scene.remove(this.ghost); this.ghost.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.ghost = null; }
     if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
     const was = this.placing; this.placing = null; this.lastCell = null;
     if (was) this.hud.onPlacing(null);
+    if (was && this.moveMode) this.hud.onMoveMode(true);
   }
   makeGhost() {
     if (this.ghost) { this.stage.scene.remove(this.ghost); this.ghost = null; }
@@ -175,11 +182,11 @@ export class Input {
       const { valid, afford } = this.lineInfo || { valid: [], afford: 0 };
       let n = 0; for (const [x, z] of valid.slice(0, afford)) if (game.place(P.type, x, z, 0)) n++;
       if (n) this.hud.sound('place');
-      // keep drawing: the next segment starts where this one ended (Esc to finish)
+      // the line is done; the tool stays ready for the next one (Done / Esc to stop)
       if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
-      P.lineStart = n ? [cx, cz] : null;
+      P.lineStart = null;
       this.updateGhost(cx, cz);
-      this.hud.placingHint(true, n ? 'Click to continue the line · Esc to finish' : 'Click where the line should start');
+      this.hud.placingHint(true, n ? `Built ${n} — click (or drag) for the next line` : 'Click where the line should start, or drag to draw it');
       return;
     }
     if (!this.ghostOk) { this.hud.toast(this.hud.lastWhy || 'Can’t build here', 'warn'); return; }
@@ -249,7 +256,19 @@ export class Input {
       this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mid: this.ground((a.x + b.x) / 2, (a.y + b.y) / 2) };
       this.down = null; return;
     }
-    this.down = { x: e.clientX, y: e.clientY, g: this.ground(e.clientX, e.clientY), drag: false, shift: e.shiftKey };
+    this.down = { x: e.clientX, y: e.clientY, g: this.ground(e.clientX, e.clientY), drag: false, shift: e.shiftKey, rot: e.altKey };
+    // move mode: pressing on a building picks it up
+    if (this.moveMode && !this.placing) {
+      const p = this.pick(e.clientX, e.clientY);
+      if (p && p.kind === 'building' && this.game.buildings.get(p.id)) {
+        const b = this.game.buildings.get(p.id);
+        this.startPlacing(b.type, b.id); this.down.grab = b.id;
+        if (this.down.g) this.updateGhost(...this.cellFor(this.down.g, b.type, b.rot));
+      }
+    }
+    // line tools: press and drag to draw a whole line at once
+    const P = this.placing;
+    if (P && !P.moveId && !P.lineStart && (P.type === 'clear' || BUILDINGS[P.type].line) && this.down.g) this.down.draw = this.cellFor(this.down.g, P.type, P.rot);
     try { this.canvas.setPointerCapture(e.pointerId); } catch (_) { /* optional */ }
   }
   onMove(e) {
@@ -265,7 +284,18 @@ export class Input {
     }
     const D = this.down;
     if (D && e.target === this.canvas || D) {
-      if (D && !D.drag && Math.hypot(e.clientX - D.x, e.clientY - D.y) > 7) D.drag = true;
+      if (D && !D.drag && Math.hypot(e.clientX - D.x, e.clientY - D.y) > 7) {
+        D.drag = true;
+        if (D.draw && this.placing) { this.placing.lineStart = D.draw; this.hud.placingHint(true, 'Let go where the line should end'); }
+      }
+      // Option/Alt + drag turns the camera
+      if (D && D.drag && D.rot && !this.placing) { this.cam.rotate(-(e.clientX - (D.lx ?? D.x)) * 0.008); D.lx = e.clientX; return; }
+      if (D && D.drag && (D.grab || D.draw) && this.placing) {
+        const g = this.ground(e.clientX, e.clientY); if (!g) return;
+        const [cx, cz] = this.cellFor(g, this.placing.type, this.placing.rot);
+        if (!this.lastCell || this.lastCell[0] !== cx || this.lastCell[1] !== cz) this.updateGhost(cx, cz);
+        return;
+      }
       if (D && D.drag && D.g) {
         const g = this.ground(e.clientX, e.clientY);
         if (g) { this.cam.pan(D.g.x - g.x, D.g.z - g.z); this.cam.apply(); }
@@ -286,6 +316,16 @@ export class Input {
     this.pointers.delete(e.pointerId);
     if (this.pointers.size < 2) this.pinch = null;
     const D = this.down; this.down = null;
+    if (D && D.grab) { // drop the building we picked up
+      const P = this.placing;
+      if (D.drag && P && this.lastCell) {
+        if (this.game.move(P.moveId, this.lastCell[0], this.lastCell[1], P.rot)) this.hud.sound('place');
+        else this.hud.toast(this.hud.lastWhy || 'Can’t move it there', 'warn');
+      }
+      this.cancelPlacing();
+      return;
+    }
+    if (D && D.draw && D.drag && this.placing) { this.commitPlacing(false); return; }
     if (!D || D.drag || e.target !== this.canvas) return;
     if (this.placing) {
       const g = this.ground(e.clientX, e.clientY);
@@ -300,6 +340,8 @@ export class Input {
     if (window.tenkaView && window.tenkaView.active) return;
     if (e.ctrlKey) { this.cam.zoom(Math.exp(e.deltaY * 0.012)); return; } // pinch on most browsers
     // scrolling (mouse wheel or two fingers on a trackpad) zooms, unless the player switched it to panning
+    // a sideways two-finger swipe turns the camera
+    if (!this.hud.settings.scrollPans && Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) { this.cam.rotate(e.deltaX * 0.004); return; }
     if (!this.hud.settings.scrollPans) { const d = Math.max(-120, Math.min(120, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY)); this.cam.zoom(Math.exp(d * 0.0025)); return; }
     // two-finger trackpad scroll pans the map
     const k = this.cam.dist * 0.0022, f = this.cam.forward(), r = this.cam.right();

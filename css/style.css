@@ -299,3 +299,13 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .btn.gold { background: var(--gold); color: #2a1d02; }
 .card .limit { position: absolute; top: 6px; left: 8px; font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--paper-2); border-radius: 99px; padding: 1px 7px; }
 .card .limit.full { color: #fff; background: var(--vermilion, #c2412d); }
+/* camera turning + move mode, right edge above the map button */
+.camtools { position: fixed; right: 12px; bottom: calc(128px + env(safe-area-inset-bottom)); z-index: 10; display: flex; flex-direction: column; gap: 8px; }
+.ctool { width: 56px; height: 56px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); box-shadow: var(--shade); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--ink); }
+.ctool small { font-size: 10px; font-weight: 700; color: var(--ink-2); }
+.ctool .flip { display: inline-flex; transform: scaleX(-1); }
+.ctool:active { transform: scale(.94); }
+.ctool.on { background: var(--verm); border-color: var(--verm-d); color: #fff; }
+.ctool.on small { color: #fff; }
+@media (max-width: 1000px) { .camtools { bottom: calc(96px + env(safe-area-inset-bottom)); } }
+#ui.mode-map > .camtools, #ui.mode-battle .ctool.mv { display: none !important; }

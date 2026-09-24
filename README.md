@@ -21,7 +21,9 @@ Then open http://localhost:8000.
 | Drag the ground | Move the camera |
 | Two-finger scroll | Move the camera |
 | Pinch / Z X | Zoom |
-| Q / E | Rotate the camera |
+| Q / E, the Turn buttons, a sideways two-finger swipe or Option+drag | Turn the camera |
+| G or the Move button | Move mode: drag any building to a new spot |
+| Roads, walls, fences | Click start and end, or press and drag; the tool stays ready for the next line |
 | W A S D / arrows | Move the camera |
 | Click | Select a building or villager |
 | B | Show / hide the build menu |

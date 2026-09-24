@@ -83,6 +83,13 @@ export class Hud {
     // bottom-right: map
     this.mapBtn = h('button', { class: 'mapbig', title: 'Country map (M)', onclick: () => this.onMap && this.onMap() }, icon('map', 34), h('b', null, 'Map'));
     R.append(this.mapBtn);
+    // right edge: turn the camera, and move mode
+    const activeCam = () => { const v = window.tenkaView; return v && v.active && v.cam ? v.cam : this.cam; };
+    this.moveBtn = h('button', { class: 'ctool mv', title: 'Move mode (G): drag buildings to move them', onclick: () => this.input.setMoveMode(!this.input.moveMode) }, icon('move', 22), h('small', null, 'Move'));
+    R.append(h('div', { class: 'camtools' },
+      h('button', { class: 'ctool', title: 'Turn the view left (Q)', onclick: () => activeCam().rotate(Math.PI / 4) }, h('span', { class: 'flip' }, icon('rotate', 22)), h('small', null, 'Turn')),
+      h('button', { class: 'ctool', title: 'Turn the view right (E)', onclick: () => activeCam().rotate(-Math.PI / 4) }, icon('rotate', 22), h('small', null, 'Turn')),
+      this.moveBtn));
     this.panel = h('aside', { class: 'panel', hidden: true }); R.append(this.panel);
     this.hint = h('div', { class: 'hint', hidden: true }); R.append(this.hint);
     this.toasts = h('div', { class: 'toasts' }); R.append(this.toasts);
@@ -208,13 +215,21 @@ export class Hud {
     this.hintBase = P.moveId ? `Moving ${def.name}` : `Placing ${def.name}`;
     this.placingHint(true, def.line ? 'Click where the line should start' : '');
   }
+  onMoveMode(on) {
+    this.moveBtn.classList.toggle('on', on);
+    if (this.input.placing) return;
+    this.hint.hidden = !on; if (!on) return;
+    this.hint.textContent = '';
+    this.hint.append(h('b', null, 'Move mode'), h('span', null, ' — drag any building to a new spot'), h('small', null, '  R while dragging: rotate · G / Esc: finish'),
+      h('button', { class: 'mini', onclick: () => this.input.setMoveMode(false) }, icon('close', 14), 'Done'));
+  }
   placingHint(ok, why) {
     if (!this.hint || this.hint.hidden) return;
     this.lastWhy = why;
     const P = this.input && this.input.placing, line = P && (P.type === 'clear' || BUILDINGS[P.type].line);
     this.hint.textContent = '';
     this.hint.append(...[h('b', null, this.hintBase || ''), why ? h('span', { class: ok ? '' : 'bad' }, ' — ' + why) : null,
-      h('small', null, line ? '  Esc: finish' : `  R: rotate · Esc: cancel${P && !P.moveId ? ' · Shift+click: place more' : ''}`),
+      h('small', null, line ? '  Esc: stop' : `  R: rotate · Esc: cancel${P && !P.moveId ? ' · Shift+click: place more' : ''}`),
       h('button', { class: 'mini', onclick: () => this.input.cancelPlacing() }, icon('close', 14), 'Done'),
       line ? null : h('button', { class: 'mini', onclick: () => this.input.rotatePlacing() }, icon('rotate', 14), 'Rotate')].filter(Boolean));
   }
@@ -415,7 +430,7 @@ export class Hud {
       h('div', { class: 'actions' }, buttons.map(b => h('button', { class: 'btn ' + (b.cls || ''), onclick: () => { if (b.fn) b.fn(); if (!b.keep) close(); } }, b.label)))));
   }
   showHelp() {
-    const rows = [['Drag the ground', 'Move the camera'], ['Scroll wheel / two fingers', 'Zoom'], ['Pinch  /  Z X', 'Zoom'], ['Q / E', 'Rotate the camera'], ['W A S D  /  arrows', 'Move the camera'],
+    const rows = [['Drag the ground', 'Move the camera'], ['Scroll wheel / two fingers', 'Zoom'], ['Pinch  /  Z X', 'Zoom'], ['Q / E  /  Turn buttons', 'Turn the camera'], ['Sideways two-finger swipe  /  Option+drag', 'Turn the camera'], ['G  /  Move button', 'Move mode: drag buildings around'], ['W A S D  /  arrows', 'Move the camera'],
       ['Click', 'Select a building or villager'], ['Hover a build card', 'See what it does (or tap its ⓘ)'], ['B', 'Show / hide the build menu'], ['R', 'Rotate while placing'],
       ['Walls, roads & clearing', 'Click start, click end — keeps going until Esc'], ['M', 'Country map'],
       ['Delete', 'Demolish (press twice)'], ['Space', 'Pause'], ['F', 'Game speed 1× / 2× / 3×'], ['Esc', 'Cancel / close']];
@@ -480,11 +495,13 @@ export class Hud {
       if (!this.modal.hidden) this.modal.hidden = true;
       else if (this.infoPinned) this.hideInfo(true);
       else if (I.placing) { if (!I.endLine()) I.cancelPlacing(); }
+      else if (I.moveMode) I.setMoveMode(false);
       else { I.select(null); this.cam.follow = null; }
       return;
     }
     if (!this.modal.hidden) return;
     if (k === 'r') return I.rotatePlacing();
+    if (k === 'g') return I.setMoveMode(!I.moveMode);
     if (k === 'b') { this.buildOpen = !this.buildOpen; return this.renderBar(); }
     if (k === 'h' || k === '?') return this.showHelp();
     if (k === ' ') { this.paused = !this.paused; return this.tick(); }
