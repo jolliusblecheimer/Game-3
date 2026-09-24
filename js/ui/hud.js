@@ -90,6 +90,10 @@ export class Hud {
       h('button', { class: 'ctool', title: 'Turn the view right (E)', onclick: () => activeCam().rotate(-Math.PI / 4) }, icon('rotate', 22), h('small', null, 'Turn')),
       this.moveBtn));
     this.panel = h('aside', { class: 'panel', hidden: true }); R.append(this.panel);
+    // never rebuild the panel under a finger: a click would be lost, so wait until it's released
+    this.panel.addEventListener('pointerdown', () => { this.panelPress = true; });
+    const release = () => { if (!this.panelPress) return; this.panelPress = false; if (this.panelDirty) { this.panelDirty = false; setTimeout(() => this.renderPanel(), 0); } };
+    window.addEventListener('pointerup', release); window.addEventListener('pointercancel', release);
     this.hint = h('div', { class: 'hint', hidden: true }); R.append(this.hint);
     this.toasts = h('div', { class: 'toasts' }); R.append(this.toasts);
     this.modal = h('div', { class: 'modal', hidden: true }); R.append(this.modal);
@@ -236,6 +240,7 @@ export class Hud {
   /* ---------- selection panel ---------- */
   onSelect(sel) { this.sel = sel; this.confirmDemolish = false; this.renderPanel(); }
   renderPanel() {
+    if (this.panelPress) { this.panelDirty = true; return; }
     const p = this.panel, sel = this.sel, g = this.game;
     p.textContent = '';
     if (!sel) { p.hidden = true; return; }

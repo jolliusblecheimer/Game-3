@@ -1,0 +1,27 @@
+{
+"v": "20260924-192622",
+"files": [
+"css/style.css",
+"js/game/battle.js",
+"js/game/country.js",
+"js/game/data.js",
+"js/game/grid.js",
+"js/game/raids.js",
+"js/game/villagers.js",
+"js/game/world.js",
+"js/main.js",
+"js/render/buildings.js",
+"js/render/countrymap.js",
+"js/render/geo.js",
+"js/render/nature.js",
+"js/render/people.js",
+"js/render/stage.js",
+"js/render/thumbs.js",
+"js/ui/camera.js",
+"js/ui/hud.js",
+"js/ui/icons.js",
+"js/ui/input.js",
+"js/ui/views.js",
+"js/util.js"
+]
+}

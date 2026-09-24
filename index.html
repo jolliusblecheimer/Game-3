@@ -13,6 +13,30 @@
 <canvas id="scene"></canvas>
 <div id="ui"></div>
 <div id="loading"><div class="seal">天下</div><h1>Tenka</h1><p>Preparing the valley…</p></div>
-<script type="module" src="js/main.js"></script>
+<script type="module">
+// Returning players always get the newest version: when the game has been updated
+// since this browser last saw it, every file is re-downloaded once before starting.
+(async () => {
+  try {
+    const r = await fetch('version.json', { cache: 'no-store' });
+    if (r.ok) {
+      const { v, files } = await r.json();
+      let have = null, played = false;
+      try { have = localStorage.getItem('tenka.ver'); played = !!localStorage.getItem('tenka.save.v1'); } catch (_) { /* no storage */ }
+      if (have !== v) {
+        const again = sessionStorage.getItem('tenka.updating') === v;
+        if (played && !again) {
+          const note = document.querySelector('#loading p'); if (note) note.textContent = 'Updating to the newest version…';
+          await Promise.all(files.map(f => fetch(f, { cache: 'reload' }).catch(() => null)));
+          try { localStorage.setItem('tenka.ver', v); sessionStorage.setItem('tenka.updating', v); } catch (_) { /* */ }
+          location.reload(); return;
+        }
+        try { localStorage.setItem('tenka.ver', v); } catch (_) { /* */ }
+      }
+    }
+  } catch (_) { /* offline: just start */ }
+  import('./js/main.js');
+})();
+</script>
 </body>
 </html>
