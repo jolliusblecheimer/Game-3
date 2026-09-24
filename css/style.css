@@ -355,3 +355,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* places you hold: your colours */
 .maplabel.held { background: var(--verm); color: #fff5ec; border: 2px solid var(--verm-d); }
 .maplabel.held small { color: #ffd9cc; }
+/* defenders' awareness: ? suspicious, ! alarm */
+.shout.q { color: #ffd76a; font-size: 22px; }
+.shout.x { color: #ff6a4a; font-size: 26px; }

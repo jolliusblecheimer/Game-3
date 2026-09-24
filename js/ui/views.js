@@ -294,7 +294,7 @@ export class Views {
       this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
     if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, b.defend
       ? 'Your archers are on the towers and walls, your spearmen hold the gate. Plan while paused: drag to look around, click your troops to move them.'
-      : 'The defenders haven’t spotted you. The red zone shows how far they can see. Creep up in Stealth (C), hide archers in the bushes to pick off the wall archers, then send the ram to the gate. Drag to look around; Shift+drag or Box select to select troops.'));
+      : 'The defenders haven’t spotted you. The red zone shows what they can see — men on the ground only look ahead, so come from behind. A “?” means one is growing suspicious. Creep in Stealth (C) and strike an unaware guard from behind for a silent takedown; throw a stone (F) to turn heads or lure a guard away; bodies that are found raise the alarm. Once the alarm sounds, one or two of you in the open will tempt a few out through the gate — into your ambush. Drag to look around; Shift+drag or Box select to select troops.'));
     this.bBottom.textContent = '';
     const grp = h('div', { class: 'groups' });
     for (const G of this.groups()) {
@@ -310,6 +310,7 @@ export class Views {
       b.defend ? null : h('button', { class: 'btn ghost small' + (sneaking ? ' armed' : ''), title: 'Stealth (C): creep slowly and stay unseen much longer', disabled: sel.length ? null : true, onclick: () => { this.battle.setSneak(sel, !sneaking); this.renderBattleUI(); } }, icon('eye', 16), 'Stealth', h('kbd', null, 'C')),
       h('button', { class: 'btn ghost small' + (this.armed === 'amove' ? ' armed' : ''), title: 'Attack-move (T): walk and fight anything on the way', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'amove' ? null : 'amove'; this.renderBattleUI(); } }, icon('sword', 16), 'Attack-move', h('kbd', null, 'T')),
       h('button', { class: 'btn ghost small', title: 'Hold (G): stay put and fight only what comes in range', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'hold') }, icon('stop', 16), 'Hold', h('kbd', null, 'G')),
+      b.defend ? null : h('button', { class: 'btn ghost small' + (this.armed === 'distract' ? ' armed' : ''), title: 'Distract (F): throw a stone — guards nearby turn to look and one or two walk over to check', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'distract' ? null : 'distract'; this.renderBattleUI(); } }, icon('scout', 16), 'Distract', h('kbd', null, 'F')),
       h('button', { class: 'btn ghost small', title: 'Stop (X)', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'stop') }, icon('close', 16), 'Stop', h('kbd', null, 'X')));
     for (const u of sel.filter(u => u.type === 'berserker' || u.type === 'taisho')) {
       const C = COMMANDERS[u.type];
@@ -320,6 +321,7 @@ export class Views {
     this.bBottom.append(grp, cmds, h('button', { class: 'btn danger small retreat', title: 'Pull every unit back off the field', onclick: () => this.battle.retreat() }, 'Retreat'));
     if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the Berserker should climb to — a wall, over a wall, or up onto an archer tower'));
     if (this.armed === 'amove') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where to attack-move'));
+    if (this.armed === 'distract') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the stone should land (within 26 of one of your selected soldiers)'));
   }
   selectUnits(list, add = false) {
     if (!add) this.selected = [];
@@ -338,7 +340,7 @@ export class Views {
     this.bFloat.textContent = '';
     for (const f of b.fx) {
       if (f.kind === 'banner') this.bFloat.append(h('div', { class: 'bbanner', style: `opacity:${Math.min(1, 3 - f.t)}` }, f.text));
-      if (f.kind === 'shout') { const p = new THREE.Vector3(f.x, f.y + f.t * 0.5, f.z).project(cam); if (p.z < 1) this.bFloat.append(h('div', { class: 'shout', style: `left:${(p.x + 1) / 2 * W}px;top:${(1 - p.y) / 2 * H}px;opacity:${Math.min(1, 3 - f.t)}` }, f.text)); }
+      if (f.kind === 'shout') { const p = new THREE.Vector3(f.x, f.y + f.t * 0.5, f.z).project(cam); if (p.z < 1) this.bFloat.append(h('div', { class: 'shout' + (f.cls ? ' ' + f.cls : ''), style: `left:${(p.x + 1) / 2 * W}px;top:${(1 - p.y) / 2 * H}px;opacity:${Math.min(1, 3 - f.t)}` }, f.text)); }
     }
     this.uiT = (this.uiT || 0) + dt; if (this.uiT > 0.4) { this.uiT = 0; this.renderBattleUI(); }
   }
@@ -455,6 +457,12 @@ export class Views {
       const onto = hit && hit.isStruct ? { x: hit.x, z: hit.z } : { x: g.x, z: g.z };
       if (this.abilityUnit) b.ability(this.abilityUnit, onto); this.armed = null; this.renderBattleUI(); return;
     }
+    if (this.armed === 'distract' && g) {
+      const r = b.distract(this.selected, { x: g.x, z: g.z });
+      if (r === 'far') this.hud.toast('Too far to throw — get one of your soldiers within 26 of that spot', 'warn');
+      if (r === 'busy') this.hud.toast('Your soldiers need a moment before throwing again', 'warn');
+      this.armed = null; this.renderBattleUI(); return;
+    }
     if (hit && hit.team === 0) {
       const now = performance.now();
       if (this.lastClick && this.lastClick.u === hit && now - this.lastClick.t < 380) this.selectUnits(b.units.filter(u => u.team === 0 && u.type === hit.type && !u.dead));
@@ -506,6 +514,7 @@ export class Views {
     if (k === 'c') { const on = !sel.every(u => u.sneak || u.U.siege); b.setSneak(sel, on); this.renderBattleUI(); return true; }
     if (k === 'v') { this.boxMode = !this.boxMode; this.renderBattleUI(); return true; }
     if (k === 'x') { b.order(sel, 'stop'); return true; }
+    if (k === 'f' && !b.defend) { this.armed = this.armed === 'distract' ? null : 'distract'; this.renderBattleUI(); return true; }
     if (k === 'g') { b.order(sel, 'hold'); return true; }
     if (k === 'r') { const c = sel.find(u => u.type === 'berserker' || u.type === 'taisho'); if (c) { if (c.type === 'taisho') b.ability(c); else { this.armed = 'climb'; this.abilityUnit = c; } this.renderBattleUI(); } return true; }
     if (k === ' ') { this.hud.paused = !this.hud.paused; this.renderBattleUI(); return true; }

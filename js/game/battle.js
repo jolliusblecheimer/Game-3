@@ -124,9 +124,23 @@ function ramModel() {
 
 const HP_SCALE = 3.5;        // everyone is much tougher in battle: fights last longer
 const SIGHT = { ground: 13, high: 20, bush: 4 };
+const FOV = 2.3;             // a man on the ground sees about 130° ahead of him (towers see all round)
+const HEAR = 3.2;            // ...and hears footsteps this close behind him (sneaking: half)
 const CAPTURE_TIME = 12;
 
 /*
+ * Before the alarm every defender keeps watch:
+ *  - On the ground he sees in the direction he faces; on a tower all round. Sentries walk their
+ *    round and pause at the corners to look about; the others stand and now and then look round.
+ *  - What he sees makes him suspicious (?) — slowly at the edge of his sight, fast up close,
+ *    slower still if you creep. He stops and stares; if you vanish he walks over to have a look.
+ *    Only when he is sure does he raise the alarm (!).
+ *  - A thrown stone makes those nearby turn to look, and one or two walk off to check.
+ *  - Strike an unaware man from behind while sneaking and he goes down without a sound.
+ *  - A body, once found, raises the alarm.
+ * After the alarm:
+ *  - A lone attacker or two out in the open tempts a few out through the gate (lead them into an ambush).
+ *  - A man who is struck calls the ones beside him; a broken wall draws men to plug the breach.
  * Defender AI, after the classic ideas of castle defence:
  *  - Sentries patrol while the rest rest. Nobody attacks what they haven't seen.
  *  - On the alarm every man goes to his post: a spear line two ranks deep behind the
@@ -335,12 +349,12 @@ export class Battle {
   }
   // player units the enemy currently knows about
   known(u) { return this.defend || this.t - u.spotted < 3; }
-  raiseAlarm(by) {
+  raiseAlarm(by, msg) {
     if (this.alarm) return;
     this.alarm = true; this.phase = 'alarm';
-    this.fx.push({ kind: 'banner', text: 'Spotted! The war horn sounds — defenders to your posts!', t: 0 });
-    if (by) this.fx.push({ kind: 'shout', x: by.x, z: by.z, y: (by.y || 0) + 2.6, text: '!', t: 0 });
-    for (const u of this.units) if (u.team === 1 && u.role !== 'post') { u.path = null; u.target = null; }
+    this.fx.push({ kind: 'banner', text: msg || 'Spotted! The war horn sounds — defenders to your posts!', t: 0 });
+    if (by) this.fx.push({ kind: 'shout', x: by.x, z: by.z, y: (by.y || 0) + 2.9, text: '!', t: 0, cls: 'x' });
+    for (const u of this.units) if (u.team === 1 && u.role !== 'post') { u.path = null; u.target = null; u.inv = null; u.st = 'alert'; }
   }
 
   /* ---------- queries ---------- */
@@ -378,7 +392,7 @@ export class Battle {
     if (u.climbing) return;
     // soldiers chasing someone (or running away) pass through their own side's gates
     const G = this.grid, opened = [];
-    if (u.aggro || u.fleeing) for (const st of this.structs) if (st.def.gate && !st.dead && st.team === u.team) for (let cz = st.cz; cz < st.cz + st.d; cz++) for (let cx = st.cx; cx < st.cx + st.w; cx++) { const i = G.idx(cx, cz); if (!G.pass[i]) { G.pass[i] = 1; opened.push(i); } }
+    if (u.aggro || u.fleeing || u.inv) for (const st of this.structs) if (st.def.gate && !st.dead && st.team === u.team) for (let cz = st.cz; cz < st.cz + st.d; cz++) for (let cx = st.cx; cx < st.cx + st.w; cx++) { const i = G.idx(cx, cz); if (!G.pass[i]) { G.pass[i] = 1; opened.push(i); } }
     const p = G.findPath({ x: u.x, z: u.z }, { x, z }); u.path = p; u.pathI = 0; u.repathT = 1.5;
     for (const i of opened) G.pass[i] = 0;
   }
@@ -439,6 +453,7 @@ export class Battle {
       }
     }
     this.arrows = this.arrows.filter(a => !a.done);
+    if (this.stones) { for (const s of this.stones) { s.t += dt; if (s.t >= s.dur) { s.done = true; this.noise(s.x, s.z); } } this.stones = this.stones.filter(s => !s.done); }
     this.dropStones(dt);
     this.checkEnd(dt);
     this.animate(dt);
@@ -480,16 +495,14 @@ export class Battle {
     if (this.defend) return this.thinkAttacker(u);
     // defenders
     if (u.fleeing) return;
-    // everyone keeps an eye out
-    for (const o of this.units) if (o.team === 0 && !o.dead && !o.fled && this.notices(u, o)) { o.spotted = this.t; if (!this.alarm) this.raiseAlarm(u); }
+    const dt = Math.min(1, this.t - (u.lastThink ?? this.t)); u.lastThink = this.t;
+    this.watch(u, dt);
     if (this.chaseAggro(u)) return;
     if (u.post) { u.target = this.nearestTarget(u, u.S.range + ((u.y || 0) > 1 ? 5 : 0)); return; }
-    if (!this.alarm) {
-      u.target = null;
-      if (u.role === 'sentry' && !u.path) { u.routeI = (u.routeI + 1) % u.route.length; const p = u.route[u.routeI]; this.pathTo(u, p.x, p.z); u.walkSlow = true; }
-      return;
-    }
-    u.walkSlow = false;
+    if (!this.alarm) return this.calm(u);
+    u.walkSlow = false; u.st = 'alert'; u.inv = null;
+    this.maybeSally(u);
+    if (this.chaseAggro(u)) return;
     const pos = u.pos || u.home, holdR = u.holdR || 6;
     // fight only what comes within reach of the post
     let best = null, bd = Infinity;
@@ -520,11 +533,131 @@ export class Battle {
     u.target = this.nearestTarget(u, 60);
     if (!u.target && !breached) u.target = gate && !gate.dead ? gate : this.nearestStruct(u);
   }
+  /* ---------- keeping watch (before the alarm) ---------- */
+  // how fast defender e grows sure he sees player unit o (per second); 0 = he doesn't see him
+  seeing(e, o) {
+    const d = Math.hypot(o.x - e.x, o.z - e.z), high = (e.y || 0) > 1.5;
+    let sight = high ? SIGHT.high : SIGHT.ground;
+    if (e.st === 'suspicious' || e.st === 'investigate') sight *= 1.25; // eyes wide open
+    if (o.sneak) sight *= 0.5;
+    if (o.hidden) sight = Math.min(sight, SIGHT.bush);
+    if (d > sight || !this.lineOfSight(e, o)) return 0;
+    if (!high && !this.alarm && d > (o.sneak ? HEAR / 2 : HEAR) && !this.inCone(e, o.x, o.z)) return 0;
+    const near = 1 - d / sight;
+    return (o.sneak ? 0.16 : 0.3) * (1 + 6 * near * near) * (o.moving ? 1.25 : 0.8) * (e.st === 'suspicious' ? 1.6 : 1);
+  }
+  inCone(e, x, z) { const dir = Math.atan2(x - e.x, z - e.z); return Math.abs(Math.atan2(Math.sin(dir - e.heading), Math.cos(dir - e.heading))) <= FOV / 2; }
+  seesPoint(e, x, z) { const d = Math.hypot(x - e.x, z - e.z), high = (e.y || 0) > 1.5; return d <= (high ? SIGHT.high : SIGHT.ground) && (high || this.inCone(e, x, z)) && this.lineOfSight(e, { x, z }); }
+  watch(u, dt) {
+    let seen = null, best = 0;
+    for (const o of this.units) {
+      if (o.team !== 0 || o.dead || o.fled) continue;
+      const v = this.seeing(u, o); if (!v) continue;
+      if (this.alarm) { o.spotted = this.t; continue; }
+      if (v > best) { best = v; seen = o; }
+    }
+    if (this.alarm) return;
+    if (seen) {
+      u.sus = Math.min(1.2, (u.sus || 0) + best * dt);
+      u.lastSeen = { x: seen.x, z: seen.z, t: this.t };
+      if (u.sus >= 1) { seen.spotted = this.t; this.raiseAlarm(u); return; }
+      if (u.sus >= 0.3 && u.st !== 'suspicious' && !u.post) { this.setState(u, 'suspicious', '?'); u.path = null; }
+    } else u.sus = Math.max(0, (u.sus || 0) - 0.1 * dt);
+    // a friend lying dead
+    if (!u.post && !(u.inv && u.inv.body)) for (const o of this.units) {
+      if (o.team !== 1 || !o.dead || o.found || !this.seesPoint(u, o.x, o.z)) continue;
+      o.found = true; u.inv = { x: o.x, z: o.z, body: true }; this.setState(u, 'investigate', '?'); u.path = null; break;
+    }
+  }
+  setState(u, st, mark) { u.st = st; if (mark) this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: (u.y || 0) + 2.9, text: mark, t: 0, cls: mark === '?' ? 'q' : '' }); }
+  // before the alarm: patrol, stand watch, stare, go and look
+  calm(u) {
+    u.target = null;
+    if (u.st === 'distracted') { u.path = null; if (this.t > u.distractT) u.st = 'calm'; return; }
+    if (u.st === 'suspicious') {
+      const L = u.lastSeen; u.path = null;
+      if (L) u.lookAt = Math.atan2(L.x - u.x, L.z - u.z);
+      if (!L || this.t - L.t > 1.5) { if (L) { u.inv = { x: L.x, z: L.z }; this.setState(u, 'investigate'); } else u.st = 'calm'; }
+      return;
+    }
+    if (u.st === 'investigate' && u.inv) {
+      const I = u.inv; u.walkSlow = false;
+      if (!I.arrived) {
+        if (Math.hypot(I.x - u.x, I.z - u.z) < 1.8) { I.arrived = this.t; u.path = null; if (I.body) { this.raiseAlarm(u, 'A body is found — the alarm is raised!'); return; } }
+        else { if (!u.path) { this.pathTo(u, I.x, I.z); if (!u.path) I.arrived = this.t; } return; }
+      }
+      if (!u.scanT || this.t > u.scanT) { u.scanT = this.t + 1.3; u.lookAt = u.heading + (this.rand() - 0.5) * 3.2; }
+      if (this.t - I.arrived > 5) { u.inv = null; u.st = 'calm'; u.sus = Math.min(u.sus || 0, 0.15); this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: 2.9, text: '…', t: 0 }); if (u.role === 'sentry') u.pauseT = 0; else this.pathTo(u, u.home.x, u.home.z); }
+      return;
+    }
+    // sentries walk their round and pause at each corner to look about
+    if (u.role === 'sentry') {
+      if (!u.path) {
+        if (!u.pauseT) { u.pauseT = this.t + 1.5 + this.rand() * 1.5; u.lookAt = u.heading + (this.rand() < 0.5 ? -1 : 1) * (0.8 + this.rand() * 0.7); }
+        else if (this.t > u.pauseT) { u.pauseT = 0; u.routeI = (u.routeI + 1) % u.route.length; const p = u.route[u.routeI]; this.pathTo(u, p.x, p.z); u.walkSlow = true; }
+      }
+      return;
+    }
+    // the rest stand where they are, gazing out and now and then looking round
+    const p = u.home;
+    if (p && Math.hypot(u.x - p.x, u.z - p.z) > 1.2) { if (!u.path) this.pathTo(u, p.x, p.z); return; }
+    if (!u.scanT || this.t > u.scanT) { u.scanT = this.t + 3 + this.rand() * 4; u.lookAt = this.outward(u) + (this.rand() - 0.5) * 2.4; }
+  }
+  outward(u) { const b = this.box, c = this.W(Math.round((b[0] + b[2]) / 2), Math.round((b[1] + b[3]) / 2)); return Math.atan2(u.x - c.x, u.z - c.z); }
+  // a noise (a thrown stone): calm defenders nearby turn to look; one or two go to check
+  noise(x, z, r = 16) {
+    this.fx.push({ kind: 'shout', x, z, y: 0.9, text: '*clack*', t: 0 });
+    if (this.alarm) return;
+    const near = this.units.filter(u => u.team === 1 && !u.dead && !u.fled && Math.hypot(u.x - x, u.z - z) < r).sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
+    let sent = 0;
+    for (const u of near) {
+      u.lookAt = Math.atan2(x - u.x, z - u.z); u.scanT = this.t + 5; u.sus = Math.max(u.sus || 0, 0.2);
+      if (!u.post && sent < 2 && u.st !== 'investigate' && u.st !== 'suspicious') { u.inv = { x: x + (this.rand() - 0.5) * 2, z: z + (this.rand() - 0.5) * 2 }; u.pauseT = 0; u.path = null; this.setState(u, 'investigate', '?'); sent++; }
+      else if (u.st === 'calm' || !u.st) { u.distractT = this.t + 4 + this.rand() * 2; this.setState(u, 'distracted', '?'); }
+    }
+  }
+  // your soldier throws a stone to draw the guards' eyes (and feet) away
+  distract(units, p) {
+    const d = u => Math.hypot(u.x - p.x, u.z - p.z);
+    const u = units.filter(o => !o.dead && !o.fled && !o.U.siege && o.team === 0 && (o.distractCd || 0) <= this.t).sort((a, b) => d(a) - d(b))[0];
+    if (!u) return 'busy';
+    if (d(u) > 26) return 'far';
+    u.distractCd = this.t + 8; u.swing = 0.5; u.heading = Math.atan2(p.x - u.x, p.z - u.z);
+    this.stones = this.stones || [];
+    this.stones.push({ x0: u.x, z0: u.z, y0: (u.y || 0) + 1.6, x: p.x, z: p.z, t: 0, dur: 0.3 + d(u) / 28 });
+    return 'ok';
+  }
+  /* ---------- after the alarm ---------- */
+  // a lone attacker or two out in the open tempts a few defenders out through the gate
+  maybeSally(u) {
+    if (u.aggro || u.post || u.role === 'reserve' || u.U.ranged || this.phase === 'fallback' || u.sallyT > this.t) return;
+    if (this.units.filter(o => o.sally && !o.dead && !o.fled).length >= 3) return;
+    const pos = u.pos || u.home;
+    for (const o of this.units) {
+      if (o.team !== 0 || o.dead || o.fled || o.U.siege || !this.known(o) || this.inside(o.x, o.z)) continue;
+      if (Math.hypot(o.x - pos.x, o.z - pos.z) > 26 || !this.canHit(u, o)) continue;
+      const friends = this.units.filter(f => f.team === 0 && !f.dead && !f.fled && this.known(f) && Math.hypot(f.x - o.x, f.z - o.z) < 10).length;
+      if (friends > 2) continue;
+      u.sally = true; u.aggro = { u: o, until: this.t + 20 };
+      this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: 2.9, text: 'After them!', t: 0 });
+      return;
+    }
+  }
+  // a broken wall draws the nearest men to plug the breach
+  plugBreach(s) {
+    const b = this.box, c = this.W(Math.round((b[0] + b[2]) / 2), Math.round((b[1] + b[3]) / 2));
+    const dx = c.x - s.x, dz = c.z - s.z, d = Math.hypot(dx, dz) || 1, p = { x: s.x + dx / d * 3.5, z: s.z + dz / d * 3.5 };
+    const men = this.units.filter(u => u.team === 1 && !u.dead && !u.fled && !u.post && !u.U.ranged && !u.fleeing).sort((a, b2) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b2.x - p.x, b2.z - p.z)).slice(0, 4);
+    for (const u of men) { u.pos = { x: p.x + (this.rand() - 0.5) * 3, z: p.z + (this.rand() - 0.5) * 3 }; u.holdR = 5; u.path = null; u.target = null; }
+    if (men.length) this.fx.push({ kind: 'banner', text: 'They rush to plug the breach!', t: 0 });
+  }
   // someone hit this soldier: go after them (for a while, and not too far from where he stands)
   chaseAggro(u) {
     const A = u.aggro; if (!A) return false;
-    const a = A.u;
-    if (a.dead || a.fled || this.t > A.until || Math.hypot(a.x - u.x, a.z - u.z) > 45 || !this.canHit(u, a)) { u.aggro = null; return false; }
+    const a = A.u, P = u.pos || u.home;
+    if (a.dead || a.fled || this.t > A.until || Math.hypot(a.x - u.x, a.z - u.z) > 45 || (P && Math.hypot(u.x - P.x, u.z - P.z) > 38) || !this.canHit(u, a)) {
+      u.aggro = null; if (u.sally) { u.sally = false; u.sallyT = this.t + 12; } return false;
+    }
     if (!this.alarm && !this.defend) this.raiseAlarm(u);
     u.target = a; u.walkSlow = false;
     return true;
@@ -568,6 +701,7 @@ export class Battle {
     if (u.team !== (st && st.team) && st && st.def.spikes && !u.U.siege) u.hp -= 4 * dt;
     if (!u.climbing && !u.post && u.y > 0) { const on = this.structAt(u.x, u.z); if (!(on && on.def.blocks && !on.dead)) u.y = Math.max(0, u.y - dt * 6); }
     u.moving = false;
+    if (u.team === 1 && u.lookAt != null && !u.path && !u.target) { const diff = Math.atan2(Math.sin(u.lookAt - u.heading), Math.cos(u.lookAt - u.heading)); u.heading += Math.sign(diff) * Math.min(Math.abs(diff), dt * 1.8); }
     const t = u.target;
     if (t && !(t.dead) && !t.fled) {
       if (this.inRange(u, t) && this.canHit(u, t)) {
@@ -597,6 +731,14 @@ export class Battle {
   attack(u, t) {
     u.lastStrike = this.t;
     let dmg = u.S.dmg * (u.buffs.rally ? 1.2 : 1);
+    // a silent takedown: creeping up on a man who hasn't seen you, from behind
+    if (u.team === 0 && t.team === 1 && !this.alarm && !this.defend && !t.isStruct && !u.U.ranged && !u.U.siege && (u.sneak || u.hidden) && t.st !== 'suspicious' && !this.inCone(t, u.x, u.z)) {
+      const big = t.type === 'enemy_samurai' || t.type === 'enemy_lord';
+      this.fx.push({ kind: 'shout', x: t.x, z: t.z, y: 2.6, text: big ? 'Ambush!' : 'Silent takedown', t: 0 });
+      this.damage(t, big ? t.maxHp * 0.5 : t.hp + 1, u); u.swing = 0.35;
+      if (!t.dead) { t.sus = 1.2; this.raiseAlarm(t); }
+      return;
+    }
     if (u.team === 0) for (const o of this.units) if (o.type === 'taisho' && !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < 10) { dmg *= this.rb('banner') ? 1.4 : 1.2; break; }
     // attacking gives you away
     if (u.team === 0 && !this.defend) {
@@ -635,6 +777,11 @@ export class Battle {
       if (from.team === 0 && (!from.hidden || d < 8)) from.spotted = this.t;
       // struck foot soldiers fight back; shot at from afar, they charge the shooter
       if (t.team === 1 && !t.U.ranged && !t.U.siege && !t.post && !t.fleeing && (!from.hidden || d < 10) && this.canHit(t, from)) t.aggro = { u: from, until: this.t + 15 };
+      // ...and call the men beside them
+      if (t.team === 1 && this.alarm && (!from.hidden || d < 10)) {
+        let n = 0;
+        for (const f of this.units) if (n < 2 && f.team === 1 && f !== t && !f.dead && !f.fled && !f.post && !f.aggro && !f.U.ranged && f.role !== 'reserve' && Math.hypot(f.x - t.x, f.z - t.z) < 8 && this.canHit(f, from)) { f.aggro = { u: from, until: this.t + 10 }; n++; }
+      }
     }
     if (t.hp <= 0) {
       this.kill(t);
@@ -653,6 +800,7 @@ export class Battle {
   }
   destroy(s) {
     s.dead = true; s.hp = 0; s.collapse = 0;
+    if (!this.defend && s.team === 1 && ['wall', 'palisade', 'gate', 'pgate'].includes(s.type)) { if (!this.alarm) this.raiseAlarm(null, 'The crash of timber — the alarm is raised!'); this.plugBreach(s); }
     for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) this.grid.set(x, z, 0, true, 1);
     for (const u of this.units) if (u.path) u.repathT = 0;
     this.fx.push({ kind: 'dust', x: s.x, z: s.z, t: 0 });
@@ -783,6 +931,11 @@ export class Battle {
     this.hideMarks.count = hidden; this.hideMarks.instanceMatrix.needsUpdate = true;
     this.drawSight(dt);
     let k = 0;
+    for (const s of this.stones || []) {
+      if (k >= 300) break;
+      const f = s.t / s.dur, x = s.x0 + (s.x - s.x0) * f, z = s.z0 + (s.z - s.z0) * f, y = s.y0 * (1 - f) + 0.2 * f + Math.sin(f * Math.PI) * 2.5;
+      m4.compose(new THREE.Vector3(x - BATTLE_ORIGIN.x, y, z - BATTLE_ORIGIN.z), q.identity(), new THREE.Vector3(1.4, 1.4, 0.18)); this.arrowMesh.setMatrixAt(k++, m4);
+    }
     for (const a of this.arrows) {
       if (k >= 300) break;
       const f = a.t / a.dur, tx = a.target.x, tz = a.target.z, ty = (a.target.y || 0) + (a.target.isStruct ? 2 : 1.2);
@@ -817,10 +970,25 @@ export class Battle {
     const S = this.sight, show = !this.alarm && !this.defend;
     this.sightMesh.visible = show;
     if (!show || (S.t -= dt) > 0) return;
-    S.t = 0.15;
-    const circles = this.units.filter(u => u.team === 1 && !u.dead && !u.fled).map(u => [(u.x - BATTLE_ORIGIN.x + S.size / 2) * S.px, (u.z - BATTLE_ORIGIN.z + S.size / 2) * S.px, ((u.y || 0) > 1.5 ? SIGHT.high : SIGHT.ground) * S.px]);
+    S.t = 0.1;
+    // towers see all round; men on the ground see a wedge ahead of them and hear a little way behind
+    const shapes = this.units.filter(u => u.team === 1 && !u.dead && !u.fled).map(u => {
+      const x = (u.x - BATTLE_ORIGIN.x + S.size / 2) * S.px, z = (u.z - BATTLE_ORIGIN.z + S.size / 2) * S.px, high = (u.y || 0) > 1.5;
+      const r = (high ? SIGHT.high : SIGHT.ground) * (u.st === 'suspicious' || u.st === 'investigate' ? 1.25 : 1) * S.px;
+      return { x, z, r, cone: !high, a: Math.PI / 2 - u.heading };
+    });
     const W = S.canvas.width, c = S.canvas.getContext('2d'), l = S.layer.getContext('2d');
-    const union = (ctx, grow, color) => { ctx.fillStyle = color; ctx.beginPath(); for (const [x, z, r] of circles) { ctx.moveTo(x + r + grow, z); ctx.arc(x, z, Math.max(1, r + grow), 0, Math.PI * 2); } ctx.fill(); };
+    const union = (ctx, grow, color) => {
+      ctx.fillStyle = color; ctx.beginPath();
+      for (const s of shapes) {
+        const r = Math.max(1, s.r + grow);
+        if (!s.cone) { ctx.moveTo(s.x + r, s.z); ctx.arc(s.x, s.z, r, 0, Math.PI * 2); continue; }
+        const h = Math.max(1, HEAR * S.px + grow), off = grow < 0 ? -grow * 1.4 : 0;
+        ctx.moveTo(s.x + Math.cos(s.a) * off, s.z + Math.sin(s.a) * off); ctx.arc(s.x, s.z, r, s.a - FOV / 2, s.a + FOV / 2); ctx.closePath();
+        ctx.moveTo(s.x + h, s.z); ctx.arc(s.x, s.z, h, 0, Math.PI * 2);
+      }
+      ctx.fill('nonzero');
+    };
     c.clearRect(0, 0, W, W);
     // soft fill of everything they can see
     l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, W, W); union(l, 0, '#e8452e');

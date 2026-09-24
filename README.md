@@ -106,3 +106,14 @@ Two **Warlord Castles** stand closer in and are marked on the map from the start
 ## Small castles
 
 Three **Small Castles** lie between the hideouts and the forts: stone walls, two gate towers, a gate, a keep to capture and spikes before the gate. The defenders use the full castle tactics — sentries, a two-rank spear line with shield-bearers behind the gate, archers on the towers and walls, a samurai reserve at the keep, falling back to the keep when the line breaks — with 12 men instead of 20–30.
+
+## Outwitting the defenders
+
+Before the alarm every defender keeps watch, and you can play him:
+
+- **Sight cones.** A man on the ground only sees what is in front of him (and hears footsteps right behind him); tower archers see all round. The red zone shows exactly this — come from behind.
+- **Suspicion.** What a guard glimpses makes him suspicious (**?**) — slowly at the edge of his sight, fast up close, much slower if you creep in Stealth. He stops and stares; if you disappear, he walks over to look, searches for a few seconds and goes back. Only when he is sure does he sound the alarm (**!**).
+- **Distract (F).** Throw a stone: guards within earshot turn to look, and one or two walk over to check — even out through their own gate. Use it to turn heads while you slip past, or to lure a guard away from the others.
+- **Silent takedowns.** Strike an unaware guard from behind while sneaking and he drops without a sound (samurai only stagger).
+- **Bodies.** A patrol that finds a body raises the alarm — take out sentries where no one will walk past, or move fast.
+- **After the alarm** a lone soldier or two out in the open tempts up to three defenders through the gate — lead them into your hidden troops. A man who is struck calls the two beside him, and a broken wall draws the nearest men to plug the breach.
