@@ -120,22 +120,43 @@ function wallPatrol(game, v) {
     v.onArrive = () => { v.elev = 0; v.onWall = false; v.pos.x = down.x; v.pos.z = down.z; act(v, 4, 'guard', null, 'Watching from the wall'); };
   }, 'Heading up onto the wall walk');
 }
-// archers climb a free spot on a watchtower
+// spots on a tower that are taken — by archers up there or on their way (at most 3 per tower)
+function towerSpots(game, b, except) {
+  const taken = new Set();
+  for (const o of game.villagers.values()) {
+    if (o === except) continue;
+    if (o.post && o.post.b === b.id) taken.add(o.post.i);
+    if (o.claim && o.claim.b === b.id) taken.add(o.claim.i);
+  }
+  return taken;
+}
+// archers spread out: each climbs the emptiest watchtower (the nearest one when it's a tie)
 function climbTower(game, v) {
+  let best = null, bn = Infinity, bd = Infinity;
   for (const b of game.buildings.values()) {
     if (b.type !== 'tower' || !b.done) continue;
-    const posts = b.extra.post || [];
-    const taken = new Set([...game.villagers.values()].filter(o => o.post && o.post.b === b.id && o !== v).map(o => o.post.i));
-    const i = posts.findIndex((_, k) => !taken.has(k));
-    if (i < 0) continue;
-    goTo(game, v, game.door(b, 0.8), () => {
-      const [px, py, pz] = posts[i], p = game.local(b, px, pz);
-      v.post = { b: b.id, i }; v.elev = py * (1 + 0.14 * (b.level - 1)); v.pos.x = p.x; v.pos.z = p.z; v.heading = b.rot * Math.PI / 2;
-      act(v, 8, 'guard', null, `Keeping watch on the ${b.def.name}`);
-    }, 'Climbing up to a watchtower');
-    return true;
+    const posts = b.extra.post || [], taken = towerSpots(game, b, v);
+    if (taken.size >= posts.length) continue;
+    const d = dist(game.center(b), v.pos);
+    if (taken.size < bn || (taken.size === bn && d < bd)) { best = b; bn = taken.size; bd = d; }
   }
-  return false;
+  if (!best) return false;
+  const b = best, posts = b.extra.post, taken = towerSpots(game, b, v), i = posts.findIndex((_, k) => !taken.has(k));
+  v.claim = { b: b.id, i }; // hold the spot while walking there
+  goTo(game, v, game.door(b, 0.8), () => {
+    v.claim = null;
+    if (!game.buildings.has(b.id) || towerSpots(game, b, v).has(i)) return;
+    const [px, py, pz] = posts[i], p = game.local(b, px, pz);
+    v.post = { b: b.id, i }; v.elev = py * (1 + 0.14 * (b.level - 1)); v.pos.x = p.x; v.pos.z = p.z; v.heading = b.rot * Math.PI / 2;
+    act(v, 8, 'guard', null, `Keeping watch on the ${b.def.name}`);
+  }, 'Climbing up to a watchtower');
+  return true;
+}
+// step down from a tower (to move to an emptier one, or because it's gone)
+function leaveTower(game, v) {
+  const b = v.post && game.buildings.get(v.post.b);
+  v.post = null; v.elev = 0;
+  if (b) { const d = game.door(b, 0.8); v.pos.x = d.x; v.pos.z = d.z; }
 }
 
 export function thinkVillager(game, v) {
@@ -212,8 +233,13 @@ export function thinkVillager(game, v) {
     case 'archer':
       if (v.post) {
         const b = game.buildings.get(v.post.b);
-        if (b && b.done) return act(v, 8, 'guard', null, `Keeping watch on the ${b.def.name}`);
-        v.post = null; v.elev = 0;
+        if (b && b.done) {
+          // keep the towers evenly manned: move over if another tower has two fewer archers
+          const here = towerSpots(game, b, null).size;
+          const emptier = [...game.buildings.values()].some(o => o.type === 'tower' && o.done && o.id !== b.id && towerSpots(game, o, null).size <= here - 2);
+          if (!emptier || game.raids.alarmed) return act(v, 8, 'guard', null, `Keeping watch on the ${b.def.name}`);
+        }
+        leaveTower(game, v);
       }
       if (climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough

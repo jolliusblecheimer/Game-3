@@ -237,7 +237,7 @@ export class Game {
     this.refreshNeighbours(b);
     [b.w, b.d] = this.footprint(b.type, rot, b.level); b.cx = cx; b.cz = cz; b.rot = rot;
     this.clearCells(cx, cz, b.w, b.d); this.occupy(b, true); this.makeVisual(b); this.refreshNeighbours(b);
-    for (const v of this.villagers.values()) v.reset = true;
+    for (const v of this.villagers.values()) { v.reset = true; if (v.post && v.post.b === id) { v.post = null; v.elev = 0; } }
     this.emit('move', b); return true;
   }
 
@@ -342,7 +342,7 @@ export class Game {
     if (v.tree) { v.tree.reserved = 0; v.tree = null; }
     v.job = job; v.work = work; v.train = 0; v.paid = false; v.aid = false;
     if (work) { const b = this.buildings.get(work); if (b && !b.workers.includes(v.id)) b.workers.push(v.id); }
-    v.carry = null; v.person.setCarry(null); v.elev = 0; v.post = null; v.hidden = false;
+    v.carry = null; v.person.setCarry(null); v.elev = 0; v.post = null; v.claim = null; v.hidden = false;
     v.person.setLook(JOBS[job].look);
     v.person.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'villager', id: v.id }; });
     v.path = null; v.act = 0; v.reset = true;
@@ -407,7 +407,7 @@ export class Game {
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     for (const v of this.villagers.values()) {
       if (v.away) { v.person.group.visible = false; continue; }
-      if (v.reset) { v.reset = false; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (v.onWall) { const c = this.grid.nearestWalkable(...this.grid.toCell(v.pos.x, v.pos.z), 3); if (c) { const p = this.grid.center(c[0], c[1]); v.pos.x = p.x; v.pos.z = p.z; } v.onWall = false; } if (!v.post) v.elev = 0; }
+      if (v.reset) { v.reset = false; v.claim = null; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (v.onWall) { const c = this.grid.nearestWalkable(...this.grid.toCell(v.pos.x, v.pos.z), 3); if (c) { const p = this.grid.center(c[0], c[1]); v.pos.x = p.x; v.pos.z = p.z; } v.onWall = false; } if (!v.post) v.elev = 0; }
       if (!v.path && v.act <= 0) thinkVillager(this, v);
       updateVillager(this, v, dt);
     }
