@@ -55,6 +55,18 @@ export function makeLayout(site) {
     // a few huts in the woods, no walls: three outlaws and a lookout
     for (let i = 0; i < 2; i++) deco('house', 27, 18, 37, 26, 2, 2);
     defenders('outlaw', 3, [27, 18, 37, 26]);
+  } else if (site.type === 'smallcastle') {
+    // stone walls with two gate towers, a keep at the back and spikes before the gate
+    const [x0, z0, x1, z1] = [25, 14, 39, 28];
+    ring('wall', x0, z0, x1, z1, { gate: 'gate', towers: [[x0, z1 - 1], [x1 - 1, z1 - 1]] });
+    mark(add('keep', Math.floor((x0 + x1) / 2) - 2, z0 + 2, 4, 4));
+    deco('storehouse', x0 + 2, z0 + 7, x1 - 2, z1 - 3, 2, 3);
+    for (const [i, s] of S.entries()) if (s.type === 'tower') posted(i, 1);
+    wallArchers(2, z1, x0, x1);
+    defenders('enemy_ashigaru', 5, [x0 + 2, z0 + 7, x1 - 2, z1 - 2]);
+    defenders('enemy_shield', 2, [x0 + 2, z0 + 7, x1 - 2, z1 - 2]);
+    defenders('enemy_samurai', 1, [x0 + 3, z0 + 6, x1 - 3, z0 + 8]);
+    for (let x = x0 + 3; x <= x1 - 3; x++) if (Math.abs(x - (x0 + x1) / 2) > 1.6 && r() < 0.7) mark(add('spikes', x, z1 + 3));
   } else if (T <= 1) {
     ring('palisade', 25, 16, 39, 28, { gate: null, gateN: true });
     for (let i = 0; i < 3; i++) deco(i === 2 ? 'lumber' : 'house', 27, 18, 37, 26, 2, 2);
@@ -266,7 +278,7 @@ export class Battle {
     const kx = keep ? keep.x : gx, kz = keep ? keep.z + 6 : gz - 10;
     const plain = foes.filter(u => u.type === 'enemy_ashigaru' || u.type === 'bandit' || u.type === 'outlaw'), shields = foes.filter(u => u.type === 'enemy_shield');
     // sentries walk a loop just inside the walls
-    const nSentry = Math.min(plain.length, this.site.tier >= 3 ? 3 : 2);
+    const nSentry = Math.min(plain.length, this.site.tier >= 3 && this.site.type !== 'smallcastle' ? 3 : 2);
     const spears = plain.slice(0, nSentry).concat(shields, plain.slice(nSentry));
     const inner = [[bx[0] + 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[3] - 1.5], [bx[0] + 1.5, bx[3] - 1.5]].map(([x, z]) => this.W(Math.round(x), Math.round(z)));
     spears.slice(0, nSentry).forEach((u, i) => { u.role = 'sentry'; u.route = inner.slice(i % 4).concat(inner.slice(0, i % 4)); u.routeI = 0; });

@@ -54,7 +54,7 @@ function siteModel(type, seed) {
   } else if (type === 'village') {
     for (let i = 0; i < 5; i++) { const a = i * 1.3 + r(); add(buildModel('house', 4, 4, seed + i), Math.cos(a) * 4.5, Math.sin(a) * 4.5, 0.7, a); }
     add(buildModel('farm', 8, 8, seed), 7, 6, 0.6); add(buildModel('tower', 4, 4, seed), -6, 4, 0.6);
-  } else if (type === 'fort') {
+  } else if (type === 'fort' || type === 'smallcastle') {
     add(buildModel('tower', 4, 4, seed), 0, 0, 1.0);
     for (const [x, z] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) add(buildModel('tower', 4, 4, seed), x, z, 0.7);
     const w = new Mesher(seed, 0.05);

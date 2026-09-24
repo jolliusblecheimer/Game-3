@@ -102,3 +102,7 @@ Soldiers keep their wounds after battles and raids and heal slowly at home. Buil
 ## Warlord castles
 
 Two **Warlord Castles** stand closer in and are marked on the map from the start (the Daimyō Castles lie further out). From **Keep level 4**, the nearest warlord castle still standing sends real soldiers against your village instead of bandits — spearmen, shield-bearers, archers who shoot at anyone outside, and samurai. Take or burn the castle and its raids stop; when both have fallen, only bandits are left.
+
+## Small castles
+
+Three **Small Castles** lie between the hideouts and the forts: stone walls, two gate towers, a gate, a keep to capture and spikes before the gate. The defenders use the full castle tactics — sentries, a two-rank spear line with shield-bearers behind the gate, archers on the towers and walls, a samurai reserve at the keep, falling back to the keep when the line breaks — with 12 men instead of 20–30.
