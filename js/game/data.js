@@ -155,7 +155,7 @@ export const BUILDINGS = {
                 desc: 'Sharpened bamboo fence — your first defense. Can be upgraded to a stone wall at Town Hall level 3.' },
   spikes:     { name: 'Spike Barricade', kanji: '逆茂木', cat: 'defense', size: [1, 1], cost: { wood: 12 }, time: 6, line: true, h: 1.6, th: 1,
                 desc: 'Sharpened stakes that slow attackers and hurt them as they push through.' },
-  hedge:      { name: 'Hedge', kanji: '生垣', cat: 'defense', size: [1, 1], cost: { wood: 3 }, time: 4, line: true, beauty: 0.3, h: 1.4, th: 1,
+  hedge:      { name: 'Hedge', kanji: '生垣', cat: 'defense', size: [1, 1], cost: { wood: 3 }, time: 4, line: true, h: 1.4, th: 1,
                 desc: 'Thick bushes. Troops hiding inside are hard to spot.' },
   gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3, limit: [0, 1, 2, 3, 4],
                 desc: 'Lets your people through your walls. Bandits must break it down.' },

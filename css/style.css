@@ -358,3 +358,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* defenders' awareness: ? suspicious, ! alarm */
 .shout.q { color: #ffd76a; font-size: 22px; }
 .shout.x { color: #ff6a4a; font-size: 26px; }
+.harmony .hbig { display: flex; align-items: center; gap: 12px; }
+.harmony .hbig b { font: 700 34px var(--mincho); color: var(--leaf); white-space: nowrap; flex: 0 0 auto; }
+.harmony .irow .rt { margin-left: auto; }
