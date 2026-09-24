@@ -63,7 +63,8 @@ export class Game {
   countType(type) { let n = 0; for (const b of this.buildings.values()) if (b.type === type) n++; return n; }
   // villagers busy on a construction site right now
   building() { let n = 0; for (const v of this.villagers.values()) if (v.site) n++; return n; }
-  hasBuildWork() { for (const b of this.buildings.values()) if (this.needsWork(b)) return true; return false; }
+  // anything a helper could do: build, upgrade, repair, or clear marked land
+  hasBuildWork() { for (const b of this.buildings.values()) if (this.needsWork(b)) return true; return this.clearMarks.size > 0; }
   maxHp(b) { return b.def.hp ? Math.round(b.def.hp * (1 + 0.6 * (b.level - 1)) * (1 + this.rb('wallHp'))) : 0; }
 
   /* ---------- research (skill trees) ---------- */

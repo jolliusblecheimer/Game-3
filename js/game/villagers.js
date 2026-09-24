@@ -47,17 +47,20 @@ function deliver(game, v) {
 function pickUp(v, res, amt) { v.carry = { res, amt }; v.person.setCarry(res); }
 
 /* ---------- building work (builders) ---------- */
-function workFor(game, v, sitesOnly = false) {
+// sent = a worker you told to aid construction: they join even a busy site rather than turn back
+function workFor(game, v, sitesOnly = false, sent = false) {
   // construction and upgrades first, then repairs, then marked trees & rocks
-  let best = null, bd = Infinity;
+  let best = null, bd = Infinity, crowded = null, cd = Infinity;
   for (const b of game.buildings.values()) {
     if (!game.needsWork(b)) continue;
     if (sitesOnly && b.done) continue;
     let crew = 0; for (const o of game.villagers.values()) if (o.site === b.id && o !== v) crew++;
-    if (crew >= Math.max(2, Math.ceil(b.w * b.d / 3))) continue;
     // prioritised jobs first, then new buildings and upgrades, then repairs
-    const d = dist(game.center(b), v.pos) + (b.done && !b.upg ? 40 : 0) - (b.prio ? 1000 : 0); if (d < bd) { bd = d; best = b; }
+    const d = dist(game.center(b), v.pos) + (b.done && !b.upg ? 40 : 0) - (b.prio ? 1000 : 0);
+    if (crew >= Math.max(2, Math.ceil(b.w * b.d / 3))) { if (sent && d < cd) { cd = d; crowded = b; } continue; }
+    if (d < bd) { bd = d; best = b; }
   }
+  best = best || crowded;
   if (best || sitesOnly) return best ? { b: best } : null;
   let mb = null, md = Infinity;
   for (const m of game.clearMarks.values()) {
@@ -174,9 +177,10 @@ export function thinkVillager(game, v) {
   if (v.work && !work) { game.setJob(v, J.soldier ? v.job : 'idle'); return; }
   // told to aid construction: build until nothing is left, then go back to the job
   if (v.aid) {
-    const w = workFor(game, v, true);
+    const w = workFor(game, v, false, true);
     if (w && w.b) { setLook(v, 'builder'); return doBuild(game, v, w.b); }
-    v.aid = false; game.emit('job', v);
+    if (w && w.m) { setLook(v, 'builder'); return doClear(game, v, w.m); }
+    v.aid = false; setLook(v, J.look); game.toast(`${v.name} is done helping and goes back to work`); game.emit('job', v);
   }
   if (v.job !== 'idle') setLook(v, J.look);
   if (work && !work.done) return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
