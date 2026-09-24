@@ -55,7 +55,8 @@ function workFor(game, v, sitesOnly = false) {
     if (sitesOnly && b.done) continue;
     let crew = 0; for (const o of game.villagers.values()) if (o.site === b.id && o !== v) crew++;
     if (crew >= Math.max(2, Math.ceil(b.w * b.d / 3))) continue;
-    const d = dist(game.center(b), v.pos) + (b.done && !b.upg ? 40 : 0); if (d < bd) { bd = d; best = b; }
+    // prioritised jobs first, then new buildings and upgrades, then repairs
+    const d = dist(game.center(b), v.pos) + (b.done && !b.upg ? 40 : 0) - (b.prio ? 1000 : 0); if (d < bd) { bd = d; best = b; }
   }
   if (best || sitesOnly) return best ? { b: best } : null;
   let mb = null, md = Infinity;
@@ -98,6 +99,27 @@ function goHome(game, v, status) {
   return goTo(game, v, game.door(home, 0.5), () => inside(v, game.raids.active ? 4 : 20, null, status), game.raids.active ? 'Running inside to hide' : 'Heading home for the night');
 }
 
+// walk a stretch of wall walkway: climb up at one end, patrol along the top, climb down
+function wallPatrol(game, v) {
+  const walls = [...game.buildings.values()].filter(b => b.type === 'wall' && b.done && b.level >= 2);
+  if (!walls.length) return false;
+  const start = walls[Math.floor(game.rand() * walls.length)], at = new Map(walls.map(b => [b.cx + ',' + b.cz, b]));
+  const chain = [start], seen = new Set([start.id]);
+  for (let k = 0; k < 10; k++) {
+    const cur = chain[chain.length - 1];
+    const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => at.get((cur.cx + dx) + ',' + (cur.cz + dz))).filter(b => b && !seen.has(b.id));
+    if (!next.length) break; const n = next[Math.floor(game.rand() * next.length)]; chain.push(n); seen.add(n.id);
+  }
+  if (chain.length < 3) return false;
+  const top = b => game.center(b), H = 2.95 * (1 + 0.14 * (start.level - 1));
+  const foot = b => { const c = game.grid.nearestWalkable(b.cx, b.cz, 3); return c ? game.grid.center(c[0], c[1]) : null; };
+  const up = foot(start), down = foot(chain[chain.length - 1]); if (!up || !down) return false;
+  return goTo(game, v, up, () => {
+    const s = top(start); v.pos.x = s.x; v.pos.z = s.z; v.elev = H; v.onWall = true;
+    v.path = chain.slice(1).map(top); v.pathI = 0; v.status = 'Patrolling the wall walk';
+    v.onArrive = () => { v.elev = 0; v.onWall = false; v.pos.x = down.x; v.pos.z = down.z; act(v, 4, 'guard', null, 'Watching from the wall'); };
+  }, 'Heading up onto the wall walk');
+}
 // archers climb a free spot on a watchtower
 function climbTower(game, v) {
   for (const b of game.buildings.values()) {
@@ -196,6 +218,8 @@ export function thinkVillager(game, v) {
       if (climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough
     case 'ashigaru': case 'berserker': case 'taisho': {
+      // from Keep level 4, spearmen patrol along the walkways of upgraded walls
+      if (v.job === 'ashigaru' && game.thLevel >= 4 && game.rand() < 0.6 && wallPatrol(game, v)) return;
       const gates = [...game.buildings.values()].filter(b => b.done && (b.type === 'gate' || b.type === 'townhall'));
       const g = gates[Math.floor(game.rand() * gates.length)];
       if (!g) return act(v, 4, 'guard', null, 'Standing guard');

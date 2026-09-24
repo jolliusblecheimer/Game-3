@@ -148,6 +148,7 @@ export class Person {
         break;
       }
       case 'chop': { const s = Math.sin(t * 5); aR.rotation.x = -1.7 + s * 1.0; aL.rotation.x = -1.1 + s * 0.5; bodyRX = 0.15 + s * 0.08; break; }
+      case 'sneak': { const s = Math.sin(t * 6); lL.rotation.x = -0.5 + s * 0.45; lR.rotation.x = -0.5 - s * 0.45; aL.rotation.x = -0.6; aR.rotation.x = -0.9; bodyY = -0.28; bodyRX = 0.45; break; }
       case 'work': { const s = Math.sin(t * 7); aR.rotation.x = -1.2 + s * 0.35; aL.rotation.x = -1.0; bodyRX = 0.3; lL.rotation.x = -0.3; lR.rotation.x = 0.2; break; }
       case 'hammer': { const s = Math.max(0, Math.sin(t * 6)); aR.rotation.x = -2.6 + s * 1.9; aL.rotation.x = -0.9; bodyRX = 0.1 + s * 0.12; break; }
       case 'pickaxe': { const s = Math.sin(t * 3.6); aR.rotation.x = -2.9 + (s + 1) * 1.2; aL.rotation.x = -2.9 + (s + 1) * 1.2; aL.rotation.z = -0.2; bodyRX = 0.05 + (s + 1) * 0.18; break; }

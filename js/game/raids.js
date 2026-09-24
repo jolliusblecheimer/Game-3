@@ -30,11 +30,11 @@ export class Raids {
     if (!this.active) {
       if (this.next == null) this.schedule(true);
       const left = this.timeLeft();
-      if (!this.warned && left <= RAIDS.warning) {
+      if (!this.warned && left <= RAIDS.warning * (1 + this.game.rb('earlyWarn'))) {
         this.warned = true;
         this.side = Object.keys(SIDES)[Math.floor(this.game.rand() * 4)];
         const soldiers = this.game.soldiers().length;
-        this.game.toast(`Bandits spotted to the ${this.side}! They will arrive in about a minute.${soldiers ? '' : ' You have no soldiers — train spearmen at a Dojo.'}`, 'bad');
+        this.game.toast(`Bandits spotted to the ${this.side}! They will arrive in ${this.game.rb('earlyWarn') ? 'two minutes' : 'about a minute'}.${soldiers ? '' : ' You have no soldiers — train spearmen at a Dojo.'}`, 'bad');
         this.game.emit('raidWarning');
       }
       if (left <= 0) this.start();
@@ -99,6 +99,8 @@ export class Raids {
       if (u.state === 'breach' && u.wall && g.buildings.has(u.wall.id)) {
         const c = g.center(u.wall);
         if (Math.hypot(c.x - u.x, c.z - u.z) < Math.max(u.wall.w, u.wall.d) + 1.8) {
+          // murder holes: stones from nearby towers
+          if (g.rb('murder') && [...g.buildings.values()].some(t => t.type === 'tower' && t.done && Math.hypot(g.center(t).x - u.x, g.center(t).z - u.z) < 12)) this.hurtBandit(u, 6 * dt);
           this.face(u, c.x - u.x, c.z - u.z, dt); pose = 'chop';
           if (u.cd <= 0) {
             u.cd = 1.1; u.wall.hp -= UNITS.bandit.dmg;
@@ -132,7 +134,7 @@ export class Raids {
     for (const v of soldiers) {
       v.rcd = (v.rcd || 0) - dt;
       const ranged = v.job === 'archer', tower = v.post && g.buildings.get(v.post.b);
-      const range = ranged ? (tower ? 22 + 4 * (tower.level - 1) : 16) : 1.9;
+      const range = ranged ? (tower ? 22 + 4 * (tower.level - 1) + 4 * g.rb('archEyes') : 16) * (1 + g.rb('archRange')) : 1.9;
       const targets = this.alive().map(u => [u, Math.hypot(u.x - v.pos.x, u.z - v.pos.z)]).sort((a, b) => a[1] - b[1]);
       const t = targets[0];
       if (!t) continue;

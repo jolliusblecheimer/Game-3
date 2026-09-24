@@ -99,10 +99,11 @@ export class Country {
     for (const id of vids) { const v = this.game.villagers.get(id); if (!v) continue; v.away = null; if (th) { const d = this.game.door(th, 3 + Math.random() * 3); v.pos.x = d.x; v.pos.z = d.z; } v.reset = true; }
     this.game.emit('away');
   }
-  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'idle' || v.job === 'ashigaru' || v.job === 'archer')); }
+  // only soldiers scout; a scout is away and can't work or fight at home
+  scoutCandidates() { return [...this.game.villagers.values()].filter(v => !v.away && (v.job === 'ashigaru' || v.job === 'archer')); }
   sendScout(to) {
-    const g = this.game, c = this.scoutCandidates().sort((a, b) => (a.job === 'idle' ? 0 : 1) - (b.job === 'idle' ? 0 : 1))[0];
-    if (!c) return g.toast('No one free to scout — you need an idle villager or a soldier', 'warn');
+    const g = this.game, c = this.scoutCandidates().sort((a, b) => (a.post ? 1 : 0) - (b.post ? 1 : 0))[0];
+    if (!c) return g.toast('Only soldiers can scout — train a spearman or archer first', 'warn');
     if (!g.canAfford(WAR.scoutCost)) return g.toast('Scouts need 10 wheat for the journey', 'warn');
     g.pay(WAR.scoutCost);
     const dist = Math.hypot(to.x, to.z), dur = Math.max(8, dist / (WAR.scoutSpeed * this.speedMult('scout')));
@@ -111,10 +112,10 @@ export class Country {
     g.toast(`${c.name} sets out to scout (${Math.round(dur)}s there)`);
     g.emit('country'); return m;
   }
-  speedMult(kind) { const r = this.game.state.research || {}; return 1 + (kind === 'scout' ? (r.scoutSpeed || 0) : (r.marchSpeed || 0)) * 0.25; }
+  speedMult(kind) { return 1 + (kind === 'scout' ? this.game.rb('scoutSpeed') : this.game.rb('marchSpeed')) * 0.25; }
   marchTime(site) { return Math.max(10, Math.hypot(site.x, site.z) / (WAR.armySpeed * this.speedMult('army'))); }
   sendArmy(site, vids, rams) {
-    const g = this.game, cost = { wheat: WAR.marchCost * vids.length };
+    const g = this.game, cost = { wheat: Math.ceil(WAR.marchCost * vids.length * (g.rb('supply') ? 0.5 : 1)) };
     if (!vids.length) return g.toast('Choose at least one soldier', 'warn');
     if (!g.canAfford(cost)) return g.toast(`The march needs ${cost.wheat} wheat for supplies`, 'warn');
     g.pay(cost);
@@ -140,7 +141,7 @@ export class Country {
         // reveal along the path travelled so far (works even after a long offline jump)
         const from = m.lastReveal || 0, to = p.t;
         const [a, b] = m.phase === 'back' ? [m.to, m.from] : [m.from, m.to];
-        for (let t = from; t <= to + 1e-6; t += Math.max(0.02, 8 / Math.max(1, Math.hypot(b.x - a.x, b.z - a.z)))) this.reveal(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, WAR.scoutReveal);
+        for (let t = from; t <= to + 1e-6; t += Math.max(0.02, 8 / Math.max(1, Math.hypot(b.x - a.x, b.z - a.z)))) this.reveal(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, WAR.scoutReveal * (1 + 0.5 * this.game.rb('scoutSight')));
         m.lastReveal = to;
       }
       if (p.t < 1 || m.phase === 'ready') continue;
@@ -157,6 +158,8 @@ export class Country {
         }
         m.phase = 'back'; m.t0 = this.clock; m.lastReveal = 0;
         g.toast('Your scout is heading home with news');
+      } else if (m.kind === 'reinforce' && m.phase === 'out') {
+        m.phase = 'ready';
       } else if (m.kind === 'army' && m.phase === 'out') {
         m.phase = 'ready';
         g.toast(`Your army has reached ${this.site(m.site).name}. Open the Map to lead the attack.`);
@@ -179,18 +182,52 @@ export class Country {
         hold.tributeT = this.clock + 60;
         for (const r in S.tribute) g.add(r, S.tribute[r]);
       }
-      if (this.clock >= hold.checkT) {
-        hold.checkT = this.clock + WAR.holdCheckEvery;
-        const strength = guards.reduce((a, v) => a + (JOBS[v.job].commander ? 4 : 1), 0), attack = S.threat * (0.4 + Math.random() * 0.6);
-        if (strength < attack) {
-          const lost = guards.filter((_, i) => i % 2 === 0);
-          for (const v of lost) g.killVillager(v.id);
-          this.home(guards.filter(v => !lost.includes(v)).map(v => v.id));
-          delete this.holds[id]; this.setStatus(s, 'scouted');
-          g.toast(`${s.name} was retaken by the enemy! ${lost.length} of your garrison fell.`, 'bad');
-        } else g.toast(`Your garrison at ${s.name} drove off an attack`);
+      // an enemy force gathers: you get a warning and time to respond
+      if (!hold.attack && this.clock >= hold.checkT) {
+        hold.attack = { at: this.clock + WAR.attackWarning, force: Math.round(S.threat * (0.8 + Math.random() * 0.6)) };
+        g.emit('holdAttack', s);
+      }
+      if (hold.attack && this.clock >= hold.attack.at && !hold.attack.fighting) this.resolveAttack(s, hold);
+      // reinforcements that arrive join the garrison
+      for (const m of this.missions) if (m.kind === 'reinforce' && m.site === s.id && m.phase === 'ready') {
+        for (const vid of m.vids) { const v = g.villagers.get(vid); if (v) v.away = 'hold:' + id; }
+        this.missions = this.missions.filter(x => x !== m); g.toast(`Reinforcements reached ${s.name}`); g.emit('country');
       }
     }
+  }
+  garrison(site) { return [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id); }
+  // the garrison fights on its own
+  resolveAttack(s, hold) {
+    const g = this.game, guards = this.garrison(s), force = hold.attack.force;
+    const strength = guards.reduce((a, v) => a + (JOBS[v.job].commander ? 4 : v.job === 'archer' ? 1.3 : 1), 0) * 1.6; // walls help the defenders
+    hold.attack = null; hold.checkT = this.clock + WAR.holdCheckEvery;
+    if (strength < force) {
+      const lost = guards.filter((_, i) => i % 2 === 0);
+      for (const v of lost) g.killVillager(v.id);
+      this.home(guards.filter(v => !lost.includes(v)).map(v => v.id));
+      delete this.holds[s.id]; this.setStatus(s, 'scouted');
+      g.toast(`${s.name} was retaken by the enemy! ${lost.length} of your garrison fell.`, 'bad');
+    } else {
+      const lost = guards.filter((_, i) => i < Math.floor(guards.length * force / strength / 3));
+      for (const v of lost) g.killVillager(v.id);
+      g.toast(`Your garrison at ${s.name} drove off the attack${lost.length ? `, losing ${lost.length}` : ''}.`);
+    }
+    g.emit('country');
+  }
+  // after you led the defense yourself
+  defenseResult(s, won, survivors) {
+    const g = this.game, hold = this.holds[s.id], guards = this.garrison(s);
+    for (const v of guards) if (!survivors.includes(v.id)) g.killVillager(v.id);
+    if (!hold) return;
+    hold.attack = null; hold.checkT = this.clock + WAR.holdCheckEvery;
+    if (!won || !survivors.length) { this.home(survivors); delete this.holds[s.id]; this.setStatus(s, 'scouted'); }
+    g.emit('country');
+  }
+  sendReinforcements(site, vids) {
+    const g = this.game; if (!vids.length) return;
+    const m = { id: this.nextId++, kind: 'reinforce', vids: [...vids], rams: 0, site: site.id, from: { x: 0, z: 0 }, to: { x: site.x, z: site.z }, t0: this.clock, dur: this.marchTime(site), phase: 'out' };
+    this.missions.push(m); this.away(vids, 'army');
+    g.toast(`${vids.length} soldiers march to reinforce ${site.name} (${Math.round(m.dur)}s)`); g.emit('country');
   }
   hold(site, guardVids) {
     this.away(guardVids, 'hold:' + site.id);

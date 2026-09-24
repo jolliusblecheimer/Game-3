@@ -300,6 +300,26 @@ const MODELS = {
     if (L >= 2) stoneLantern(b, -w / 2 + 0.5, -d / 2 + 2.9, 0.6);
     if (L >= 3) { for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) { m.cyl(0.05, 0.05, 2.6, 5, WOOD_D, [x, 1.3, d / 2 - 2.2]); m.box(0.04, 1.4, 0.45, VERM, [x, 1.9, d / 2 - 1.95]); } }
   },
+  strategy(b, w, d) {
+    // Strategy Hall: a two-storey study hall with a war table, scroll racks and clan banners
+    const m = b.m;
+    m.box(w - 0.2, 0.08, d - 0.2, SAND, [0, 0.04, 0]);
+    m.box(4.6, 0.6, 3.8, STONE, [0, 0.3, -0.6]); courses(m, 4.6, 3.8, 4.6, 3.8, 0.6, 0, 1);
+    m.box(4.2, 2.0, 3.4, PLASTER, [0, 1.6, -0.6]); posts(m, 4.3, 3.5, 2.0, 0.6, WOOD, 0.13);
+    m.box(4.35, 0.16, 3.55, WOOD, [0, 1.3, -0.6]);
+    for (const x of [-1.3, 0, 1.3]) { b.g.box(0.8, 0.9, 0.06, PAPER, [x, 1.5, 1.12]); lattice(m, x, 1.5, 1.12, 0.8, 0.9); }
+    m.roof(4.2, 3.4, 1.0, ROOF, 2.6, { over: 0.7, ridge: 0.6 });
+    m.box(2.8, 1.3, 2.2, PLASTER, [0, 3.2 + 0.65, -0.6]); posts(m, 2.9, 2.3, 1.3, 3.2, WOOD, 0.1);
+    b.g.box(1.2, 0.5, 0.06, PAPER, [0, 3.9, 0.52]); lattice(m, 0, 3.9, 0.52, 1.2, 0.5);
+    m.roof(2.8, 2.2, 1.4, ROOF, 4.5, { over: 0.6, ridge: 0.5, ornaments: GOLD });
+    // war table with a map and little markers in the yard
+    m.box(1.6, 0.08, 1.0, WOOD_L, [1.4, 0.75, 1.9]); for (const x of [0.75, 2.05]) for (const z of [1.5, 2.3]) m.box(0.08, 0.7, 0.08, WOOD_D, [x, 0.38, z]);
+    m.box(1.4, 0.02, 0.85, '#e8dcb8', [1.4, 0.8, 1.9]); for (let i = 0; i < 6; i++) m.box(0.08, 0.1, 0.08, i < 3 ? VERM : '#2f4a7a', [1.0 + (i % 3) * 0.3, 0.86, 1.7 + Math.floor(i / 3) * 0.35]);
+    // scroll rack and a war fan (gunbai)
+    m.box(1.0, 1.1, 0.3, WOOD_D, [-1.6, 0.55, 1.9]); for (let i = 0; i < 6; i++) m.cyl(0.05, 0.05, 0.3, 6, '#efe3c4', [-1.95 + (i % 3) * 0.33, 0.35 + Math.floor(i / 3) * 0.4, 1.95], [Math.PI / 2, 0, 0]);
+    m.cyl(0.3, 0.3, 0.04, 12, '#1c1c1f', [-0.3, 1.3, 1.3], [Math.PI / 2, 0, 0]); m.cyl(0.14, 0.14, 0.05, 12, GOLD, [-0.3, 1.3, 1.32], [Math.PI / 2, 0, 0]); m.box(0.05, 0.6, 0.05, WOOD_D, [-0.3, 0.8, 1.3]);
+    for (const x of [-2.3, 2.3]) { m.cyl(0.05, 0.05, 3.4, 5, WOOD_D, [x, 1.7, 1.4]); m.box(0.04, 1.8, 0.55, x < 0 ? VERM : '#27354f', [x, 2.4, 1.7]); }
+  },
   workshop(b, w, d) {
     const m = b.m;
     m.box(w - 0.2, 0.08, d - 0.2, DIRT, [0, 0.04, 0]);
@@ -320,8 +340,9 @@ const MODELS = {
     if (conn && (conn.n || conn.s || conn.e || conn.w)) {
       // connected wall: a pillar in the middle and an arm towards each neighbour
       m.frustum(1.35, 1.35, 1.1, 1.1, 1.5, STONE, [0, 0, 0]);
+      const walk = (b.level || 1) >= 2; // upgraded walls carry a walkway for patrols
       m.box(1.0, 1.3, 1.0, PLASTER, [0, 2.15, 0]); m.box(1.04, 0.16, 1.04, WOOD_D, [0, 1.56, 0]);
-      m.roof(1.0, 1.0, 0.5, ROOF, 2.8, { over: 0.26, ridge: 0.3 });
+      if (walk) { m.box(1.3, 0.1, 1.3, WOOD_L, [0, 2.85, 0]); } else m.roof(1.0, 1.0, 0.5, ROOF, 2.8, { over: 0.26, ridge: 0.3 });
       for (const [k, ax, az] of [['e', 1, 0], ['w', -1, 0], ['s', 0, 1], ['n', 0, -1]]) {
         if (!conn[k]) continue;
         const along = ax !== 0, x = ax * 0.52, z = az * 0.52;
@@ -330,7 +351,11 @@ const MODELS = {
         m.box(along ? 1.0 : 0.84, 0.16, along ? 0.84 : 1.0, WOOD_D, [x, 1.56, z]);
         m.box(along ? 0.22 : 0.06, 0.18, along ? 0.06 : 0.22, DARK, [x + (along ? 0 : 0.41), 2.3, z + (along ? 0.41 : 0)]);
         m.box(along ? 0.22 : 0.06, 0.18, along ? 0.06 : 0.22, DARK, [x - (along ? 0 : 0.41), 2.3, z - (along ? 0.41 : 0)]);
-        m.roof(along ? 1.0 : 0.8, along ? 0.8 : 1.0, 0.5, ROOF, 2.8, { over: 0.26, ridge: 0.9 });
+        if (walk) {
+          m.box(along ? 1.0 : 1.3, 0.1, along ? 1.3 : 1.0, WOOD_L, [x, 2.85, z]);
+          for (const sd of [-1, 1]) m.box(along ? 1.0 : 0.12, 0.45, along ? 0.12 : 1.0, PLASTER, [x + (along ? 0 : sd * 0.62), 3.12, z + (along ? sd * 0.62 : 0)]);
+          m.box(along ? 1.0 : 0.16, 0.08, along ? 0.16 : 1.0, ROOF, [x + (along ? 0 : 0.62), 3.38, z + (along ? 0.62 : 0)]);
+        } else m.roof(along ? 1.0 : 0.8, along ? 0.8 : 1.0, 0.5, ROOF, 2.8, { over: 0.26, ridge: 0.9 });
       }
       return;
     }

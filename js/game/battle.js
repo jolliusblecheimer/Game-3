@@ -12,9 +12,9 @@ const N = 64, CELL = 2, HALF = N * CELL / 2;
 const STRUCT = {
   wall:     { hp: 900, blocks: true, stand: 2.9 },
   palisade: { hp: 320, blocks: true },
-  gate:     { hp: 1000, blocks: true, gate: true },
+  gate:     { hp: 1000, blocks: true, gate: true, stand: 3.4 },
   pgate:    { hp: 480, blocks: true, gate: true, model: 'gate' },
-  tower:    { hp: 1300, blocks: true, posts: true },
+  tower:    { hp: 1300, blocks: true, posts: true, stand: 3.62 },
   keep:     { hp: 3000, blocks: true, model: 'townhall', keep: true },
   house:    { blocks: true, deco: true },
   lumber:   { blocks: true, deco: true },
@@ -104,26 +104,44 @@ function ramModel() {
   const g = new THREE.Group(); g.add(m.mesh(MAT.flat)); return g;
 }
 
+const HP_SCALE = 2;          // everyone is tougher in battle: fights last longer
+const SIGHT = { ground: 13, high: 20, bush: 4 };
+const CAPTURE_TIME = 12;
+
+/*
+ * Defender AI, after the classic ideas of castle defence:
+ *  - Sentries patrol while the rest rest. Nobody attacks what they haven't seen.
+ *  - On the alarm every man goes to his post: a spear line two ranks deep behind the
+ *    gate (the choke point), archers on towers and walls, a reserve at the keep.
+ *  - They hold their ground and only fight what comes within reach of their post —
+ *    they never charge out of the walls.
+ *  - Stones are dropped on anything battering the gate.
+ *  - When the spear line breaks, the survivors fall back to the keep for a last stand;
+ *    when most are dead the rest flee.
+ */
 export class Battle {
   constructor(ctx, mission, site) {
     this.ctx = ctx; this.game = ctx.game; this.scene = ctx.stage.scene; this.mission = mission; this.site = site;
+    this.defend = !!mission.defend;        // true: you hold this place against attackers
     this.root = new THREE.Group(); this.root.position.copy(BATTLE_ORIGIN); this.scene.add(this.root);
     this.grid = new Grid(N, CELL, BATTLE_ORIGIN.x, BATTLE_ORIGIN.z);
     this.units = []; this.structs = []; this.arrows = []; this.fx = [];
-    this.t = 0; this.over = null; this.capture = 0; this.nextId = 1;
+    this.t = 0; this.over = null; this.capture = 0; this.nextId = 1; this.alarm = false; this.phase = 'calm';
     this.rand = mulberry32(site.seed + Math.floor(this.game.state.clock));
     this.buildTerrain();
     this.layout = makeLayout(site);
     this.buildStructures();
-    this.spawnDefenders();
-    this.spawnArmy();
+    if (this.defend) { this.spawnGarrison(); this.spawnAttackers(); this.alarm = true; this.phase = 'siege'; }
+    else { this.spawnDefenders(); this.spawnArmy(); this.assignRoles(); }
     this.initialEnemies = this.units.filter(u => u.team === 1).length;
     this.buildOverlays();
   }
-  // world <-> local helpers
   W(cx, cz) { const c = this.grid.center(cx, cz); return { x: c.x, z: c.z }; }
   cellOf(x, z) { return this.grid.toCell(x, z); }
   structAt(x, z) { const [cx, cz] = this.cellOf(x, z); const i = this.grid.get(cx, cz); return i > 0 ? this.structs[i - 1] : null; }
+  get gate() { return this.structs.find(s => s.def.gate && s.type !== 'pgate') || this.structs.find(s => s.def.gate); }
+  get keep() { return this.structs.find(s => s.def.keep); }
+  rb(k) { return this.game.rb(k); }
 
   buildTerrain() {
     const size = 360, seg = 120, g = new THREE.PlaneGeometry(size, size, seg, seg); g.rotateX(-Math.PI / 2);
@@ -137,7 +155,6 @@ export class Battle {
     g.computeVertexNormals(); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 })); m.receiveShadow = true;
     this.root.add(m);
-    // forest around the field
     const t = new Mesher(5, 0.08); t.cyl(0.2, 0.3, 2.4, 6, '#5a3d2a', [0, 1.2, 0]); t.cone(1.9, 2.6, 7, '#2f5a36', [0, 2.8, 0]); t.cone(1.4, 2.2, 7, '#35653c', [0, 4.0, 0]); t.cone(0.9, 1.8, 7, '#3b6f42', [0, 5.0, 0]);
     const r = mulberry32(this.site.seed + 1), list = [];
     while (list.length < 700) { const x = (r() - 0.5) * 340, z = (r() - 0.5) * 340; if (Math.abs(x) < HALF + 3 && Math.abs(z) < HALF + 3) continue; list.push([x, battleHeight(x, z), z, 0.8 + r() * 0.8]); }
@@ -150,7 +167,7 @@ export class Battle {
     L.structs.forEach(s => { for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) typeAt.set(key(x, z), s.type); });
     L.structs.forEach((s, i) => {
       const D = STRUCT[s.type], id = i + 1;
-      const st = { ...s, id, def: D, hp: D.hp || 0, maxHp: D.hp || 0, dead: false, isStruct: true, r: 1 };
+      const st = { ...s, id, def: D, hp: D.hp || 0, maxHp: D.hp || 0, dead: false, isStruct: true, r: 1, team: this.defend ? 0 : 1 };
       const fam = FAMILY[s.type];
       const conn = fam ? { n: fam.includes(typeAt.get(key(s.cx, s.cz - 1))), s: fam.includes(typeAt.get(key(s.cx, s.cz + 1))), e: fam.includes(typeAt.get(key(s.cx + 1, s.cz))), w: fam.includes(typeAt.get(key(s.cx - 1, s.cz))) } : null;
       const [a, b] = s.rot % 2 ? [s.d, s.w] : [s.w, s.d];
@@ -163,28 +180,48 @@ export class Battle {
       for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) this.grid.set(x, z, id, !D.blocks, D.spikes ? 0.45 : 1);
       this.structs.push(st);
     });
+    // the area inside the walls
+    const w = this.structs.filter(s => s.type === 'wall' || s.type === 'palisade' || s.type === 'tower');
+    const xs = w.map(s => s.cx), zs = w.map(s => s.cz);
+    this.box = w.length ? [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] : [26, 16, 38, 28];
   }
   bush(x, z) { const s = this.structAt(x, z); return !!(s && s.def.bush); }
+  inside(x, z) { const [cx, cz] = this.cellOf(x, z), b = this.box; return cx > b[0] && cx < b[2] && cz > b[1] && cz < b[3]; }
 
+  /* ---------- units ---------- */
+  stats(team, type) {
+    const U = UNITS[type], mine = team === 0, rb = k => (mine ? this.rb(k) : 0);
+    const spear = type === 'ashigaru', archer = type === 'archer', cmd = type === 'berserker' || type === 'taisho', ram = type === 'ram' || type === 'enemy_ram';
+    return {
+      hp: U.hp * HP_SCALE * (1 + (spear ? rb('spearHp') : 0) + (cmd ? rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
+      dmg: U.dmg * (1 + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
+      cd: U.cd / (1 + (spear ? rb('spearFast') : 0) + (archer ? rb('archFast') : 0)),
+      range: U.range * (1 + (archer ? rb('archRange') : 0)),
+      speed: U.speed * (1 + (spear ? rb('spearFast') : 0)),
+    };
+  }
   makeUnit(team, type, x, z, extra = {}) {
-    const U = UNITS[type];
+    const U = UNITS[type], S = this.stats(team, type);
     let obj, person = null;
     if (U.siege) obj = ramModel();
     else { person = new Person(U.look, (extra.vid || this.nextId) * 13 + team); obj = person.group; }
     obj.position.set(x - BATTLE_ORIGIN.x, 0, z - BATTLE_ORIGIN.z);
     this.root.add(obj);
-    const u = { id: this.nextId++, team, type, U, x, z, y: 0, hp: U.hp, maxHp: U.hp, r: U.r, cd: this.rand(), obj, person, heading: team ? 0 : Math.PI, dead: false, deadT: 0,
-      order: { kind: 'idle' }, path: null, pathI: 0, target: null, thinkT: this.rand() * 0.5, buffs: {}, abilityCd: 0, ...extra };
+    const u = { id: this.nextId++, team, type, U, S, x, z, y: 0, hp: S.hp, maxHp: S.hp, r: U.r, cd: this.rand(), obj, person, heading: team ? 0 : Math.PI, dead: false, deadT: 0,
+      order: { kind: 'idle' }, path: null, pathI: 0, target: null, thinkT: this.rand() * 0.5, buffs: {}, abilityCd: 0, spotted: -99, ...extra };
     this.units.push(u);
     return u;
+  }
+  postSpot(s, slot) {
+    const [px, pz] = s.type === 'tower' ? [[0, 0.6], [-0.8, -0.5], [0.8, -0.5]][slot % 3] : [0, 0];
+    return { x: s.x + px, z: s.z + pz, y: s.type === 'tower' ? 3.62 : 2.9 };
   }
   spawnDefenders() {
     for (const d of this.layout.defenders) {
       if (d.post != null) {
-        const s = this.structs[d.post];
-        const [px, pz, py] = s.type === 'tower' ? [[0, 0.6], [-0.8, -0.5], [0.8, -0.5]][d.slot % 3].concat(3.62) : [0, 0, 2.9];
-        const u = this.makeUnit(1, d.type, s.x + px, s.z + pz, { post: s.id, home: { x: s.x + px, z: s.z + pz } });
-        u.y = py; u.heading = 0;
+        const s = this.structs[d.post], p = this.postSpot(s, d.slot);
+        const u = this.makeUnit(1, d.type, p.x, p.z, { post: s.id, home: { x: p.x, z: p.z } });
+        u.y = p.y; u.heading = 0; u.role = 'post';
       } else {
         const c = this.W(d.cx, d.cz);
         this.makeUnit(1, d.type, c.x + (this.rand() - 0.5), c.z + (this.rand() - 0.5), { home: { x: c.x, z: c.z } });
@@ -197,44 +234,93 @@ export class Battle {
     list.sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
     const cols = 10;
     list.forEach((v, i) => {
-      const cx = 27 + (i % cols), cz = 57 + Math.floor(i / cols) * 1.2;
-      const c = this.W(cx, 0); this.makeUnit(0, v.job, c.x + (this.rand() - 0.5) * 0.4, this.grid.center(0, cz).z + (Math.floor(i / cols) ? 0 : 0), { vid: v.id, name: v.name });
+      const c = this.W(27 + (i % cols), 0);
+      this.makeUnit(0, v.job, c.x + (this.rand() - 0.5) * 0.4, this.grid.center(0, 58 + Math.floor(i / cols) * 1.3).z, { vid: v.id, name: v.name });
     });
-    for (let i = 0; i < this.mission.rams; i++) { const c = this.W(29 + i * 3, 61); this.makeUnit(0, 'ram', c.x, c.z, { ram: true }); }
+    for (let i = 0; i < this.mission.rams; i++) { const c = this.W(29 + i * 3, 62); this.makeUnit(0, 'ram', c.x, c.z, { ram: true }); }
+  }
+  // Give every defender a job: sentry, spear line, reserve or guard.
+  assignRoles() {
+    const foes = this.units.filter(u => u.team === 1 && !u.post), gate = this.gate, keep = this.keep;
+    const bx = this.box, gx = gate ? gate.x : this.W(Math.round((bx[0] + bx[2]) / 2), 0).x, gz = gate ? gate.z : this.W(0, bx[3]).z;
+    const kx = keep ? keep.x : gx, kz = keep ? keep.z + 6 : gz - 10;
+    const spears = foes.filter(u => u.type === 'enemy_ashigaru' || u.type === 'bandit');
+    // sentries walk a loop just inside the walls
+    const nSentry = Math.min(spears.length, this.site.tier >= 3 ? 3 : 2);
+    const inner = [[bx[0] + 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[1] + 1.5], [bx[2] - 1.5, bx[3] - 1.5], [bx[0] + 1.5, bx[3] - 1.5]].map(([x, z]) => this.W(Math.round(x), Math.round(z)));
+    spears.slice(0, nSentry).forEach((u, i) => { u.role = 'sentry'; u.route = inner.slice(i % 4).concat(inner.slice(0, i % 4)); u.routeI = 0; });
+    // the spear line: two ranks behind the gate
+    let k = 0;
+    for (const u of spears.slice(nSentry)) {
+      const rank = Math.floor(k / 5), file = (k % 5) - 2; k++;
+      u.role = 'line'; u.pos = { x: gx + file * 1.5, z: gz - 3.2 - rank * 1.7 }; u.holdR = 4.5;
+    }
+    for (const u of foes.filter(u => u.type === 'enemy_samurai' || u.type === 'enemy_lord')) { u.role = 'reserve'; u.pos = { x: kx + (this.rand() - 0.5) * 4, z: kz + (this.rand() - 0.5) * 2 }; u.holdR = 12; }
+    for (const u of foes.filter(u => !u.role)) { u.role = 'guard'; u.pos = { ...u.home }; u.holdR = 7; }
+    this.lineStart = this.units.filter(u => u.role === 'line').length;
   }
 
-  /* ---------- overlays: hp bars, selection rings, arrows ---------- */
-  buildOverlays() {
-    const bar = new THREE.PlaneGeometry(1, 0.14);
-    this.barBg = new THREE.InstancedMesh(bar, new THREE.MeshBasicMaterial({ color: '#1b1714', depthTest: false, transparent: true, opacity: 0.7 }), 400);
-    this.barFg = new THREE.InstancedMesh(bar, new THREE.MeshBasicMaterial({ color: '#ffffff', depthTest: false }), 400);
-    this.barFg.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(400 * 3), 3);
-    for (const b of [this.barBg, this.barFg]) { b.renderOrder = 20; b.frustumCulled = false; b.count = 0; this.root.add(b); }
-    const ring = new THREE.RingGeometry(0.75, 0.95, 20); ring.rotateX(-Math.PI / 2);
-    this.rings = new THREE.InstancedMesh(ring, new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.85, depthWrite: false }), 200);
-    this.rings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(200 * 3), 3);
-    this.rings.frustumCulled = false; this.rings.count = 0; this.root.add(this.rings);
-    const am = new Mesher(1, 0); am.box(0.05, 0.05, 1.1, '#3b2619', [0, 0, 0]); am.box(0.08, 0.08, 0.15, '#c9ced4', [0, 0, 0.6]); am.box(0.14, 0.02, 0.2, '#f2ece0', [0, 0, -0.5]);
-    this.arrowMesh = new THREE.InstancedMesh(am.geometry(), MAT.flat, 300); this.arrowMesh.frustumCulled = false; this.arrowMesh.count = 0; this.root.add(this.arrowMesh);
-    const bush = new THREE.RingGeometry(0.3, 0.55, 12); bush.rotateX(-Math.PI / 2);
-    this.hideMarks = new THREE.InstancedMesh(bush, new THREE.MeshBasicMaterial({ color: '#a6e07b', transparent: true, opacity: 0.8, depthWrite: false }), 120); this.hideMarks.frustumCulled = false; this.hideMarks.count = 0; this.root.add(this.hideMarks);
+  /* ---------- defense mode: your garrison against attackers ---------- */
+  spawnGarrison() {
+    const g = this.game, list = this.mission.vids.map(id => g.villagers.get(id)).filter(Boolean);
+    const posts = []; for (const s of this.structs) if (s.type === 'tower') for (let i = 0; i < 3; i++) posts.push([s, i]);
+    for (const s of this.structs) if (s.type === 'wall' && s.cz === this.box[3] && posts.length < 20) posts.push([s, 0]);
+    const gate = this.gate, gx = gate ? gate.x : this.W(32, 0).x, gz = gate ? gate.z : this.W(0, this.box[3]).z;
+    let li = 0;
+    for (const v of list) {
+      if (v.job === 'archer' && posts.length) {
+        const [s, i] = posts.shift(), p = this.postSpot(s, i);
+        const u = this.makeUnit(0, v.job, p.x, p.z, { vid: v.id, name: v.name, post: s.id }); u.y = p.y; u.heading = 0; u.order = { kind: 'hold' };
+      } else {
+        const rank = Math.floor(li / 5), file = (li % 5) - 2; li++;
+        const u = this.makeUnit(0, v.job, gx + file * 1.5, gz - 3.2 - rank * 1.7, { vid: v.id, name: v.name }); u.heading = 0; u.order = { kind: 'hold' };
+      }
+    }
+  }
+  spawnAttackers() {
+    const force = this.mission.force || 8, n = Math.round(force * 1.1), r = this.rand;
+    const types = []; for (let i = 0; i < n; i++) types.push(i % 10 < 6 ? 'enemy_ashigaru' : i % 10 < 9 ? 'enemy_archer' : 'enemy_samurai');
+    if (this.site.tier >= 4) types.push('enemy_lord');
+    types.forEach((t, i) => { const c = this.W(20 + (i % 24), 0); this.makeUnit(1, t, c.x + (r() - 0.5), this.grid.center(0, 57 + Math.floor(i / 24) * 1.5).z, { attacker: true }); });
+    if (this.gate) this.makeUnit(1, 'enemy_ram', this.W(32, 0).x, this.grid.center(0, 61).z, { attacker: true, ram: true });
+  }
+
+  /* ---------- seeing and being seen ---------- */
+  lineOfSight(a, b) {
+    if ((a.y || 0) > 1.5) return true;                       // from the walls you see over everything
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), steps = Math.ceil(d / 1.2);
+    for (let i = 1; i < steps; i++) { const s = this.structAt(a.x + dx * i / steps, a.z + dz * i / steps); if (s && s.def.blocks && !s.dead && s !== this.structAt(b.x, b.z)) return false; }
+    return true;
+  }
+  // can enemy `e` notice player unit `u` right now?
+  notices(e, u) {
+    const d = Math.hypot(u.x - e.x, u.z - e.z);
+    let sight = (e.y || 0) > 1.5 ? SIGHT.high : SIGHT.ground;
+    if (u.sneak) sight *= 0.5;
+    if (u.hidden) sight = Math.min(sight, SIGHT.bush);
+    return d <= sight && this.lineOfSight(e, u);
+  }
+  // player units the enemy currently knows about
+  known(u) { return this.defend || this.t - u.spotted < 3; }
+  raiseAlarm(by) {
+    if (this.alarm) return;
+    this.alarm = true; this.phase = 'alarm';
+    this.fx.push({ kind: 'banner', text: 'Spotted! The war horn sounds — defenders to your posts!', t: 0 });
+    if (by) this.fx.push({ kind: 'shout', x: by.x, z: by.z, y: (by.y || 0) + 2.6, text: '!', t: 0 });
+    for (const u of this.units) if (u.team === 1 && u.role !== 'post') { u.path = null; u.target = null; }
   }
 
   /* ---------- queries ---------- */
-  enemiesOf(u) { return this.units.filter(o => o.team !== u.team && !o.dead && !o.fled); }
-  visibleTo(viewer, o) {
-    if (o.team === 0 && o.hidden) return Math.hypot(o.x - viewer.x, o.z - viewer.z) < 6;
-    return true;
-  }
   canHit(a, t) {
     if (t.isStruct) return !a.U.ranged || a.U.siege;
+    if (a.U.siege) return false;
     const elevGap = Math.abs((a.y || 0) - (t.y || 0));
     if (!a.U.ranged && elevGap > 1.2) return false; // swords can't reach archers on the walls
     return true;
   }
   inRange(a, t) {
     const d = Math.hypot(t.x - a.x, t.z - a.z) - (t.isStruct ? structRadius(t) : t.r) - a.r;
-    let range = a.U.range; if (a.U.ranged && (a.y || 0) > 1) range += 5;
+    let range = a.S.range; if (a.U.ranged && (a.y || 0) > 1) range += 5;
     return d <= range;
   }
 
@@ -246,44 +332,49 @@ export class Battle {
       list.sort((a, b) => (a.U.ranged ? 1 : 0) - (b.U.ranged ? 1 : 0));
       list.forEach((u, i) => {
         const ox = (i % cols - (cols - 1) / 2) * sp, oz = (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * sp;
-        u.order = { kind, x: point.x + ox, z: point.z + oz }; u.target = null; this.pathTo(u, u.order.x, u.order.z);
+        u.order = { kind, x: point.x + ox, z: point.z + oz }; u.target = null;
+        if (u.post) { const s = this.structs[u.post - 1]; u.post = null; u.y = 0; const d = this.structAt(u.x, u.z); if (d) { const w = this.grid.nearestWalkable(...this.cellOf(u.x, u.z)); if (w) { const c = this.W(w[0], w[1]); u.x = c.x; u.z = c.z; } } void s; }
+        this.pathTo(u, u.order.x, u.order.z);
       });
     } else if (kind === 'attack') for (const u of list) { u.order = { kind: 'attack', target }; u.target = target; u.path = null; u.repathT = 0; }
     else if (kind === 'stop') for (const u of list) { u.order = { kind: 'idle' }; u.target = null; u.path = null; }
     else if (kind === 'hold') for (const u of list) { u.order = { kind: 'hold' }; u.target = null; u.path = null; }
   }
+  setSneak(units, on) { for (const u of units) if (u.team === 0 && !u.U.siege) u.sneak = on; }
   pathTo(u, x, z) {
     if (u.climbing) return;
     const p = this.grid.findPath({ x: u.x, z: u.z }, { x, z }); u.path = p; u.pathI = 0; u.repathT = 1.5;
   }
   ability(u, point) {
     if (u.dead || u.abilityCd > 0) return false;
+    const cdMult = 1 - this.rb('cmdCd');
     if (u.type === 'berserker') {
       if (!point) return false;
-      u.climbing = { x: point.x, z: point.z }; u.path = null; u.target = null; u.order = { kind: 'idle' };
-      u.buffs.taunt = 10; u.buffs.shield = 10; u.abilityCd = 35;
+      u.climbing = { x: point.x, z: point.z }; u.path = null; u.target = null; u.order = { kind: 'idle' }; u.post = null;
+      u.buffs.taunt = 10; u.buffs.shield = 10; u.abilityCd = 35 * cdMult;
       this.shout(u, 'Scale the Wall!');
+      if (!this.alarm) this.raiseAlarm(u);
       return true;
     }
     if (u.type === 'taisho') {
-      for (const o of this.units) if (o.team === 0 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < 14) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.3); o.buffs.rally = 8; }
-      u.abilityCd = 40; this.shout(u, 'Rally to the banner!');
+      const big = this.rb('banner') ? 2 : 1;
+      for (const o of this.units) if (o.team === 0 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < 14) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.3 * big); o.buffs.rally = 8 * big; }
+      u.abilityCd = 40 * cdMult; this.shout(u, 'Rally to the banner!');
       return true;
     }
     return false;
   }
-  shout(u, text) { this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: 3.2, text, t: 0 }); }
+  shout(u, text) { this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: (u.y || 0) + 3.2, text, t: 0 }); }
   retreat() {
     this.retreating = true;
-    for (const u of this.units) if (u.team === 0 && !u.dead) { u.order = { kind: 'retreat' }; u.target = null; u.climbing = null; this.pathTo(u, u.x, BATTLE_ORIGIN.z + HALF - 1); }
+    for (const u of this.units) if (u.team === 0 && !u.dead) { u.order = { kind: 'retreat' }; u.target = null; u.climbing = null; u.post = null; u.y = 0; this.pathTo(u, u.x, BATTLE_ORIGIN.z + HALF - 1); }
   }
 
   /* ---------- simulation ---------- */
   update(dt) {
     if (this.over) { this.animate(dt); return; }
     this.t += dt;
-    const alerted = this.alerted || this.structs.some(s => s.def.gate && s.dead) || this.units.some(u => u.team === 0 && !u.dead && this.insideWalls(u));
-    if (alerted && !this.alerted) { this.alerted = true; this.fx.push({ kind: 'banner', text: 'The defenders charge!', t: 0 }); }
+    if (!this.defend) this.enemyTactics();
     for (const u of this.units) {
       if (u.dead || u.fled) continue;
       for (const k in u.buffs) { u.buffs[k] -= dt; if (u.buffs[k] <= 0) delete u.buffs[k]; }
@@ -291,54 +382,104 @@ export class Battle {
       if (u.team === 0) u.hidden = this.bush(u.x, u.z);
       if (u.post) { const s = this.structs[u.post - 1]; if (s.dead) { u.post = null; u.y = 0; u.hp -= u.maxHp * 0.4; if (u.hp <= 0) { this.kill(u); continue; } } }
       u.thinkT -= dt;
-      if (u.thinkT <= 0) { u.thinkT = u.team ? 0.6 + this.rand() * 0.4 : 0.25; this.think(u, alerted); }
+      if (u.thinkT <= 0) { u.thinkT = u.team ? 0.4 + this.rand() * 0.3 : 0.25; this.think(u); }
       this.act(u, dt);
     }
     this.separate();
     for (const a of this.arrows) {
       a.t += dt;
-      if (a.t >= a.dur) { a.done = true; if (!a.target.dead && !(a.target.isStruct && a.target.dead)) this.damage(a.target, a.dmg, a.from); }
+      if (a.t >= a.dur) { a.done = true; if (!a.target.dead) this.damage(a.target, a.dmg, a.from); }
     }
     this.arrows = this.arrows.filter(a => !a.done);
+    this.dropStones(dt);
     this.checkEnd(dt);
     this.animate(dt);
   }
-  insideWalls(u) {
-    const keep = this.structs.find(s => s.def.keep) || this.structs.find(s => s.type === 'palisade');
-    if (!keep) return false;
-    const box = this.baseBox || (this.baseBox = (() => { const w = this.structs.filter(s => s.type === 'wall' || s.type === 'palisade' || s.type === 'tower'); const xs = w.map(s => s.cx), zs = w.map(s => s.cz); return [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)]; })());
-    const [cx, cz] = this.cellOf(u.x, u.z);
-    return cx > box[0] && cx < box[2] && cz > box[1] && cz < box[3];
+  // Keep the defence coherent: line breaks -> fall back to the keep.
+  enemyTactics() {
+    if (!this.alarm) return;
+    const line = this.units.filter(u => u.role === 'line' && !u.dead && !u.fled);
+    if (this.phase !== 'fallback' && this.lineStart >= 3 && line.length <= Math.floor(this.lineStart * 0.4)) {
+      this.phase = 'fallback';
+      this.fx.push({ kind: 'banner', text: 'Their line breaks — they fall back to the keep!', t: 0 });
+      const keep = this.keep;
+      for (const u of this.units) if (u.team === 1 && !u.dead && (u.role === 'line' || u.role === 'guard' || u.role === 'sentry')) { u.role = 'reserve'; u.pos = keep ? { x: keep.x + (this.rand() - 0.5) * 8, z: keep.z + 5 + this.rand() * 2 } : u.pos; u.holdR = 10; u.path = null; u.target = null; }
+    }
   }
-  think(u, alerted) {
+  // Stones rain on anything battering the gate while someone guards it from above.
+  dropStones(dt) {
+    for (const u of this.units) {
+      if (u.dead || !u.U.siege || !(u.target && u.target.def && u.target.def.gate)) continue;
+      const defenders = this.units.filter(o => o.team !== u.team && !o.dead && (o.y || 0) > 1 && Math.hypot(o.x - u.target.x, o.z - u.target.z) < 12).length;
+      if (!defenders) continue;
+      const res = u.team === 0 && this.rb('ramHp') ? 0.5 : 1;
+      this.damage(u, 7 * defenders * res * dt * 2, null);
+      if (Math.random() < dt * 2) this.fx.push({ kind: 'dust', x: u.x, z: u.z, t: 0 });
+    }
+  }
+  think(u) {
     if (u.team === 0) {
       if (u.order.kind === 'retreat' || u.climbing) return;
       if (u.order.kind === 'attack') { const t = u.order.target; if (t && !t.dead && !t.fled) { u.target = t; return; } u.order = { kind: 'idle' }; }
       if (u.order.kind === 'move' && u.path) return;
       if (u.noReachT > this.t) return;
-      const range = u.order.kind === 'hold' ? u.U.range + 0.5 : u.U.siege ? 16 : u.U.ranged ? u.U.range + 2 : 9;
-      u.target = this.nearestTarget(u, range);
+      // your troops only strike on their own when the enemy knows you're here, or when they're told to
+      const range = u.order.kind === 'hold' || u.post ? u.S.range + ((u.y || 0) > 1 ? 5 : 0) + 0.5 : u.U.siege ? 16 : u.U.ranged ? u.S.range + 2 : 9;
+      u.target = (this.alarm || this.defend) ? this.nearestTarget(u, range) : null;
       if (!u.target && u.order.kind === 'amove' && !u.path) this.pathTo(u, u.order.x, u.order.z);
       return;
     }
+    if (this.defend) return this.thinkAttacker(u);
     // defenders
     if (u.fleeing) return;
-    if (u.post) { u.target = this.nearestTarget(u, u.U.range + (u.y > 1 ? 5 : 0)); return; }
-    const leash = alerted ? 60 : 12;
-    let t = this.nearestTarget(u, leash);
-    if (t && !alerted && !this.reachable(u, t)) t = null;
-    u.target = t;
-    if (!t && Math.hypot(u.x - u.home.x, u.z - u.home.z) > 2 && !u.path) this.pathTo(u, u.home.x, u.home.z);
+    // everyone keeps an eye out
+    for (const o of this.units) if (o.team === 0 && !o.dead && !o.fled && this.notices(u, o)) { o.spotted = this.t; if (!this.alarm) this.raiseAlarm(u); }
+    if (u.post) { u.target = this.nearestTarget(u, u.S.range + ((u.y || 0) > 1 ? 5 : 0)); return; }
+    if (!this.alarm) {
+      u.target = null;
+      if (u.role === 'sentry' && !u.path) { u.routeI = (u.routeI + 1) % u.route.length; const p = u.route[u.routeI]; this.pathTo(u, p.x, p.z); u.walkSlow = true; }
+      return;
+    }
+    u.walkSlow = false;
+    const pos = u.pos || u.home, holdR = u.holdR || 6;
+    // fight only what comes within reach of the post
+    let best = null, bd = Infinity;
+    for (const o of this.units) {
+      if (o.team !== 0 || o.dead || o.fled || !this.known(o) || !this.canHit(u, o)) continue;
+      const fromPost = Math.hypot(o.x - pos.x, o.z - pos.z);
+      if (fromPost > holdR + (u.U.ranged ? u.S.range : 1.5)) continue;
+      if (u.role === 'reserve' && !this.inside(o.x, o.z)) continue;   // the reserve never leaves the walls
+      const d = Math.hypot(o.x - u.x, o.z - u.z) - (o.buffs.taunt ? 25 : 0);
+      if (d < bd) { bd = d; best = o; }
+    }
+    u.target = best;
+    if (!best && Math.hypot(u.x - pos.x, u.z - pos.z) > 1.2 && !u.path) this.pathTo(u, pos.x, pos.z);
   }
-  reachable(u, t) {
-    const p = this.grid.findPath({ x: u.x, z: u.z }, { x: t.x, z: t.z }); if (!p) return false;
-    const end = p[p.length - 1]; return Math.hypot(end.x - t.x, end.z - t.z) < 4;
+  // attackers in defence mode: archers shoot at the walls, the ram goes for the gate,
+  // the foot soldiers wait for a breach and then storm in
+  thinkAttacker(u) {
+    if (u.fleeing) return;
+    const gate = this.gate, breached = !gate || gate.dead || this.structs.some(s => (s.type === 'wall' || s.type === 'palisade') && s.dead);
+    if (u.U.siege) { u.target = gate && !gate.dead ? gate : this.nearestStruct(u); return; }
+    if (u.U.ranged) { u.target = this.nearestTarget(u, u.S.range + 2); if (!u.target && !u.path) { const g = gate || this.W(32, this.box[3]); this.pathTo(u, g.x + (this.rand() - 0.5) * 14, g.z + 13); } return; }
+    if (!breached && this.t < 60) {
+      u.target = this.nearestTarget(u, 3);
+      if (!u.target && !u.path) { const g = gate || this.W(32, this.box[3]); this.pathTo(u, g.x + (this.rand() - 0.5) * 12, g.z + 9); }
+      return;
+    }
+    u.target = this.nearestTarget(u, 60);
+    if (!u.target && !breached) u.target = gate && !gate.dead ? gate : this.nearestStruct(u);
+  }
+  nearestStruct(u) {
+    let best = null, bd = Infinity;
+    for (const s of this.structs) { if (s.dead || !s.maxHp || s.def.keep) continue; const d = Math.hypot(s.x - u.x, s.z - u.z); if (d < bd) { bd = d; best = s; } }
+    return best;
   }
   nearestTarget(u, range) {
     let best = null, bd = Infinity;
     if (u.U.siege) {
       for (const s of this.structs) {
-        if (s.dead || !s.maxHp || s.def.keep) continue;
+        if (s.dead || !s.maxHp || s.def.keep || s.team === u.team) continue;
         const d = Math.hypot(s.x - u.x, s.z - u.z) - (s.def.gate ? 6 : 0);
         if (d < range && d < bd) { bd = d; best = s; }
       }
@@ -346,65 +487,69 @@ export class Battle {
     }
     for (const o of this.units) {
       if (o.team === u.team || o.dead || o.fled) continue;
-      if (!this.visibleTo(u, o) || !this.canHit(u, o)) continue;
+      if (u.team === 1 && !this.known(o)) continue;
+      if (u.team === 0 && o.team === 1 && o.hidden) continue;
+      if (!this.canHit(u, o)) continue;
       let d = Math.hypot(o.x - u.x, o.z - u.z);
-      if (u.team === 1 && o.buffs.taunt) d -= 25;               // the berserker draws every eye
+      if (u.team === 1 && o.buffs.taunt) d -= 25;
       if (d < range && d < bd) { bd = d; best = o; }
     }
     return best;
   }
   act(u, dt) {
-    const sp = u.U.speed * (u.buffs.rally ? 1.4 : 1) * this.grid.speedAt(u.x, u.z) * (u.post ? 0 : 1);
+    const sp = u.S.speed * (u.buffs.rally ? 1.4 : 1) * this.grid.speedAt(u.x, u.z) * (u.post ? 0 : 1) * (u.sneak ? 0.55 : 1) * (u.walkSlow ? 0.5 : 1);
     if (u.climbing) {
       const c = u.climbing, dx = c.x - u.x, dz = c.z - u.z, d = Math.hypot(dx, dz);
-      const onWall = this.structAt(u.x, u.z), up = onWall && onWall.def.blocks && !onWall.dead;
-      u.y += ((up ? (onWall.def.stand || 3.2) : 0) - u.y) * Math.min(1, dt * 4);
+      const on = this.structAt(u.x, u.z), up = on && on.def.blocks && !on.dead;
+      u.y += ((up ? (on.def.stand || 3.2) : 0) - u.y) * Math.min(1, dt * 3);
       if (d < 0.3) { u.climbing = null; u.target = this.nearestTarget(u, 6); }
-      else { const step = Math.min(d, u.U.speed * 0.8 * dt); u.x += dx / d * step; u.z += dz / d * step; this.face(u, dx, dz, dt); u.moving = true; return; }
+      else { const step = Math.min(d, u.S.speed * 0.7 * dt); u.x += dx / d * step; u.z += dz / d * step; this.face(u, dx, dz, dt); u.moving = true; return; }
     }
-    // spikes hurt attackers who push through them
     const st = this.structAt(u.x, u.z);
-    if (u.team === 0 && st && st.def.spikes && !u.U.siege) u.hp -= 4 * dt;
-    if (u.team === 0 && !u.climbing && u.y > 0) { const on = this.structAt(u.x, u.z); if (!(on && on.def.blocks && !on.dead)) u.y = Math.max(0, u.y - dt * 6); }
+    if (u.team !== (st && st.team) && st && st.def.spikes && !u.U.siege) u.hp -= 4 * dt;
+    if (!u.climbing && !u.post && u.y > 0) { const on = this.structAt(u.x, u.z); if (!(on && on.def.blocks && !on.dead)) u.y = Math.max(0, u.y - dt * 6); }
     u.moving = false;
     const t = u.target;
     if (t && !(t.dead) && !t.fled) {
       if (this.inRange(u, t) && this.canHit(u, t)) {
         this.face(u, t.x - u.x, t.z - u.z, dt);
-        if (u.cd <= 0) { u.cd = u.U.cd; this.attack(u, t); }
+        if (u.cd <= 0) { u.cd = u.S.cd; this.attack(u, t); }
         u.path = null; return;
       }
-      if (u.post || u.order.kind === 'hold') return;
+      if (u.post || u.order.kind === 'hold' || ((u.y || 0) > 1 && !u.U.climb)) return;
       u.repathT = (u.repathT || 0) - dt;
       if (!u.path || u.repathT <= 0) {
-        // walk to the near side of a building, not its middle
         if (t.isStruct) { const dx = u.x - t.x, dz = u.z - t.z, d = Math.hypot(dx, dz) || 1, R = structRadius(t) + u.r + 0.6; this.pathTo(u, t.x + dx / d * R, t.z + dz / d * R); }
         else this.pathTo(u, t.x, t.z);
         const end = u.path && u.path[u.path.length - 1];
-        // can't get there (e.g. behind a closed gate): give up on this target for a while
         if (!u.path || (end && Math.hypot(end.x - t.x, end.z - t.z) > (t.isStruct ? structRadius(t) + 3 : 4))) { u.target = null; u.path = null; u.noReachT = this.t + 2.5; if (u.order.kind === 'attack') u.order = { kind: 'idle' }; return; }
       }
     }
     if (u.path && sp > 0) {
       const p = u.path[u.pathI];
-      if (!p) { u.path = null; if (u.order.kind === 'move' || u.order.kind === 'amove') u.order = { kind: u.order.kind === 'amove' ? 'idle' : 'idle' }; if (u.order.kind === 'retreat') this.escape(u); return; }
+      if (!p) { u.path = null; if (u.order.kind === 'move' || u.order.kind === 'amove') u.order = { kind: 'idle' }; if (u.order.kind === 'retreat') this.escape(u); return; }
       const dx = p.x - u.x, dz = p.z - u.z, d = Math.hypot(dx, dz);
       if (d < 0.25) { u.pathI++; if (u.pathI >= u.path.length) { u.path = null; if (u.order.kind === 'retreat') this.escape(u); else if (u.order.kind === 'move') u.order = { kind: 'idle' }; } return; }
       const step = Math.min(d, sp * dt); u.x += dx / d * step; u.z += dz / d * step; this.face(u, dx, dz, dt); u.moving = true;
     }
   }
-  escape(u) { if (u.z > BATTLE_ORIGIN.z + HALF - 6) { u.fled = true; u.obj.visible = false; } }
+  escape(u) { if (u.team === 0 ? u.z > BATTLE_ORIGIN.z + HALF - 6 : u.z < BATTLE_ORIGIN.z - HALF + 6) { u.fled = true; u.obj.visible = false; } }
   face(u, dx, dz, dt) { const a = Math.atan2(dx, dz); let diff = Math.atan2(Math.sin(a - u.heading), Math.cos(a - u.heading)); u.heading += diff * Math.min(1, dt * 10); }
   attack(u, t) {
-    let dmg = u.U.dmg * (u.buffs.rally ? 1.2 : 1);
-    if (u.team === 0) for (const o of this.units) if (o.type === 'taisho' && !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < 10) { dmg *= 1.2; break; }
+    let dmg = u.S.dmg * (u.buffs.rally ? 1.2 : 1);
+    if (u.team === 0) for (const o of this.units) if (o.type === 'taisho' && !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < 10) { dmg *= this.rb('banner') ? 1.4 : 1.2; break; }
+    // attacking gives you away
+    if (u.team === 0 && !this.defend) {
+      const near = this.units.some(o => o.team === 1 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < (u.hidden ? 7 : 16));
+      if (near || !u.U.ranged) { u.spotted = this.t; if (!this.alarm && (!u.hidden || near)) this.raiseAlarm(u); }
+    }
     if (t.isStruct) {
-      if (!u.U.siege) dmg *= t.def.gate || t.type === 'palisade' ? 0.25 : 0.1;  // swords barely dent walls
+      if (!u.U.siege) dmg *= t.def.gate || t.type === 'palisade' ? 0.25 : 0.1;
       this.damage(t, dmg, u); u.swing = 0.35; return;
     }
     if (u.U.ranged) {
-      if ((t.y || 0) > 1 && (u.y || 0) < 1) dmg *= 0.8;                          // shooting up at the walls is harder
-      if ((u.y || 0) > 1) dmg *= 1.25;                                           // shooting down is easier
+      if ((t.y || 0) > 1 && (u.y || 0) < 1) dmg *= 0.8;
+      if ((u.y || 0) > 1) dmg *= 1.25;
       const d = Math.hypot(t.x - u.x, t.z - u.z);
       this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: (u.y || 0) + 1.5, dmg, t: 0, dur: 0.15 + d / 38 });
       u.swing = 0.5; return;
@@ -413,7 +558,7 @@ export class Battle {
     if (u.U.cleave) for (const o of this.units) if (o.team !== u.team && !o.dead && o !== t && Math.hypot(o.x - t.x, o.z - t.z) < u.U.cleave && this.canHit(u, o)) this.damage(o, dmg * 0.6, u);
   }
   damage(t, dmg, from) {
-    if (t.isStruct || t.def) {
+    if (t.isStruct) {
       if (t.dead) return;
       t.hp -= dmg; t.hitT = 0.3;
       if (t.hp <= 0) this.destroy(t);
@@ -421,27 +566,31 @@ export class Battle {
     }
     if (t.dead) return;
     if (t.buffs.shield) dmg *= 0.5;
+    if (t.team === 0 && t.type === 'ashigaru' && t.order.kind === 'hold') dmg *= 1 - this.rb('spearWall');
     if (t.U.arrowResist && from && from.U.ranged) dmg *= t.U.arrowResist;
     t.hp -= dmg; t.hitT = 0.25;
-    if (t.hp <= 0) this.kill(t);
-    else if (t.team === 1 && !t.target && from && !t.post) t.target = from;
+    if (from && from.team === 0) from.spotted = Math.max(from.spotted, this.t - 1);
+    if (t.hp <= 0) {
+      this.kill(t);
+      if (from && from.type === 'berserker' && from.team === 0 && this.rb('bloodlust')) from.hp = Math.min(from.maxHp, from.hp + from.maxHp * 0.12);
+    }
   }
   kill(u) {
     u.dead = true; u.hp = 0; u.deadT = 0; u.path = null;
     if (u.team === 1 && !this.over) {
       const alive = this.units.filter(o => o.team === 1 && !o.dead && !o.fled).length;
-      if (alive <= Math.ceil(this.initialEnemies * 0.25) && alive > 0 && !this.routed) {
+      if (alive <= Math.ceil(this.initialEnemies * 0.22) && alive > 0 && !this.routed) {
         this.routed = true; this.fx.push({ kind: 'banner', text: 'The enemy breaks and runs!', t: 0 });
-        for (const o of this.units) if (o.team === 1 && !o.dead) { o.fleeing = true; o.post = null; o.y = 0; o.target = null; this.pathTo(o, o.x, BATTLE_ORIGIN.z - HALF + 2); o.order = { kind: 'retreat' }; }
+        for (const o of this.units) if (o.team === 1 && !o.dead) { o.fleeing = true; o.post = null; o.y = 0; o.target = null; this.pathTo(o, o.x, this.defend ? BATTLE_ORIGIN.z + HALF - 2 : BATTLE_ORIGIN.z - HALF + 2); o.order = { kind: 'retreat' }; }
       }
     }
   }
   destroy(s) {
     s.dead = true; s.hp = 0; s.collapse = 0;
     for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) this.grid.set(x, z, 0, true, 1);
-    for (const u of this.units) if (u.team === 0 && u.path) u.repathT = 0;
+    for (const u of this.units) if (u.path) u.repathT = 0;
     this.fx.push({ kind: 'dust', x: s.x, z: s.z, t: 0 });
-    if (s.def.gate) this.fx.push({ kind: 'banner', text: 'The gate is broken!', t: 0 });
+    if (s.def.gate) this.fx.push({ kind: 'banner', text: s.team === 0 ? 'Your gate is broken!' : 'The gate is broken!', t: 0 });
   }
   separate() {
     const U = this.units;
@@ -467,29 +616,53 @@ export class Battle {
     const mine = this.units.filter(u => u.team === 0 && !u.dead && !u.fled);
     const foes = this.units.filter(u => u.team === 1 && !u.dead && !u.fled);
     if (!mine.length) { this.finish(this.retreating ? 'retreat' : 'defeat'); return; }
-    if (this.routed && foes.every(f => f.fleeing)) {
-      // fleeing enemies leave the field
-      for (const f of foes) if (f.z < BATTLE_ORIGIN.z - HALF + 5) { f.fled = true; f.obj.visible = false; }
-    }
-    const keep = this.structs.find(s => s.def.keep);
+    for (const f of foes) if (f.fleeing) this.escape(f);
     const fighting = foes.filter(f => !f.fleeing);
+    const keep = this.keep;
+    if (this.defend) {
+      if (!fighting.length) { this.finish('victory'); return; }
+      // the attackers take the keep if they reach it and nobody defends it
+      if (keep) {
+        const near = fighting.some(u => Math.hypot(u.x - keep.x, u.z - keep.z) < 8), guarded = mine.some(u => Math.hypot(u.x - keep.x, u.z - keep.z) < 12);
+        if (near && !guarded) { this.capture += dt / CAPTURE_TIME; if (this.capture >= 1) this.finish('defeat'); } else this.capture = Math.max(0, this.capture - dt / 20);
+      }
+      return;
+    }
     if (!keep) { if (!fighting.length) this.finish('victory'); return; }
     const near = mine.some(u => Math.hypot(u.x - keep.x, u.z - keep.z) < 8);
     const guarded = fighting.some(f => Math.hypot(f.x - keep.x, f.z - keep.z) < 12);
-    if (near && !guarded) { this.capture += dt / 5; if (this.capture >= 1) this.finish('victory'); }
-    else this.capture = Math.max(0, this.capture - dt / 10);
+    if (near && !guarded) { this.capture += dt / CAPTURE_TIME; if (this.capture >= 1) this.finish('victory'); }
+    else this.capture = Math.max(0, this.capture - dt / 20);
     if (!fighting.length && !foes.length) this.finish('victory');
   }
   finish(result) {
     if (this.over) return;
     this.over = result;
-    if (this.onEnd) setTimeout(() => this.onEnd(result), 1200);
+    if (this.onEnd) setTimeout(() => this.onEnd(result), 1400);
   }
 
   /* ---------- visuals ---------- */
+  buildOverlays() {
+    const bar = new THREE.PlaneGeometry(1, 0.14);
+    this.barBg = new THREE.InstancedMesh(bar, new THREE.MeshBasicMaterial({ color: '#1b1714', depthTest: false, transparent: true, opacity: 0.7 }), 400);
+    this.barFg = new THREE.InstancedMesh(bar, new THREE.MeshBasicMaterial({ color: '#ffffff', depthTest: false }), 400);
+    this.barFg.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(400 * 3), 3);
+    for (const b of [this.barBg, this.barFg]) { b.renderOrder = 20; b.frustumCulled = false; b.count = 0; this.root.add(b); }
+    const ring = new THREE.RingGeometry(0.75, 0.95, 20); ring.rotateX(-Math.PI / 2);
+    this.rings = new THREE.InstancedMesh(ring, new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.85, depthWrite: false }), 200);
+    this.rings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(200 * 3), 3);
+    this.rings.frustumCulled = false; this.rings.count = 0; this.root.add(this.rings);
+    const am = new Mesher(1, 0); am.box(0.05, 0.05, 1.1, '#3b2619', [0, 0, 0]); am.box(0.08, 0.08, 0.15, '#c9ced4', [0, 0, 0.6]); am.box(0.14, 0.02, 0.2, '#f2ece0', [0, 0, -0.5]);
+    this.arrowMesh = new THREE.InstancedMesh(am.geometry(), MAT.flat, 300); this.arrowMesh.frustumCulled = false; this.arrowMesh.count = 0; this.root.add(this.arrowMesh);
+    const bush = new THREE.RingGeometry(0.3, 0.55, 12); bush.rotateX(-Math.PI / 2);
+    this.hideMarks = new THREE.InstancedMesh(bush, new THREE.MeshBasicMaterial({ color: '#a6e07b', transparent: true, opacity: 0.8, depthWrite: false }), 120); this.hideMarks.frustumCulled = false; this.hideMarks.count = 0; this.root.add(this.hideMarks);
+    // sight circles of the enemy (shown before the alarm, so you can plan a sneak)
+    const cone = new THREE.RingGeometry(SIGHT.ground - 0.3, SIGHT.ground, 40); cone.rotateX(-Math.PI / 2);
+    this.sightMarks = new THREE.InstancedMesh(cone, new THREE.MeshBasicMaterial({ color: '#ff8a6a', transparent: true, opacity: 0.35, depthWrite: false }), 80); this.sightMarks.frustumCulled = false; this.sightMarks.count = 0; this.root.add(this.sightMarks);
+  }
   animate(dt) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), camQ = this.ctx.stage.camera.quaternion, c = new THREE.Color();
-    let bars = 0, hidden = 0;
+    let bars = 0, hidden = 0, sights = 0;
     for (const u of this.units) {
       const o = u.obj;
       o.position.set(u.x - BATTLE_ORIGIN.x, u.y || 0, u.z - BATTLE_ORIGIN.z);
@@ -503,11 +676,12 @@ export class Battle {
       }
       if (u.person) {
         u.swing = Math.max(0, (u.swing || 0) - dt);
-        const pose = u.swing > 0 ? (u.U.ranged ? 'shoot' : 'chop') : u.moving || u.climbing ? 'walk' : u.target && u.U.ranged ? 'shoot' : 'guard';
-        u.person.animate(dt, pose, u.buffs.rally ? 1.4 : 1);
-        // hidden troops look ghostly to you and invisible to the enemy
-        if (u._hid !== !!u.hidden) { u._hid = !!u.hidden; o.traverse(x => { if (x.isMesh) x.material = u.hidden ? MAT.hidden : MAT.flat; }); }
+        const pose = u.swing > 0 ? (u.U.ranged ? 'shoot' : 'chop') : u.moving || u.climbing ? (u.sneak ? 'sneak' : 'walk') : u.target && u.U.ranged ? 'shoot' : u.sneak ? 'kneel' : 'guard';
+        u.person.animate(dt, pose, u.buffs.rally ? 1.4 : u.walkSlow ? 0.6 : 1);
+        const ghost = u.team === 0 && (u.hidden || u.sneak);
+        if (u._hid !== ghost) { u._hid = ghost; o.traverse(x => { if (x.isMesh) x.material = ghost ? MAT.hidden : MAT.flat; }); }
       }
+      if (u.team === 1 && !this.alarm && !this.defend && sights < 80) { m4.compose(new THREE.Vector3(u.x - BATTLE_ORIGIN.x, 0.1, u.z - BATTLE_ORIGIN.z), q.identity(), new THREE.Vector3(1, 1, 1).multiplyScalar((u.y || 0) > 1.5 ? SIGHT.high / SIGHT.ground : 1)); this.sightMarks.setMatrixAt(sights++, m4); }
       if (u.hidden && hidden < 120) { m4.compose(new THREE.Vector3(u.x - BATTLE_ORIGIN.x, 0.08, u.z - BATTLE_ORIGIN.z), q.identity(), new THREE.Vector3(1.6, 1, 1.6)); this.hideMarks.setMatrixAt(hidden++, m4); }
       if ((u.hp < u.maxHp || u.team === 0) && bars < 399) {
         const w = u.U.siege ? 2.4 : u.type === 'berserker' || u.type === 'taisho' || u.type === 'enemy_lord' ? 1.8 : 1.1, y = (u.y || 0) + (u.U.siege ? 3.4 : 2.6 * (u.person ? u.person.group.scale.x : 1));
@@ -536,7 +710,7 @@ export class Battle {
     this.barBg.count = this.barFg.count = bars;
     this.barBg.instanceMatrix.needsUpdate = this.barFg.instanceMatrix.needsUpdate = true; if (this.barFg.instanceColor) this.barFg.instanceColor.needsUpdate = true;
     this.hideMarks.count = hidden; this.hideMarks.instanceMatrix.needsUpdate = true;
-    // arrows fly in an arc
+    this.sightMarks.count = sights; this.sightMarks.instanceMatrix.needsUpdate = true;
     let k = 0;
     for (const a of this.arrows) {
       if (k >= 300) break;
@@ -549,7 +723,7 @@ export class Battle {
     }
     this.arrowMesh.count = k; this.arrowMesh.instanceMatrix.needsUpdate = true;
     for (const f of this.fx) f.t += dt;
-    this.fx = this.fx.filter(f => f.t < 3);
+    this.fx = this.fx.filter(f => f.t < 3.5);
   }
   setSelection(sel) {
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
@@ -571,11 +745,9 @@ export class Battle {
     this.scene.remove(this.root);
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   }
-  // what survived, for the march home
   results() {
     const alive = this.units.filter(u => u.team === 0 && !u.dead);
     return { survivors: alive.filter(u => u.vid).map(u => u.vid), rams: alive.filter(u => u.ram).length, dead: this.units.filter(u => u.team === 0 && u.dead && u.vid).map(u => u.name) };
   }
 }
-// structures are targets too
 function structRadius(s) { return Math.max(s.w, s.d) * CELL / 2; }

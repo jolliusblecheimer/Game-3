@@ -70,6 +70,7 @@ export const UNITS = {
   berserker: { hp: 560, dmg: 36, cd: 1.1, range: 2.2, speed: 3.9, look: 'berserker', cleave: 2.4, r: 0.6, climb: true },
   taisho:    { hp: 380, dmg: 22, cd: 1.0, range: 2.0, speed: 3.5, look: 'taisho', aura: 10, r: 0.55 },
   ram:       { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
+  enemy_ram: { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
   // enemies
   bandit:         { hp: 85, dmg: 11, cd: 1.0, range: 1.8, speed: 3.2, look: 'bandit', r: 0.5 },
   enemy_ashigaru: { hp: 115, dmg: 13, cd: 1.0, range: 1.8, speed: 3.1, look: 'enemy_ashigaru', r: 0.5 },
@@ -97,7 +98,8 @@ export const WAR = {
   scoutReveal: 26,       // fog radius around a travelling scout
   homeReveal: 60,
   garrisonMin: 2,
-  holdCheckEvery: 600,   // game seconds between counter-attack checks on held places
+  holdCheckEvery: 900,   // game seconds between counter-attacks on held places
+  attackWarning: 150,    // seconds between the warning and the attack on a held place
 };
 
 export const CATEGORIES = [
@@ -134,6 +136,8 @@ export const BUILDINGS = {
                 desc: 'Unemployed villagers train here and graduate as Spearmen.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 3, maxLevel: 4, walkable: true, grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
+  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2,
+                desc: 'Scholars of war study here. Research skill trees for every kind of soldier, your scouts, your sieges and your defenses.' },
   workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 220, stone: 90, gold: 40 }, time: 90, h: 4, th: 3,
                 desc: 'Carpenters build battering rams here for breaking castle gates.' },
   palisade:   { name: 'Bamboo Palisade', kanji: '竹柵', cat: 'defense', size: [1, 1], cost: { wood: 18 }, time: 8, blocks: true, line: true, h: 2.5, th: 1, hp: 400, upgradeTo: 'wall',
@@ -171,4 +175,41 @@ export const RAIDS = {
   warning: 60,             // seconds of warning before they arrive
   steal: 0.12,             // share of each resource a band carries off if they reach storage
   bounty: 6,               // gold per bandit defeated
+};
+
+// Skill trees, researched at the Strategy Hall. Each branch is a chain: a node needs the one before it.
+export const RESEARCH = {
+  spear: { name: 'Spearmen', look: 'ashigaru', nodes: [
+    { id: 'spear1', name: 'Spear Drill', desc: 'Spearmen hit 15% harder.', cost: { gold: 60, wheat: 60 }, time: 120, fx: { spearDmg: 0.15 } },
+    { id: 'spear2', name: 'Lacquered Armour', desc: 'Spearmen have 25% more health.', cost: { gold: 120, wood: 80 }, time: 180, fx: { spearHp: 0.25 } },
+    { id: 'spear3', name: 'Spear Wall', desc: 'Holding spearmen take 30% less damage.', cost: { gold: 200, stone: 120 }, time: 240, fx: { spearWall: 0.3 } },
+    { id: 'spear4', name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', cost: { gold: 320, wheat: 200 }, time: 300, fx: { spearFast: 0.15 } },
+  ] },
+  archer: { name: 'Archers', look: 'archer', nodes: [
+    { id: 'arch1', name: 'Longbows', desc: 'Archers shoot 20% further.', cost: { gold: 60, wood: 80 }, time: 120, fx: { archRange: 0.2 } },
+    { id: 'arch2', name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', cost: { gold: 120, wood: 120 }, time: 180, fx: { archDmg: 0.2 } },
+    { id: 'arch3', name: 'Volley Fire', desc: 'Archers loose arrows 20% faster.', cost: { gold: 200, wood: 160 }, time: 240, fx: { archFast: 0.2 } },
+    { id: 'arch4', name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', cost: { gold: 300, wheat: 150 }, time: 300, fx: { archEyes: 1 } },
+  ] },
+  command: { name: 'Commanders', look: 'berserker', nodes: [
+    { id: 'cmd1', name: 'Iron Hide', desc: 'Commanders have 30% more health.', cost: { gold: 150, stone: 100 }, time: 180, fx: { cmdHp: 0.3 } },
+    { id: 'cmd2', name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', cost: { gold: 240, wood: 150 }, time: 240, fx: { cmdCd: 0.3 } },
+    { id: 'cmd3', name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', cost: { gold: 360, wheat: 200 }, time: 300, fx: { bloodlust: 1 } },
+    { id: 'cmd4', name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', cost: { gold: 480, stone: 250 }, time: 360, fx: { banner: 1 } },
+  ] },
+  siege: { name: 'Siege', look: null, icon: 'ram', nodes: [
+    { id: 'siege1', name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', cost: { gold: 100, wood: 150 }, time: 150, fx: { ramHp: 0.5 } },
+    { id: 'siege2', name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', cost: { gold: 200, stone: 150 }, time: 240, fx: { ramDmg: 0.4 } },
+  ] },
+  logistics: { name: 'Scouts & Marches', look: null, icon: 'scout', nodes: [
+    { id: 'log1', name: 'Swift Scouts', desc: 'Scouts travel 25% faster.', cost: { gold: 40, wheat: 60 }, time: 90, fx: { scoutSpeed: 1 } },
+    { id: 'log2', name: 'Mountain Paths', desc: 'Armies march 25% faster.', cost: { gold: 100, wheat: 100 }, time: 150, fx: { marchSpeed: 1 } },
+    { id: 'log3', name: 'Spy Network', desc: 'Scouts see much further around them.', cost: { gold: 180, wheat: 120 }, time: 210, fx: { scoutSight: 1 } },
+    { id: 'log4', name: 'Supply Lines', desc: 'Marches cost half the wheat, and further scout trips cost more but reveal more.', cost: { gold: 260, wheat: 200 }, time: 270, fx: { supply: 1 } },
+  ] },
+  defense: { name: 'Village Defense', look: null, icon: 'wall', nodes: [
+    { id: 'def1', name: 'Mortar Walls', desc: 'Walls, gates and palisades are 30% stronger.', cost: { gold: 80, stone: 150 }, time: 150, fx: { wallHp: 0.3 } },
+    { id: 'def2', name: 'Watch Drums', desc: 'Raids are spotted earlier: two minutes of warning.', cost: { gold: 120, wood: 100 }, time: 180, fx: { earlyWarn: 1 } },
+    { id: 'def3', name: 'Murder Holes', desc: 'Your towers drop stones on attackers at your gates.', cost: { gold: 220, stone: 220 }, time: 260, fx: { murder: 1 } },
+  ] },
 };

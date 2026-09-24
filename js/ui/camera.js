@@ -2,10 +2,10 @@
 import * as THREE from 'three';
 import { clamp, lerp } from '../util.js';
 
-export const ZOOM_MIN = 12, ZOOM_MAX = 160;
+export const ZOOM_MIN = 10, ZOOM_MAX = 230;
 
 export class RTSCamera {
-  constructor(camera, bounds = { x0: -75, x1: 75, z0: -75, z1: 75 }, zoom = [ZOOM_MIN, ZOOM_MAX]) {
+  constructor(camera, bounds = { x0: -85, x1: 85, z0: -85, z1: 85 }, zoom = [ZOOM_MIN, ZOOM_MAX]) {
     this.cam = camera; this.bounds = bounds; this.zmin = zoom[0]; this.zmax = zoom[1];
     this.target = new THREE.Vector3((bounds.x0 + bounds.x1) / 2, 0, (bounds.z0 + bounds.z1) / 2 + 4);
     this.yaw = 0.6; this.goalYaw = 0.6;

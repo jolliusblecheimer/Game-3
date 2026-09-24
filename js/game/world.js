@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH } from './data.js';
 import { Grid, FREE, TREE, ROCK } from './grid.js';
 import { PLOT } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
@@ -27,7 +27,7 @@ export class Game {
     this.state = {
       seed, res: { ...START.res }, clock: 0, time: 0.3, day: 1, nextId: 1,
       settings: { autoBuild: ECON.autoBuild, welcome: true }, stats: { arrived: 0, trained: 0, raidsBeaten: 0 },
-      arriveT: 0, eatAcc: 0,
+      arriveT: 0, eatAcc: 0, research: { done: [], active: null },
     };
     this.listeners = new Set();
     this.version = 0;
@@ -58,7 +58,28 @@ export class Game {
   }
   jobSlots(b) { if (b.type === 'townhall') return TOWNHALL[b.level].builders; return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
   levelMult(b) { return 1 + 0.15 * ((b ? b.level : 1) - 1); }
-  maxHp(b) { return b.def.hp ? Math.round(b.def.hp * (1 + 0.6 * (b.level - 1))) : 0; }
+  maxHp(b) { return b.def.hp ? Math.round(b.def.hp * (1 + 0.6 * (b.level - 1)) * (1 + this.rb('wallHp'))) : 0; }
+
+  /* ---------- research (skill trees) ---------- */
+  researchNode(id) { for (const [tree, T] of Object.entries(RESEARCH)) { const i = T.nodes.findIndex(n => n.id === id); if (i >= 0) return { tree, i, node: T.nodes[i] }; } return null; }
+  hasResearch(id) { return this.state.research.done.includes(id); }
+  // sum of a research effect over everything researched
+  rb(key) { let v = 0; for (const id of this.state.research.done) { const r = this.researchNode(id); if (r && r.node.fx[key]) v += r.node.fx[key]; } return v; }
+  researchBlock(id) {
+    const r = this.researchNode(id); if (!r) return 'Unknown';
+    if (this.hasResearch(id)) return 'Researched';
+    if (![...this.buildings.values()].some(b => b.type === 'strategy' && b.done)) return 'Build a Strategy Hall first';
+    if (this.state.research.active) return 'Scholars are busy with another study';
+    const prev = RESEARCH[r.tree].nodes[r.i - 1]; if (prev && !this.hasResearch(prev.id)) return `Needs ${prev.name} first`;
+    if (!this.canAfford(r.node.cost)) return 'Not enough resources';
+    return '';
+  }
+  startResearch(id) {
+    const why = this.researchBlock(id); if (why) { this.toast(why, 'warn'); return false; }
+    const r = this.researchNode(id); this.pay(r.node.cost);
+    this.state.research.active = { id, progress: 0, time: r.node.time };
+    this.toast(`Your scholars begin studying ${r.node.name}`); this.emit('research'); return true;
+  }
   beauty() { let s = 0; for (const b of this.buildings.values()) if (b.done && b.def.beauty) s += b.def.beauty; return s; }
   harmony() { return Math.min(30, Math.round(this.beauty() * 12 / (this.pop + 4))); }
   hungry() { return this.state.res.wheat <= 0; }
@@ -370,10 +391,15 @@ export class Game {
     this.countryT = (this.countryT || 0) + dt;
     if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
     this.raids.update(dt);
+    const R = S.research.active;
+    if (R) {
+      R.progress += dt / R.time;
+      if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.emit('research'); }
+    }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     for (const v of this.villagers.values()) {
       if (v.away) { v.person.group.visible = false; continue; }
-      if (v.reset) { v.reset = false; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (!v.post) v.elev = 0; }
+      if (v.reset) { v.reset = false; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (v.onWall) { const c = this.grid.nearestWalkable(...this.grid.toCell(v.pos.x, v.pos.z), 3); if (c) { const p = this.grid.center(c[0], c[1]); v.pos.x = p.x; v.pos.z = p.z; } v.onWall = false; } if (!v.post) v.elev = 0; }
       if (!v.path && v.act <= 0) thinkVillager(this, v);
       updateVillager(this, v, dt);
     }
@@ -422,13 +448,14 @@ export class Game {
     return {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
-      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg })).concat(this.keptBuildings || []),
+      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0 })).concat(this.keptBuildings || []),
       villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
       marks: [...this.clearMarks.values()].map(m => [m.kind, m.cx, m.cz]),
       raids: this.raids.serialize(),
+      research: S.research,
       country: this.country.serialize(),
     };
   }
@@ -461,6 +488,7 @@ export class Game {
         if (!BUILDINGS[b.type]) { this.keptBuildings.push(b); continue; }
         const lvl = clamp(b.level | 0 || 1, 1, BUILDINGS[b.type].maxLevel || 1);
         const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null });
+        if (b.prio) nb.prio = true;
         if (b.upg && b.upg.level) { nb.upg = { level: b.upg.level, progress: clamp(+b.upg.progress || 0, 0, 1), time: +b.upg.time || 60, convert: !!b.upg.convert }; this.makeVisual(nb); }
       } catch (e) { console.warn('Skipped a building while loading', b, e); this.keptBuildings.push(b); }
     }
@@ -472,6 +500,7 @@ export class Game {
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
     for (const [kind, cx, cz] of s.marks || []) this.mark(kind, cx, cz);
+    if (s.research && Array.isArray(s.research.done)) S.research = { done: s.research.done.filter(id => this.researchNode(id)), active: s.research.active && this.researchNode(s.research.active.id) ? s.research.active : null };
     S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
     this.raids.load(s.raids);

@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { THUMBS } from '../render/thumbs.js';
@@ -33,6 +33,8 @@ export class Hud {
     this.buildOpen = true;
     this.settings = { scrollPans: true, sound: false };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem('tenka.ui') || '{}')); } catch (_) { /* no storage */ }
+    // scrolling now zooms by default (two-finger scroll / mouse wheel); drag to move
+    if (!this.settings.zoomV) { this.settings.scrollPans = false; this.settings.zoomV = 1; this.saveSettings(); }
     this.speed = 1; this.paused = false;
     this.lives = [];
     this.build();
@@ -95,7 +97,7 @@ export class Hud {
       row('people', 'Villagers', () => `${g.pop} / ${g.housing()}`, 'Villagers / homes'),
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Builders', () => String(g.countJob('builder'))),
-      row('soldier', 'Soldiers', () => { const all = g.soldiers(true).length, here = g.soldiers().length; return all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
       row('sakura', 'Harmony', () => `+${g.harmony()}%`, 'Beauty buildings make villagers work faster'),
     );
   }
@@ -345,6 +347,59 @@ export class Hud {
   }
   cycleSpeed() { if (this.paused) { this.paused = false; } else this.speed = this.speed >= 3 ? 1 : this.speed + 1; this.tick(); }
 
+  /* ---------- army overview ---------- */
+  openArmy() {
+    const g = this.game, C = g.country;
+    const where = v => {
+      if (!v.away) return v.post ? 'On a watchtower' : 'At home';
+      if (v.away === 'scout') return 'Scouting';
+      if (v.away.startsWith('hold:')) { const s = C.site(+v.away.slice(5)); return `Garrison of ${s ? s.name : '?'}`; }
+      const m = C.missions.find(x => x.vids.includes(v.id)); const s = m && m.site && C.site(m.site);
+      return m ? (m.phase === 'back' ? 'Marching home' : m.phase === 'ready' ? `Waiting at ${s.name}` : `Marching to ${s ? s.name : '…'}`) : 'Away';
+    };
+    const groups = [['Commanders', v => JOBS[v.job].commander], ['Spearmen', v => v.job === 'ashigaru'], ['Archers', v => v.job === 'archer'], ['In training', v => v.job === 'trainee' || v.job === 'trainee_archer']];
+    const all = [...g.villagers.values()];
+    const body = h('div', { class: 'army' });
+    for (const [name, test] of groups) {
+      const list = all.filter(test);
+      body.append(h('h3', null, `${name} · ${list.length}`));
+      if (!list.length) { body.append(h('p', { class: 'sub' }, name === 'Commanders' ? 'Appoint commanders at the Keep (level 4 and 5).' : name === 'In training' ? 'Hire unemployed villagers at a Dojo or Kyūdō Range.' : 'None yet.')); continue; }
+      body.append(h('div', { class: 'armygrid' }, list.map(v => h('button', { class: 'soldier', disabled: v.away ? true : null, onclick: () => { this.modal.hidden = true; this.input.select({ kind: 'villager', id: v.id }); this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } },
+        art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${JOBS[v.job].name} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null)))));
+    }
+    body.append(h('h3', null, `Battering rams · ${g.state.rams || 0}`), h('p', { class: 'sub' }, g.state.ramBuild ? 'One more is being built at the Siege Workshop.' : 'Built at the Siege Workshop.'));
+    const holds = Object.keys(C.holds);
+    if (holds.length) body.append(h('h3', null, 'Held places'), h('div', { class: 'chips' }, holds.map(id => { const s = C.site(+id); return h('span', { class: 'chip' }, icon(SITES[s.type].icon, 16), `${s.name} · ${C.garrison(s).length} guards`); })));
+    this.openModal('Your army', body, [{ label: 'Skill trees', cls: 'ghost', fn: () => setTimeout(() => this.openResearch(), 0) }, { label: 'Close' }], { wide: true });
+  }
+  /* ---------- skill trees ---------- */
+  openResearch() {
+    const g = this.game, body = h('div', { class: 'trees' });
+    const hasHall = [...g.buildings.values()].some(b => b.type === 'strategy' && b.done);
+    const render = () => {
+      body.textContent = '';
+      if (!hasHall) body.append(h('p', { class: 'why' }, 'Build a Strategy Hall (Military, Keep level 2) to start researching.'));
+      const A = g.state.research.active;
+      if (A) body.append(h('div', { class: 'upgrade' }, h('b', null, `Studying: ${g.researchNode(A.id).node.name}`), this.bar2(() => g.state.research.active ? g.state.research.active.progress : 1)));
+      for (const [key, T] of Object.entries(RESEARCH)) {
+        const col = h('div', { class: 'tree' }, h('div', { class: 'thead' }, T.look ? art('person', T.look, null, 'face') : h('span', { class: 'art face' }, icon(T.icon, 22)), h('b', null, T.name)));
+        T.nodes.forEach((n, i) => {
+          const done = g.hasResearch(n.id), active = A && A.id === n.id, why = g.researchBlock(n.id);
+          const locked = !done && !active && why && why !== 'Not enough resources' && !why.startsWith('Scholars');
+          col.append(i ? h('div', { class: 'tline' + (done ? ' done' : '') }) : null,
+            h('div', { class: 'node' + (done ? ' done' : active ? ' active' : locked ? ' locked' : '') },
+              h('b', null, n.name), h('small', null, n.desc),
+              done ? h('span', { class: 'pill' }, '✓ Learned') : active ? h('span', { class: 'pill' }, 'Studying…') : [h('div', { class: 'row' }, costChips(g, n.cost, this.live), h('small', { class: 'sub' }, fmtTime(n.time))),
+                h('button', { class: 'btn small', disabled: why ? true : null, title: why || 'Start studying', onclick: () => { if (g.startResearch(n.id)) render(); } }, why && why !== 'Not enough resources' ? why : 'Research')]));
+        });
+        body.append(col);
+      }
+    };
+    render();
+    this.openModal('Skill trees', body, [{ label: 'Close' }], { wide: true });
+    this.modal.querySelector('.sheet').classList.add('xwide');
+  }
+
   /* ---------- dialogs ---------- */
   openModal(title, body, buttons = [{ label: 'Close' }], opts = {}) {
     const m = this.modal; m.textContent = ''; m.hidden = false;
@@ -353,7 +408,7 @@ export class Hud {
       h('div', { class: 'actions' }, buttons.map(b => h('button', { class: 'btn ' + (b.cls || ''), onclick: () => { if (b.fn) b.fn(); if (!b.keep) close(); } }, b.label)))));
   }
   showHelp() {
-    const rows = [['Drag the ground', 'Move the camera'], ['Two-finger scroll', 'Move the camera'], ['Pinch  /  Z X', 'Zoom'], ['Q / E', 'Rotate the camera'], ['W A S D  /  arrows', 'Move the camera'],
+    const rows = [['Drag the ground', 'Move the camera'], ['Scroll wheel / two fingers', 'Zoom'], ['Pinch  /  Z X', 'Zoom'], ['Q / E', 'Rotate the camera'], ['W A S D  /  arrows', 'Move the camera'],
       ['Click', 'Select a building or villager'], ['Hover a build card', 'See what it does (or tap its ⓘ)'], ['B', 'Show / hide the build menu'], ['R', 'Rotate while placing'],
       ['Walls, roads & clearing', 'Click start, click end — keeps going until Esc'], ['M', 'Country map'],
       ['Delete', 'Demolish (press twice)'], ['Space', 'Pause'], ['F', 'Game speed 1× / 2× / 3×'], ['Esc', 'Cancel / close']];
@@ -369,7 +424,7 @@ export class Hud {
     this.openModal('Menu', h('div', { class: 'menu' },
       toggle('Unemployed villagers help build when builders are busy', () => s.autoBuild, v => { s.autoBuild = v; }),
       toggle('Welcome new families when there is room', () => s.welcome, v => { s.welcome = v; }),
-      toggle('Two-finger scroll moves the camera (off: zooms)', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
+      toggle('Scrolling moves the camera instead of zooming', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
       toggle('Sound', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.')),

@@ -6,12 +6,16 @@ import { MAT } from './geo.js';
 // Day keyframes (t: 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset)
 const KEYS = [
   { t: 0.00, top: '#101c42', hor: '#2c3d66', fog: '#26345a', sun: '#a9bcff', sunI: 0.75, hemi: 0.62, stars: 1 },
-  { t: 0.20, top: '#22346a', hor: '#6a5d82', fog: '#565a7a', sun: '#c7b4ff', sunI: 0.7, hemi: 0.65, stars: 0.4 },
-  { t: 0.27, top: '#4d73a8', hor: '#f3a86f', fog: '#d9b79a', sun: '#ffb070', sunI: 1.5, hemi: 0.75, stars: 0 },
-  { t: 0.40, top: '#4a8ad4', hor: '#cfe2ee', fog: '#c9dbe6', sun: '#fff1db', sunI: 2.6, hemi: 0.95, stars: 0 },
-  { t: 0.60, top: '#4a8ad4', hor: '#d6e4ec', fog: '#cbdbe4', sun: '#fff1db', sunI: 2.6, hemi: 0.95, stars: 0 },
-  { t: 0.73, top: '#415b93', hor: '#f29062', fog: '#d49a86', sun: '#ff9858', sunI: 1.4, hemi: 0.7, stars: 0 },
-  { t: 0.80, top: '#22346a', hor: '#6b5a7e', fog: '#54506e', sun: '#c7b4ff', sunI: 0.7, hemi: 0.65, stars: 0.4 },
+  { t: 0.15, top: '#152450', hor: '#3a4670', fog: '#303b62', sun: '#b4c0ff', sunI: 0.75, hemi: 0.62, stars: 0.9 },
+  { t: 0.21, top: '#28386c', hor: '#7a6488', fog: '#5e5a7c', sun: '#d7b8ea', sunI: 0.8, hemi: 0.66, stars: 0.4 },
+  { t: 0.26, top: '#46669e', hor: '#e79a74', fog: '#c89e92', sun: '#ffac70', sunI: 1.2, hemi: 0.72, stars: 0.05 },
+  { t: 0.31, top: '#4c7dbb', hor: '#f0c49a', fog: '#d8c7b2', sun: '#ffd09a', sunI: 1.9, hemi: 0.84, stars: 0 },
+  { t: 0.38, top: '#4a8ad4', hor: '#cfe2ee', fog: '#c9dbe6', sun: '#fff1db', sunI: 2.6, hemi: 0.95, stars: 0 },
+  { t: 0.62, top: '#4a8ad4', hor: '#d6e4ec', fog: '#cbdbe4', sun: '#fff1db', sunI: 2.6, hemi: 0.95, stars: 0 },
+  { t: 0.69, top: '#4a74b4', hor: '#f0c090', fog: '#dcc2a8', sun: '#ffc88a', sunI: 1.9, hemi: 0.82, stars: 0 },
+  { t: 0.74, top: '#3f5890', hor: '#ef8f62', fog: '#cf9a86', sun: '#ff9858', sunI: 1.2, hemi: 0.7, stars: 0.05 },
+  { t: 0.79, top: '#26386e', hor: '#735c80', fog: '#58537a', sun: '#d7b8ea', sunI: 0.8, hemi: 0.66, stars: 0.4 },
+  { t: 0.85, top: '#152450', hor: '#3a4670', fog: '#303b62', sun: '#b4c0ff', sunI: 0.75, hemi: 0.62, stars: 0.9 },
   { t: 1.00, top: '#101c42', hor: '#2c3d66', fog: '#26345a', sun: '#a9bcff', sunI: 0.75, hemi: 0.62, stars: 1 },
 ];
 const C = hex => new THREE.Color(hex);
@@ -113,7 +117,7 @@ export class Stage {
   setTime(t) {
     this.time = ((t % 1) + 1) % 1;
     let i = 0; while (i < KEYC.length - 2 && KEYC[i + 1].t <= this.time) i++;
-    const a = KEYC[i], b = KEYC[i + 1], k = clamp((this.time - a.t) / (b.t - a.t), 0, 1);
+    const a = KEYC[i], b = KEYC[i + 1], k = smoothstep(0, 1, (this.time - a.t) / (b.t - a.t)); // eased, so colours drift instead of stepping
     const U = this.skyU;
     U.top.value.copy(a.top).lerp(b.top, k);
     U.horizon.value.copy(a.hor).lerp(b.hor, k);
@@ -136,7 +140,8 @@ export class Stage {
     if (this.lightDir.y < minY) this.lightDir.y = minY;
     this.lightDir.normalize();
     this.sun.color.copy(sunCol);
-    this.sun.intensity = lerp(a.sunI, b.sunI, k);
+    // the sun fades out before the moon fades in, so shadows never jump at the horizon
+    this.sun.intensity = lerp(a.sunI, b.sunI, k) * smoothstep(0, 0.14, Math.abs(up));
     this.night = clamp(U.stars.value * 1.2 + (up < 0 ? 0.3 : 0), 0, 1);
     MAT.glow.emissiveIntensity = this.night * 2.2;
     this.renderer.toneMappingExposure = lerp(1.05, 1.4, this.night);

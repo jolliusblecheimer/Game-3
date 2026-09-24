@@ -11,6 +11,9 @@ import { art, costChips } from './hud.js';
 const STATUS = { hidden: 'Unexplored', known: 'Not scouted', scouted: 'Scouted', held: 'Yours — held by your garrison', ruined: 'Ruined' };
 const UNIT_NAMES = { bandit: 'Bandits', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
 
+// one wheel step, whether from a mouse wheel (lines) or a trackpad (pixels)
+const clampWheel = e => Math.max(-120, Math.min(120, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY));
+
 export class Views {
   constructor(ctx) {
     this.ctx = ctx; const { game, hud } = ctx;
@@ -23,6 +26,7 @@ export class Views {
     game.on((type, m) => {
       if (type === 'armyReady') this.hud.toast(`Army at ${this.game.country.site(m.site).name} awaits your command — open the Map`, 'warn');
       if (type === 'country' && this.mode === 'map') this.renderMapUI();
+      if (type === 'holdAttack') this.holdAlert(m);
     });
     const cv = ctx.stage.renderer.domElement;
     cv.addEventListener('pointerdown', e => this.onDown(e));
@@ -188,17 +192,51 @@ export class Views {
   }
 
   /* ================= battle ================= */
+  // A held place is threatened: let the player choose how to respond.
+  holdAlert(site) {
+    const g = this.game, C = g.country, hold = C.holds[site.id]; if (!hold || !hold.attack) return;
+    const guards = C.garrison(site), home = g.soldiers();
+    this.hud.sound('war');
+    this.hud.openModal(`${site.name} is under attack!`, h('div', null,
+      h('p', null, `Scouts report a force of about ${Math.round(hold.attack.force * 1.1)} enemy soldiers marching on ${site.name}. They will storm it in ${fmtTime(hold.attack.at - C.clock)}.`),
+      h('p', { class: 'sub' }, `Your garrison: ${guards.length} soldier${guards.length === 1 ? '' : 's'}. The walls, towers and gate are yours now — use them.`)),
+      [{ label: 'Lead the defense', cls: 'danger', fn: () => this.openDefense(site) },
+       { label: `Send reinforcements (${home.length} at home)`, cls: 'ghost', keep: true, fn: () => this.reinforcePicker(site) },
+       { label: 'Let the garrison fight', cls: 'ghost' }], { locked: true, wide: true });
+  }
+  reinforcePicker(site) {
+    const g = this.game, C = g.country, home = g.soldiers();
+    if (!home.length) { g.toast('You have no soldiers at home to send', 'warn'); return; }
+    let n = Math.min(home.length, 4);
+    const body = h('div', { class: 'menu' }), render = () => {
+      body.textContent = '';
+      body.append(h('p', null, `March time: ${fmtTime(C.marchTime(site))} — they only help if they arrive before the attack (${fmtTime(C.holds[site.id].attack.at - C.clock)}).`),
+        h('div', { class: 'selrow' }, icon('soldier', 28), h('b', null, 'Soldiers'), h('span'), h('button', { class: 'mini', onclick: () => { n = Math.max(1, n - 1); render(); } }, '−'), h('span', { class: 'count' }, `${n} / ${home.length}`), h('button', { class: 'mini', onclick: () => { n = Math.min(home.length, n + 1); render(); } }, '+')));
+    };
+    render();
+    this.hud.openModal(`Reinforce ${site.name}`, body, [{ label: 'Cancel', cls: 'ghost' }, { label: 'March!', cls: 'danger', fn: () => C.sendReinforcements(site, home.slice(0, n).map(v => v.id)) }]);
+  }
+  openDefense(site) {
+    const g = this.game, C = g.country, hold = C.holds[site.id]; if (!hold || !hold.attack) return;
+    const vids = C.garrison(site).map(v => v.id);
+    if (!vids.length) { g.toast('There is nobody left in the garrison to command', 'warn'); return; }
+    hold.attack.fighting = true;
+    this.openBattle({ defend: true, vids, rams: 0, site: site.id, force: hold.attack.force, phase: 'defend' });
+  }
   openBattle(m) {
     const g = this.game, site = g.country.site(m.site);
     if (!this.map) this.toMap();
     this.map.root.visible = false;
     this.ui.hidden = false;
-    m.phase = 'battle';
+    if (!m.defend) m.phase = 'battle';
     this.battle = new Battle({ game: g, stage: this.stage }, m, site);
     this.battle.onEnd = r => this.battleEnded(r);
     this.selected = [];
-    this.battleCam = new RTSCamera(this.stage.camera, { x0: BATTLE_ORIGIN.x - 66, x1: BATTLE_ORIGIN.x + 66, z0: BATTLE_ORIGIN.z - 66, z1: BATTLE_ORIGIN.z + 66 }, [14, 110]);
-    this.battleCam.target.set(BATTLE_ORIGIN.x, 0, BATTLE_ORIGIN.z + 18); this.battleCam.yaw = this.battleCam.goalYaw = 0; this.battleCam.dist = this.battleCam.goalDist = 92;
+    this.battleCam = new RTSCamera(this.stage.camera, { x0: BATTLE_ORIGIN.x - 66, x1: BATTLE_ORIGIN.x + 66, z0: BATTLE_ORIGIN.z - 66, z1: BATTLE_ORIGIN.z + 66 }, [8, 110]);
+    // start close to your own troops
+    const mine = this.battle.units.filter(u => u.team === 0), cx = mine.reduce((a, u) => a + u.x, 0) / Math.max(1, mine.length), cz = mine.reduce((a, u) => a + u.z, 0) / Math.max(1, mine.length);
+    this.battleCam.target.set(cx || BATTLE_ORIGIN.x, 0, (cz || BATTLE_ORIGIN.z) - (m.defend ? -4 : 8)); this.battleCam.yaw = this.battleCam.goalYaw = 0; this.battleCam.dist = this.battleCam.goalDist = 38;
+    this.boxMode = false;
     this.mode = 'battle';
     document.getElementById('ui').classList.remove('mode-map'); document.getElementById('ui').classList.add('mode-battle');
     this.labels.textContent = '';
@@ -225,11 +263,16 @@ export class Views {
     const b = this.battle, site = b.site; if (!this.bTop) return;
     const foes = b.units.filter(u => u.team === 1 && !u.dead && !u.fled).length, keep = b.structs.find(s => s.def.keep);
     this.bTop.textContent = '';
-    this.bTop.append(h('div', { class: 'btitle' }, h('b', null, `Raid on ${site.name}`), h('small', null, keep ? 'Take the keep: reach it and clear the defenders around it' : 'Defeat or drive off every defender')),
-      h('div', { class: 'bstat' }, icon('soldier', 18), `${foes} enemies left`),
+    const title = b.defend ? `Defend ${site.name}` : `Raid on ${site.name}`;
+    const goal = b.defend ? 'Hold the walls until the attackers break — don’t let them reach the keep' : keep ? 'Take the keep: reach it and clear the defenders around it' : 'Defeat or drive off every defender';
+    this.bTop.append(h('div', { class: 'btitle' }, h('b', null, title), h('small', null, goal)),
+      b.defend ? null : h('div', { class: 'bstat ' + (b.alarm ? 'alarm' : 'unseen') }, icon(b.alarm ? 'camp' : 'eye', 18), b.alarm ? 'Alarm raised' : 'They haven’t seen you'),
+      h('div', { class: 'bstat' }, icon('soldier', 18), `${foes} ${b.defend ? 'attackers' : 'enemies'} left`),
       keep ? h('div', { class: 'bstat cap' }, icon('flag', 18), h('div', { class: 'bar' }, h('i', { style: `width:${b.capture * 100}%` }))) : null,
       this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
-    if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, 'Plan your attack while paused: drag to select troops, click to move them, click an enemy to attack. Hide archers in bushes, send the ram at the gate.'));
+    if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, b.defend
+      ? 'Your archers are on the towers and walls, your spearmen hold the gate. Plan while paused: drag to look around, click your troops to move them.'
+      : 'The defenders haven’t spotted you. The red circles show how far they can see. Creep up in Stealth (C), hide archers in the bushes to pick off the wall archers, then send the ram to the gate. Drag to look around; Shift+drag or Box select to select troops.'));
     this.bBottom.textContent = '';
     const grp = h('div', { class: 'groups' });
     for (const G of this.groups()) {
@@ -239,7 +282,10 @@ export class Views {
         look ? art('person', UNITS[look].look, null, 'face') : icon('ram', 30), h('span', null, h('b', null, `${G.units.length}`), h('small', null, G.name)), h('kbd', null, G.key)));
     }
     const sel = this.selected.filter(u => !u.dead);
+    const sneaking = sel.length && sel.every(u => u.sneak || u.U.siege);
     const cmds = h('div', { class: 'cmds' },
+      h('button', { class: 'btn ghost small' + (this.boxMode ? ' armed' : ''), title: 'Box select (V): drag a box around your troops. Shift+drag also works.', onclick: () => { this.boxMode = !this.boxMode; this.renderBattleUI(); } }, icon('grid', 16), 'Box select', h('kbd', null, 'V')),
+      b.defend ? null : h('button', { class: 'btn ghost small' + (sneaking ? ' armed' : ''), title: 'Stealth (C): creep slowly and stay unseen much longer', disabled: sel.length ? null : true, onclick: () => { this.battle.setSneak(sel, !sneaking); this.renderBattleUI(); } }, icon('eye', 16), 'Stealth', h('kbd', null, 'C')),
       h('button', { class: 'btn ghost small' + (this.armed === 'amove' ? ' armed' : ''), title: 'Attack-move (T): walk and fight anything on the way', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'amove' ? null : 'amove'; this.renderBattleUI(); } }, icon('sword', 16), 'Attack-move', h('kbd', null, 'T')),
       h('button', { class: 'btn ghost small', title: 'Hold (G): stay put and fight only what comes in range', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'hold') }, icon('stop', 16), 'Hold', h('kbd', null, 'G')),
       h('button', { class: 'btn ghost small', title: 'Stop (X)', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'stop') }, icon('close', 16), 'Stop', h('kbd', null, 'X')));
@@ -250,7 +296,7 @@ export class Views {
         art('person', UNITS[u.type].look, null, 'tiny'), u.abilityCd > 0 ? `${C.ability} (${Math.ceil(u.abilityCd)}s)` : C.ability, h('kbd', null, 'R')));
     }
     this.bBottom.append(grp, cmds, h('button', { class: 'btn danger small retreat', title: 'Pull every unit back off the field', onclick: () => this.battle.retreat() }, 'Retreat'));
-    if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the Berserker should climb to — on or over a wall'));
+    if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the Berserker should climb to — a wall, over a wall, or up onto an archer tower'));
     if (this.armed === 'amove') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where to attack-move'));
   }
   selectUnits(list, add = false) {
@@ -277,6 +323,16 @@ export class Views {
   battleEnded(result) {
     const b = this.battle, g = this.game, C = g.country, m = b.mission, site = b.site, S = SITES[site.type];
     const r = b.results(), alive = r.survivors;
+    if (m.defend) {
+      const won = result === 'victory';
+      C.defenseResult(site, won, alive);
+      this.hud.paused = false;
+      this.hud.openModal(won ? `${site.name} holds!` : `${site.name} has fallen`, h('div', null,
+        h('p', null, won ? 'The attackers broke against your walls and fled.' : alive.length ? `${alive.length} survivor${alive.length > 1 ? 's' : ''} escape and march home.` : 'None of the garrison survived.'),
+        r.dead.length ? h('p', { class: 'sub' }, `Fallen: ${r.dead.join(', ')}.`) : h('p', { class: 'sub' }, 'Not one defender fell.')),
+        [{ label: 'Return to the map', fn: () => this.closeBattle() }], { locked: true });
+      return;
+    }
     for (const id of m.vids) if (!alive.includes(id)) g.killVillager(id);
     m.vids = alive.slice();
     this.hud.paused = false;
@@ -338,8 +394,12 @@ export class Views {
     if (this.mode === 'map') {
       const gp = this.groundMap(e).world;
       if (gp && D.world) { this.mapCam.pan(D.world.x - gp.x, D.world.z - gp.z); this.mapCam.apply(); }
+    } else if (!(D.shift || this.boxMode)) {
+      // drag in battle moves the camera
+      const gp = this.groundBattle(e);
+      if (gp && D.world) { this.battleCam.pan(D.world.x - gp.x, D.world.z - gp.z); this.battleCam.apply(); }
     } else {
-      // drag in battle = box select
+      // Shift+drag (or Box select mode) = box select
       const x0 = Math.min(D.x, e.clientX), y0 = Math.min(D.y, e.clientY);
       Object.assign(this.bBox.style, { left: x0 + 'px', top: y0 + 'px', width: Math.abs(e.clientX - D.x) + 'px', height: Math.abs(e.clientY - D.y) + 'px' });
       this.bBox.hidden = false;
@@ -358,6 +418,7 @@ export class Views {
     }
     // battle
     const b = this.battle; if (!b || b.over) return;
+    if (D.drag && !(D.shift || this.boxMode)) return;
     if (D.drag) {
       this.bBox.hidden = true;
       const x0 = Math.min(D.x, e.clientX), x1 = Math.max(D.x, e.clientX), y0 = Math.min(D.y, e.clientY), y1 = Math.max(D.y, e.clientY);
@@ -366,7 +427,11 @@ export class Views {
       return;
     }
     const hit = this.pickBattle(e), g = this.groundBattle(e);
-    if (this.armed === 'climb' && g) { if (this.abilityUnit) b.ability(this.abilityUnit, { x: g.x, z: g.z }); this.armed = null; this.renderBattleUI(); return; }
+    if (this.armed === 'climb' && g) {
+      // clicking a tower or wall climbs right onto it
+      const onto = hit && hit.isStruct ? { x: hit.x, z: hit.z } : { x: g.x, z: g.z };
+      if (this.abilityUnit) b.ability(this.abilityUnit, onto); this.armed = null; this.renderBattleUI(); return;
+    }
     if (hit && hit.team === 0) {
       const now = performance.now();
       if (this.lastClick && this.lastClick.u === hit && now - this.lastClick.t < 380) this.selectUnits(b.units.filter(u => u.team === 0 && u.type === hit.type && !u.dead));
@@ -396,8 +461,7 @@ export class Views {
     e.preventDefault();
     const cam = this.mode === 'map' ? this.mapCam : this.battleCam;
     if (e.ctrlKey) { cam.zoom(Math.exp(e.deltaY * 0.012)); return; }
-    const mouseWheel = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && e.deltaX === 0 && Number.isInteger(e.deltaY));
-    if (mouseWheel && !this.hud.settings.scrollPans) { cam.zoom(Math.exp(Math.sign(e.deltaY) * 0.12)); return; }
+    if (!this.hud.settings.scrollPans) { cam.zoom(Math.exp(clampWheel(e) * 0.0025)); return; }
     const k = cam.dist * 0.0022, f = cam.forward(), r = cam.right();
     cam.pan((r.x * e.deltaX - f.x * e.deltaY) * k, (r.z * e.deltaX - f.z * e.deltaY) * k);
   }
@@ -416,6 +480,8 @@ export class Views {
     if (/^[1-4]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
     if (k === '5') { this.selectUnits(b.units.filter(u => u.team === 0 && !u.dead && !u.fled)); return true; }
     if (k === 't') { this.armed = 'amove'; this.renderBattleUI(); return true; }
+    if (k === 'c') { const on = !sel.every(u => u.sneak || u.U.siege); b.setSneak(sel, on); this.renderBattleUI(); return true; }
+    if (k === 'v') { this.boxMode = !this.boxMode; this.renderBattleUI(); return true; }
     if (k === 'x') { b.order(sel, 'stop'); return true; }
     if (k === 'g') { b.order(sel, 'hold'); return true; }
     if (k === 'r') { const c = sel.find(u => u.type === 'berserker' || u.type === 'taisho'); if (c) { if (c.type === 'taisho') b.ability(c); else { this.armed = 'climb'; this.abilityUnit = c; } this.renderBattleUI(); } return true; }
@@ -440,6 +506,12 @@ export class Views {
           } }, 'Appoint', costChips(g, C.cost))));
       }
       p.append(box);
+    }
+    if (b.type === 'strategy' && b.done) {
+      const A = g.state.research.active;
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Skill trees')),
+        A ? [h('p', { class: 'sub' }, `Studying ${g.researchNode(A.id).node.name}…`), this.hud.bar2(() => g.state.research.active ? g.state.research.active.progress : 1)] : h('p', { class: 'sub' }, 'Your scholars are waiting for orders.'),
+        h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, 'Open the skill trees')));
     }
     if (b.type === 'workshop' && b.done) {
       const cost = { wood: 120, stone: 20 };

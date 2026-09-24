@@ -299,8 +299,8 @@ export class Input {
     e.preventDefault();
     if (window.tenkaView && window.tenkaView.active) return;
     if (e.ctrlKey) { this.cam.zoom(Math.exp(e.deltaY * 0.012)); return; } // pinch on most browsers
-    const mouseWheel = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && e.deltaX === 0 && Number.isInteger(e.deltaY));
-    if (mouseWheel && !this.hud.settings.scrollPans) { this.cam.zoom(Math.exp(Math.sign(e.deltaY) * 0.12)); return; }
+    // scrolling (mouse wheel or two fingers on a trackpad) zooms, unless the player switched it to panning
+    if (!this.hud.settings.scrollPans) { const d = Math.max(-120, Math.min(120, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY)); this.cam.zoom(Math.exp(d * 0.0025)); return; }
     // two-finger trackpad scroll pans the map
     const k = this.cam.dist * 0.0022, f = this.cam.forward(), r = this.cam.right();
     this.cam.pan((r.x * e.deltaX - f.x * e.deltaY) * k, (r.z * e.deltaX - f.z * e.deltaY) * k);
