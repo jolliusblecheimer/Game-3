@@ -23,14 +23,19 @@ export class Raids {
     this.next = this.clock + a + this.game.rand() * (b - a);
   }
   postpone() { if (this.next != null && this.next < this.clock + 240) this.next = this.clock + 240; }
-  serialize() { return { next: this.next, firstDone: !!this.firstDone }; }
+  serialize() { return { next: this.next, firstDone: !!this.firstDone, count: this.count || 0 }; }
   load(o) {
-    this.firstDone = !!(o && o.firstDone) || (this.game.state.stats.raidsBeaten || 0) > 0;
+    this.firstDone = !!(o && o.firstDone); this.count = (o && +o.count) || 0;
     this.next = o && typeof o.next === 'number' ? o.next : null;
     if (!this.firstDone && !this.game.soldiers(true).length) this.next = null;
     this.postpone();
   }
-  bandSize() { return this.firstDone ? TOWNHALL[this.game.thLevel].raid + Math.floor(this.game.rand() * 2) : 2; }
+  // bands grow slowly: raid after raid, with your Keep, and never far beyond what your soldiers can face
+  bandSize() {
+    if (!this.firstDone) return 2;
+    const g = this.game, soldiers = g.soldiers(true).length;
+    return Math.max(2, Math.min(TOWNHALL[g.thLevel].raid, 2 + (this.count || 0), Math.ceil(soldiers * 1.5) + 1));
+  }
   timeLeft() { return this.next == null ? Infinity : this.next - this.clock; }
 
   update(dt) {
@@ -50,13 +55,14 @@ export class Raids {
     const g = this.game, n = this.bandSize();
     this.side = Object.keys(SIDES)[Math.floor(g.rand() * 4)];
     const [sx, sz] = SIDES[this.side], weak = !this.firstDone;
+    this.count = (this.count || 0) + 1;
     this.active = true; this.alarm = false; this.bandits = []; this.stolen = {}; this.killed = 0; this.victims = 0;
     for (let i = 0; i < n; i++) {
       const along = (g.rand() - 0.5) * 30, edge = PLOT.half - 1.2;
       const x = sx ? sx * edge : along, z = sz ? sz * edge : along;
       const p = new Person('bandit', 900 + i * 17 + Math.floor(this.clock));
       p.group.position.set(x, 0, z); g.scene.add(p.group);
-      const U = weak ? UNITS.outlaw : UNITS.bandit;
+      const U = weak || (this.count <= 2 && i % 2) ? UNITS.outlaw : UNITS.bandit; // early bands are mostly outlaws
       const u = { x, z, hp: U.hp, maxHp: U.hp, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
       p.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'bandit' }; });
       this.bandits.push(u);

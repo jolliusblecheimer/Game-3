@@ -115,7 +115,7 @@ export class Person {
       m.box(0.2, 0.4, 0.26, L.armor || robe, [s * 0.03, -0.18, 0]);
       if (L.armor) m.box(0.26, 0.28, 0.3, '#1c1c1f', [s * 0.05, -0.08, 0]);   // sode shoulder guard
       m.box(0.12, 0.3, 0.14, skin, [s * 0.02, -0.5, 0]);
-      if (s === 1 && L.tool) { const t = new Mesher(seed + 9, 0.02); toolMesh(t, L.tool); const tm = t.mesh(MAT.flat, true, false); tm.position.set(0.02, -0.62, 0.02); p.add(tm); }
+      if (s === 1 && L.tool && L.tool !== 'yari') { const t = new Mesher(seed + 9, 0.02); toolMesh(t, L.tool); const tm = t.mesh(MAT.flat, true, false); tm.position.set(0.02, -0.62, 0.02); p.add(tm); }
       if (s === -1 && L.tool === 'yumi') {
         const t = new Mesher(seed + 10, 0.02);
         t.box(0.04, 1.3, 0.04, '#3a2418', [0, 0.35, 0.12], [0.2, 0, 0]); t.box(0.04, 0.7, 0.04, '#3a2418', [0, -0.55, 0.05], [-0.3, 0, 0]); t.box(0.01, 2.0, 0.01, '#e9e4d8', [0, 0.1, -0.02]);
@@ -123,6 +123,13 @@ export class Person {
       }
       p.add(m.mesh(MAT.flat, true, false)); g.add(p); return p;
     });
+    // the yari is held in both hands and moves on its own, so it always points the right way
+    this.spear = null;
+    if (L.tool === 'yari') {
+      const t = new Mesher(seed + 9, 0.02); toolMesh(t, 'yari');
+      const tm = t.mesh(MAT.flat, true, false); tm.position.z = -0.05;
+      this.spear = new THREE.Group(); this.spear.add(tm); g.add(this.spear);
+    }
     // carried goods (shown while hauling)
     this.carry = {};
     const cm = (fn) => { const m = new Mesher(seed + 21, 0.06); fn(m); const mesh = m.mesh(MAT.flat, true, false); mesh.visible = false; g.add(mesh); return mesh; };
@@ -161,6 +168,23 @@ export class Person {
       case 'shoot': { aL.rotation.x = -1.5; aL.rotation.z = -0.1; aR.rotation.x = -1.4 + Math.max(0, Math.sin(t * 2)) * 0.4; aR.rotation.z = 0.5; break; }
       case 'guard': { aR.rotation.x = -0.25; aL.rotation.x = -0.1; bodyY = Math.sin(t * 1.5) * 0.01; break; }
       default: { aL.rotation.x = Math.sin(t * 1.2) * 0.05; aR.rotation.x = -Math.sin(t * 1.2) * 0.05; bodyY = Math.sin(t * 1.6) * 0.012; }
+    }
+    if (this.spear) {
+      const S = this.spear;
+      if (pose === 'chop') { // thrust: both hands on the shaft, tip forward
+        const th = Math.max(0, Math.sin(t * 5));
+        aR.rotation.set(-1.25 - th * 0.25, 0, 0); aL.rotation.set(-1.05 - th * 0.25, 0, -0.45);
+        S.rotation.set(1.5, 0, 0); S.position.set(0.16, 1.22 + bodyY, 0.25 + th * 0.5); bodyRX = 0.08 + th * 0.12;
+      } else if (pose === 'sneak') { // carried low and level
+        aR.rotation.set(-0.9, 0, 0); aL.rotation.set(-0.7, 0, -0.3);
+        S.rotation.set(1.45, 0, 0); S.position.set(0.2, 1.05 + bodyY, 0.1);
+      } else if (pose === 'guard') { // ready: tilted forward
+        aR.rotation.set(-0.45, 0, 0);
+        S.rotation.set(0.3, 0, 0); S.position.set(0.35, 0.94 + bodyY, 0.27);
+      } else { // upright at the right side
+        aR.rotation.set(-0.3, 0, 0);
+        S.rotation.set(0.06, 0, 0); S.position.set(0.35, 0.91 + bodyY, 0.18);
+      }
     }
     body.position.y = bodyY; body.rotation.x = bodyRX;
     for (const a of this.arms) { a.position.y = 1.5 + bodyY; }
