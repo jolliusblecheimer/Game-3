@@ -26,7 +26,7 @@ export class Game {
     this.buildings = new Map(); this.villagers = new Map();
     this.state = {
       seed, res: { ...START.res }, clock: 0, time: 0.3, day: 1, nextId: 1,
-      settings: { autoBuild: ECON.autoBuild, welcome: true }, stats: { arrived: 0, trained: 0, raidsBeaten: 0 },
+      settings: { welcome: true }, stats: { arrived: 0, trained: 0, raidsBeaten: 0 },
       arriveT: 0, eatAcc: 0, research: { done: [], active: null },
     };
     this.listeners = new Set();
@@ -56,8 +56,14 @@ export class Game {
     for (const b of this.buildings.values()) if (b.done) { if (b.type === 'townhall') s += TOWNHALL[b.level].storage; else if (b.def.storage) s += b.def.storage + 300 * (b.level - 1); }
     return s;
   }
-  jobSlots(b) { if (b.type === 'townhall') return TOWNHALL[b.level].builders; return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
-  levelMult(b) { return 1 + 0.15 * ((b ? b.level : 1) - 1); }
+  jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
+  levelMult(b) { return 1 + 0.25 * ((b ? b.level : 1) - 1); }
+  // how many of a building the current Keep level allows (null = no limit)
+  buildLimit(type) { const d = BUILDINGS[type]; return d.limit ? d.limit[this.thLevel - 1] : d.unique ? 1 : null; }
+  countType(type) { let n = 0; for (const b of this.buildings.values()) if (b.type === type) n++; return n; }
+  // villagers busy on a construction site right now
+  building() { let n = 0; for (const v of this.villagers.values()) if (v.site) n++; return n; }
+  hasBuildWork() { for (const b of this.buildings.values()) if (this.needsWork(b)) return true; return false; }
   maxHp(b) { return b.def.hp ? Math.round(b.def.hp * (1 + 0.6 * (b.level - 1)) * (1 + this.rb('wallHp'))) : 0; }
 
   /* ---------- research (skill trees) ---------- */
@@ -120,6 +126,7 @@ export class Game {
     if (!ignoreId && !this.unlocked(type)) return { ok: false, why: `Needs Town Hall level ${def.th}` };
     if (cx < 0 || cz < 0 || cx + w > PLOT.n || cz + d > PLOT.n) return { ok: false, why: 'Outside your land' };
     if (def.unique && [...this.buildings.values()].some(o => o.type === type && o.id !== ignoreId)) return { ok: false, why: 'You can only have one' };
+    if (!ignoreId && def.limit) { const lim = this.buildLimit(type); if (this.countType(type) >= lim) return { ok: false, why: lim ? `You have all ${lim} allowed — upgrade the Keep for more` : `Unlocks at Keep level ${def.limit.findIndex(x => x > 0) + 1}` }; }
     if (!this.cellsFree(cx, cz, w, d, ignoreId, !!def.road)) return { ok: false, why: 'Something is already built here' };
     return { ok: true, why: '' };
   }
@@ -272,7 +279,7 @@ export class Game {
     if (u.to) { // rebuild as another type in place (keeps the spot)
       const { cx, cz, rot, id } = b; this.demolish(id, { silent: true });
       const nb = this.place(u.to, cx, cz, rot, { free: true, id }); nb.done = true; nb.upg = { level: 1, progress: 0, time: u.time, convert: true }; this.makeVisual(nb);
-      this.toast(`Your builders start rebuilding the wall in stone`); return true;
+      this.toast(`Your villagers start rebuilding the wall in stone`); return true;
     }
     if (u.anchor) { this.occupy(b, false); [b.cx, b.cz] = u.anchor; [b.w, b.d] = this.footprint(b.type, b.rot, u.level); [b.sw, b.sd] = this.sizeAt(b.type, u.level); this.clearCells(b.cx, b.cz, b.w, b.d); this.occupy(b, true); for (const v of this.villagers.values()) v.reset = true; }
     b.upg = { level: u.level, progress: 0, time: u.time };
@@ -332,7 +339,7 @@ export class Game {
   setJob(v, job, work = null) {
     if (v.work) { const b = this.buildings.get(v.work); if (b) b.workers = b.workers.filter(i => i !== v.id); }
     if (v.tree) { v.tree.reserved = 0; v.tree = null; }
-    v.job = job; v.work = work; v.train = 0; v.paid = false;
+    v.job = job; v.work = work; v.train = 0; v.paid = false; v.aid = false;
     if (work) { const b = this.buildings.get(work); if (b && !b.workers.includes(v.id)) b.workers.push(v.id); }
     v.carry = null; v.person.setCarry(null); v.elev = 0; v.post = null; v.hidden = false;
     v.person.setLook(JOBS[job].look);
@@ -439,7 +446,6 @@ export class Game {
     const farm = [...this.buildings.values()].find(b => b.type === 'farm');
     const vs = [...this.villagers.values()];
     this.setJob(vs[0], 'farmer', farm.id); this.setJob(vs[1], 'farmer', farm.id);
-    this.setJob(vs[2], 'builder', this.keep.id); this.setJob(vs[3], 'builder', this.keep.id);
     this.raids.schedule(true);
     this.toast('Welcome, lord. Your people await your command.');
   }
@@ -449,7 +455,7 @@ export class Game {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0 })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null })).concat(this.keptVillagers || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0 })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
@@ -464,7 +470,7 @@ export class Game {
     for (const k of ['clock', 'time', 'day', 'nextId', 'arriveT', 'eatAcc']) if (typeof s[k] === 'number' && isFinite(s[k])) S[k] = s[k];
     for (const r in RES) S.res[r] = Math.max(0, +s.res?.[r] || 0);
     Object.assign(S.settings, s.settings || {}); Object.assign(S.stats, s.stats || {});
-    if ((s.v || 1) < 3) S.settings.autoBuild = false; // builders are a real job now
+    delete S.settings.autoBuild;
     const v2 = (s.v || 1) >= 2;
     const treeAt = new Map(this.nature.trees.map(t => [t.cx + ',' + t.cz, t]));
     for (const row of s.trees || []) {
@@ -492,11 +498,13 @@ export class Game {
         if (b.upg && b.upg.level) { nb.upg = { level: b.upg.level, progress: clamp(+b.upg.progress || 0, 0, 1), time: +b.upg.time || 60, convert: !!b.upg.convert }; this.makeVisual(nb); }
       } catch (e) { console.warn('Skipped a building while loading', b, e); this.keptBuildings.push(b); }
     }
-    for (const v of s.villagers || []) {
+    for (let v of s.villagers || []) {
       try {
+        if (v.job === 'builder') v = { ...v, job: 'idle', work: null }; // builders are no longer a job: free villagers build
         if (!JOBS[v.job]) { this.keptVillagers.push(v); continue; }
         const nv = this.spawnVillager({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: v.x, z: v.z, train: v.train, paid: v.paid });
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
+        if (v.aid) nv.aid = true;
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
     for (const [kind, cx, cz] of s.marks || []) this.mark(kind, cx, cz);
@@ -520,8 +528,8 @@ export class Game {
     got.wheat -= sec * this.pop / ECON.eatEvery;
     const out = {};
     for (const r in got) { const before = this.state.res[r]; this.state.res[r] = clamp(before + got[r], 0, this.storageCap()); out[r] = Math.round(this.state.res[r] - before); }
-    // builders keep building
-    let crew = this.countJob('builder') * sec * eff, built = 0;
+    // free villagers keep building
+    let crew = [...this.villagers.values()].filter(v => !v.away && (v.job === 'idle' || v.aid)).length * sec * eff, built = 0;
     for (const b of this.buildings.values()) {
       if (crew <= 0) break;
       if (!b.done) { const need = (1 - b.progress) * b.def.time, use = Math.min(need, crew); crew -= use; b.progress += use / b.def.time; if (b.progress >= 0.999) { b.done = true; b.progress = 1; built++; } this.syncProgress(b); }

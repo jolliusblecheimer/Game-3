@@ -297,3 +297,5 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .tline { width: 3px; height: 12px; background: var(--line); margin: 0 auto; }
 .tline.done { background: var(--leaf); }
 .btn.gold { background: var(--gold); color: #2a1d02; }
+.card .limit { position: absolute; top: 6px; left: 8px; font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--paper-2); border-radius: 99px; padding: 1px 7px; }
+.card .limit.full { color: #fff; background: var(--vermilion, #c2412d); }

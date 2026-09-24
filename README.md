@@ -37,11 +37,11 @@ Then open http://localhost:8000.
 ## How it works
 
 - **A slow, calm pace.** You start with 10 villagers. New families arrive only now and then (and only if there is room and wheat), so every villager counts.
-- **Jobs.** Hire unemployed villagers at fields, lumber camps, quarries and mines; they plant and harvest, fell trees, swing picks at the rock face and disappear into the mine, then carry goods into storage. Builders are assigned at the Keep: they build, upgrade, repair walls and clear land.
-- **Progression.** The Keep has 5 levels. Each level adds homes, storage and a builder, and unlocks new buildings (stone roads, gold mine, dojo and towers at 2; stone walls, archery range, shrine and siege workshop at 3; commanders at 4 and 5). Most buildings can be upgraded too, and workplaces grow bigger at levels 3 and 5.
+- **Jobs.** Hire unemployed villagers at fields, lumber camps, quarries and mines; they plant and harvest, fell trees, swing picks at the rock face and disappear into the mine, then carry goods into storage. Anyone without a job builds, upgrades, repairs walls and clears land. Click a worker and press **Aid construction** to lend a hand; they return to their job when the work is done.
+- **Progression.** The Keep has 5 levels. Each level adds homes and storage, raises how many of each building you may have, and unlocks new buildings (gold mine and dojo from the start; stone roads, archery range and towers at 2; stone walls, shrine and siege workshop at 3; commanders at 4 and 5). With a limited number of workplaces, upgrading them matters: each level adds a worker and makes everyone there 25% faster. Most buildings can be upgraded too, and workplaces grow bigger at levels 3 and 5.
 - **Defense.** Bandits raid the village from time to time — the bigger your Keep, the bigger the band. They break through palisades and walls, fight your soldiers and steal from storage. Spearmen fight them, archers shoot from towers, and everyone else hides indoors. Start with bamboo palisades; stone walls (expensive but strong) come at Keep level 3.
 - **Harmony:** shrines, gardens, koi ponds, tea houses, sakura trees and lanterns make everyone work faster.
-- **Clear land:** mark trees and boulders and your builders remove them.
+- **Clear land:** mark trees and boulders and your free villagers remove them.
 
 ## The country and raids
 

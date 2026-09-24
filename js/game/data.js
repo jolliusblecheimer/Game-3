@@ -9,14 +9,14 @@ export const RES = {
 };
 
 export const START = {
-  res: { wheat: 300, wood: 260, stone: 140, gold: 40 },
+  res: { wheat: 300, wood: 260, stone: 140, gold: 60 },
   villagers: 10,
 };
 
 export const ECON = {
   walkSpeed: 3.0,            // world units per second
-  arriveEvery: 300,          // a new family is rare: at most one every 5 minutes…
-  arriveChance: 0.6,         // …and only if they decide to come
+  arriveEvery: 100,          // while there are empty homes and food, a newcomer may arrive this often…
+  arriveChance: 0.7,         // …if they decide to come (Harmony makes it likelier)
   arriveCost: { wheat: 40 },
   eatEvery: 70,              // each villager eats 1 wheat this often
   hungryWork: 0.5,           // work speed when out of wheat
@@ -26,29 +26,27 @@ export const ECON = {
   offlineEfficiency: 0.6,    // share of normal output earned while away
   treeRegrow: 300,           // seconds for a felled tree to regrow
   treeChops: 3,              // trips a tree supports before it falls
-  clearTime: 6,              // seconds for a builder to clear one tree or boulder
-  autoBuild: false,          // idle villagers help build only if you allow it (menu)
+  clearTime: 6,              // seconds to clear one tree or boulder
 };
 
 // Town Hall levels: everything else grows from here.
 export const TOWNHALL = [
   null,
-  { housing: 8,  storage: 500,  builders: 2, raid: 3 },
-  { housing: 10, storage: 800,  builders: 3, raid: 5, cost: { wood: 320, stone: 200, gold: 40 },  time: 150, needPop: 12 },
-  { housing: 12, storage: 1200, builders: 4, raid: 8, cost: { wood: 650, stone: 520, gold: 150 }, time: 240, needPop: 18 },
-  { housing: 14, storage: 1800, builders: 5, raid: 12, cost: { wood: 1000, stone: 900, gold: 380 }, time: 330, needPop: 25 },
-  { housing: 16, storage: 2600, builders: 6, raid: 16, cost: { wood: 1600, stone: 1500, gold: 750 }, time: 420, needPop: 33 },
+  { housing: 8,  storage: 500,  raid: 3 },
+  { housing: 10, storage: 800,  raid: 5, cost: { wood: 240, stone: 140, gold: 30 },  time: 150, needPop: 12 },
+  { housing: 12, storage: 1200, raid: 8, cost: { wood: 520, stone: 400, gold: 120 }, time: 240, needPop: 16 },
+  { housing: 14, storage: 1800, raid: 12, cost: { wood: 850, stone: 750, gold: 300 }, time: 330, needPop: 21 },
+  { housing: 16, storage: 2600, raid: 16, cost: { wood: 1300, stone: 1200, gold: 600 }, time: 420, needPop: 26 },
 ];
 export const MAX_TH = 5;
 
 // Jobs. `work` = seconds of work per trip, `amount` = goods carried back.
 export const JOBS = {
-  idle:           { name: 'Villager',        look: 'villager', desc: 'Unemployed. Give them a job at a workplace, or make them a builder at the Keep.' },
-  builder:        { name: 'Builder',         look: 'builder', desc: 'Builds, upgrades and repairs, and clears trees and rocks you mark.' },
-  farmer:         { name: 'Farmer',          look: 'farmer',      res: 'wheat', work: 12, amount: 6 },
-  woodcutter:     { name: 'Woodcutter',      look: 'woodcutter',  res: 'wood',  work: 10, amount: 5 },
-  stonecutter:    { name: 'Stonecutter',     look: 'stonecutter', res: 'stone', work: 13, amount: 4 },
-  miner:          { name: 'Miner',           look: 'miner',       res: 'gold',  work: 16, amount: 3 },
+  idle:           { name: 'Villager',        look: 'villager', desc: 'Unemployed. Free villagers build, upgrade, repair and clear land on their own — or give them a job at a workplace.' },
+  farmer:         { name: 'Farmer',          look: 'farmer',      res: 'wheat', work: 12, amount: 8 },
+  woodcutter:     { name: 'Woodcutter',      look: 'woodcutter',  res: 'wood',  work: 10, amount: 7 },
+  stonecutter:    { name: 'Stonecutter',     look: 'stonecutter', res: 'stone', work: 13, amount: 6 },
+  miner:          { name: 'Miner',           look: 'miner',       res: 'gold',  work: 16, amount: 4 },
   trainee:        { name: 'Spearman trainee', look: 'trainee' },
   trainee_archer: { name: 'Archer trainee',  look: 'trainee_archer' },
   ashigaru:       { name: 'Spearman',        look: 'ashigaru', soldier: true, desc: 'Ashigaru spearman — the backbone of your army. Defends the village against bandits.' },
@@ -114,31 +112,31 @@ export const CATEGORIES = [
 // th = Town Hall level needed; maxLevel = how far it can be upgraded;
 // grow = bigger footprint at those levels.
 export const BUILDINGS = {
-  townhall:   { name: 'Tenshu Keep', kanji: '天守', cat: null, size: [4, 4], cost: {}, time: 0, unique: true, dropoff: 'all', h: 12, th: 1, maxLevel: 5, job: 'builder',
-                desc: 'The heart of your clan. Upgrading it unlocks new buildings, more homes, storage and builders — but bandits notice a richer village.' },
+  townhall:   { name: 'Tenshu Keep', kanji: '天守', cat: null, size: [4, 4], cost: {}, time: 0, unique: true, dropoff: 'all', h: 12, th: 1, maxLevel: 5,
+                desc: 'The heart of your clan. Upgrading it unlocks new buildings, more homes and storage, and lets you build more of each — but bandits notice a richer village.' },
   road:       { name: 'Dirt Road', kanji: '道', cat: 'village', size: [1, 1], cost: {}, time: 0, walkable: true, line: true, road: 1.5, h: 0.2, th: 1,
                 desc: 'A packed-earth path. Villagers walk 50% faster on roads and choose them when they can. Free, and laid instantly.' },
   stoneroad:  { name: 'Stone Road', kanji: '石畳', cat: 'village', size: [1, 1], cost: { stone: 4 }, time: 0, walkable: true, line: true, road: 1.9, h: 0.2, th: 2,
                 desc: 'Paved with cut stone. Villagers walk 90% faster. Laid instantly.' },
-  house:      { name: 'Minka House', kanji: '民家', cat: 'village', size: [2, 2], cost: { wood: 60, stone: 15 }, time: 45, housing: 4, h: 4.5, th: 1, maxLevel: 3,
+  house:      { name: 'Minka House', kanji: '民家', cat: 'village', size: [2, 2], cost: { wood: 60, stone: 15 }, time: 45, housing: 4, h: 4.5, th: 1, maxLevel: 3, limit: [4, 6, 8, 10, 12],
                 desc: 'A thatched family home with room for 4 villagers (+2 per upgrade).' },
-  storehouse: { name: 'Kura Storehouse', kanji: '蔵', cat: 'village', size: [2, 3], cost: { wood: 90, stone: 60 }, time: 60, storage: 400, dropoff: 'all', h: 5, th: 1, maxLevel: 4,
+  storehouse: { name: 'Kura Storehouse', kanji: '蔵', cat: 'village', size: [2, 3], cost: { wood: 90, stone: 60 }, time: 60, storage: 400, dropoff: 'all', h: 5, th: 1, maxLevel: 4, limit: [1, 2, 3, 4, 5],
                 desc: 'Stores 400 more of every resource (+300 per upgrade). Workers drop off goods here too.' },
-  farm:       { name: 'Wheat Field', kanji: '畑', cat: 'resources', size: [4, 4], cost: { wood: 45 }, time: 35, jobs: 2, job: 'farmer', walkable: true, h: 1.5, th: 1, maxLevel: 5, grow: { 3: [5, 5], 5: [6, 6] },
+  farm:       { name: 'Wheat Field', kanji: '畑', cat: 'resources', size: [4, 4], cost: { wood: 45 }, time: 35, jobs: 2, job: 'farmer', walkable: true, h: 1.5, th: 1, maxLevel: 5, limit: [2, 3, 4, 5, 6], grow: { 3: [5, 5], 5: [6, 6] },
                 desc: 'Farmers plant, tend and harvest wheat, then carry it to storage.' },
-  lumber:     { name: 'Lumber Camp', kanji: '木場', cat: 'resources', size: [2, 2], cost: { wood: 30, stone: 15 }, time: 35, jobs: 2, job: 'woodcutter', dropoff: 'wood', h: 3, th: 1, maxLevel: 5, grow: { 3: [3, 3], 5: [4, 3] },
+  lumber:     { name: 'Lumber Camp', kanji: '木場', cat: 'resources', size: [2, 2], cost: { wood: 30, stone: 15 }, time: 35, jobs: 2, job: 'woodcutter', dropoff: 'wood', h: 3, th: 1, maxLevel: 5, limit: [2, 2, 3, 4, 4], grow: { 3: [3, 3], 5: [4, 3] },
                 desc: 'Woodcutters fell nearby trees and bring logs here. Felled trees regrow.' },
-  quarry:     { name: 'Stone Quarry', kanji: '石切場', cat: 'resources', size: [3, 3], cost: { wood: 75 }, time: 45, jobs: 2, job: 'stonecutter', h: 3.5, th: 1, maxLevel: 5, grow: { 3: [4, 4], 5: [5, 4] },
+  quarry:     { name: 'Stone Quarry', kanji: '石切場', cat: 'resources', size: [3, 3], cost: { wood: 75 }, time: 45, jobs: 2, job: 'stonecutter', h: 3.5, th: 1, maxLevel: 5, limit: [1, 2, 2, 3, 4], grow: { 3: [4, 4], 5: [5, 4] },
                 desc: 'Stonecutters split rock into blocks and haul them to storage.' },
-  mine:       { name: 'Gold Mine', kanji: '金山', cat: 'resources', size: [3, 3], cost: { wood: 120, stone: 80 }, time: 70, jobs: 2, job: 'miner', h: 4, th: 2, maxLevel: 5, grow: { 3: [4, 4], 5: [5, 4] },
+  mine:       { name: 'Gold Mine', kanji: '金山', cat: 'resources', size: [3, 3], cost: { wood: 90, stone: 50 }, time: 60, jobs: 2, job: 'miner', h: 4, th: 1, maxLevel: 5, limit: [1, 1, 2, 3, 3], grow: { 3: [4, 4], 5: [5, 4] },
                 desc: 'Miners go deep into the hill for gold ore. Slow but precious.' },
-  dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 2, maxLevel: 4, grow: { 3: [4, 3] },
+  dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 1, maxLevel: 4, limit: [1, 1, 2, 2, 3], grow: { 3: [4, 3] },
                 desc: 'Unemployed villagers train here and graduate as Spearmen.' },
-  kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 3, maxLevel: 4, walkable: true, grow: { 3: [4, 4] },
+  kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
-  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2,
+  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true,
                 desc: 'Scholars of war study here. Research skill trees for every kind of soldier, your scouts, your sieges and your defenses.' },
-  workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 220, stone: 90, gold: 40 }, time: 90, h: 4, th: 3,
+  workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 220, stone: 90, gold: 40 }, time: 90, h: 4, th: 3, unique: true,
                 desc: 'Carpenters build battering rams here for breaking castle gates.' },
   palisade:   { name: 'Bamboo Palisade', kanji: '竹柵', cat: 'defense', size: [1, 1], cost: { wood: 18 }, time: 8, blocks: true, line: true, h: 2.5, th: 1, hp: 400, upgradeTo: 'wall',
                 desc: 'Sharpened bamboo fence — your first defense. Can be upgraded to a stone wall at Town Hall level 3.' },
@@ -146,9 +144,9 @@ export const BUILDINGS = {
                 desc: 'Sharpened stakes that slow attackers and hurt them as they push through.' },
   hedge:      { name: 'Hedge', kanji: '生垣', cat: 'defense', size: [1, 1], cost: { wood: 3 }, time: 4, line: true, beauty: 0.3, h: 1.4, th: 1,
                 desc: 'Thick bushes. Troops hiding inside are hard to spot.' },
-  gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3,
+  gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3, limit: [0, 1, 2, 3, 4],
                 desc: 'Lets your people through your walls. Bandits must break it down.' },
-  tower:      { name: 'Yagura Tower', kanji: '櫓', cat: 'defense', size: [2, 2], cost: { wood: 160, stone: 100 }, time: 60, garrison: 3, h: 7, th: 2, maxLevel: 3,
+  tower:      { name: 'Yagura Tower', kanji: '櫓', cat: 'defense', size: [2, 2], cost: { wood: 160, stone: 100 }, time: 60, garrison: 3, h: 7, th: 2, maxLevel: 3, limit: [0, 2, 3, 4, 6],
                 desc: 'Your archers climb up here and shoot down at raiders. Upgrades make their arrows reach farther.' },
   wall:       { name: 'Stone Wall', kanji: '石垣', cat: 'defense', size: [1, 1], cost: { stone: 45, wood: 10 }, time: 16, blocks: true, line: true, h: 3.2, th: 3, hp: 1500, maxLevel: 3,
                 desc: 'A stone base with a plastered top — very strong, and priced like it. Bandits need a long time to break through.' },

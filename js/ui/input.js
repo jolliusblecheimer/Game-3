@@ -161,7 +161,7 @@ export class Input {
       if (!P.lineStart) { P.lineStart = [cx, cz]; this.updateGhost(cx, cz); return; }
       const a = P.lineStart, n = game.markArea(Math.min(a[0], cx), Math.min(a[1], cz), Math.max(a[0], cx), Math.max(a[1], cz));
       P.lineStart = null; if (this.lineTiles) { this.stage.scene.remove(this.lineTiles); this.lineTiles = null; }
-      this.hud.toast(n ? `${n} marked for clearing${game.countJob('builder') ? ' — your builders will see to it' : ' — assign builders at the Keep to clear them'}` : 'No trees or boulders there', n ? '' : 'warn');
+      this.hud.toast(n ? `${n} marked for clearing${game.idleVillagers().length ? ' — free villagers will see to it' : ' — make a villager unemployed or have one aid construction to clear them'}` : 'No trees or boulders there', n ? '' : 'warn');
       this.hud.placingHint(true, 'Click one corner of the next area, or Esc to finish');
       return;
     }

@@ -151,16 +151,16 @@ export function thinkVillager(game, v) {
     return goHome(game, v, 'Hiding from the bandits');
   }
   if (v.work && !work) { game.setJob(v, J.soldier ? v.job : 'idle'); return; }
-  if (work && !work.done && v.job !== 'builder') return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
+  // told to aid construction: build until nothing is left, then go back to the job
+  if (v.aid) {
+    const w = workFor(game, v, true);
+    if (w && w.b) { setLook(v, 'builder'); return doBuild(game, v, w.b); }
+    v.aid = false; game.emit('job', v);
+  }
+  if (v.job !== 'idle') setLook(v, J.look);
+  if (work && !work.done) return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
   const mult = game.workMult() * game.levelMult(work);
   switch (v.job) {
-    case 'builder': {
-      const w = workFor(game, v);
-      if (w && w.b) return doBuild(game, v, w.b);
-      if (w && w.m) return doClear(game, v, w.m);
-      const keep = game.keep, spot = keep ? game.door(keep, 3 + game.rand() * 3) : v.pos;
-      return goTo(game, v, { x: spot.x + (game.rand() - 0.5) * 6, z: spot.z + (game.rand() - 0.5) * 3 }, () => act(v, 6 + game.rand() * 6, 'idle', null, 'No building work right now'), 'Waiting for building work');
-    }
     case 'farmer': {
       const spot = game.spotIn(work), planting = game.rand() < 0.5;
       return goTo(game, v, spot, () => act(v, J.work / mult * 0.5, planting ? 'kneel' : 'dig',
@@ -226,8 +226,10 @@ export function thinkVillager(game, v) {
       const d = game.door(g, 1.5 + game.rand() * 2);
       return goTo(game, v, { x: d.x + (game.rand() - 0.5) * 3, z: d.z + (game.rand() - 0.5) * 3 }, () => act(v, 8 + game.rand() * 10, 'guard', null, `Guarding the ${g.def.name}`), 'On patrol');
     }
-    default: { // unemployed: help build if allowed, relax, go home at night
-      if (game.state.settings.autoBuild) { const w = workFor(game, v, true); if (w && w.b) { setLook(v, 'builder'); return doBuild(game, v, w.b); } }
+    default: { // unemployed: build, repair and clear land; otherwise relax and go home at night
+      const w = workFor(game, v);
+      if (w && w.b) { setLook(v, 'builder'); return doBuild(game, v, w.b); }
+      if (w && w.m) { setLook(v, 'builder'); return doClear(game, v, w.m); }
       setLook(v, JOBS[v.job].look);
       const night = game.state.time < 0.22 || game.state.time > 0.8;
       if (night) return goHome(game, v, 'Sleeping at home');

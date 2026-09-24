@@ -96,7 +96,7 @@ export class Hud {
         h('span', { class: 'kanji' }, '天守'), this.live(h('span', null), el => { el.textContent = `Keep · level ${g.thLevel}`; })),
       row('people', 'Villagers', () => `${g.pop} / ${g.housing()}`, 'Villagers / homes'),
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
-      row('build', 'Builders', () => String(g.countJob('builder'))),
+      row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
       row('sakura', 'Harmony', () => `+${g.harmony()}%`, 'Beauty buildings make villagers work faster'),
     );
@@ -114,19 +114,20 @@ export class Hud {
     if (!this.buildOpen) return;
     const row = h('div', { class: 'cards' });
     if (this.cat === 'village') {
-      row.append(h('div', { class: 'card tool', role: 'button', tabindex: '0', title: 'Mark trees and boulders for your builders to clear',
+      row.append(h('div', { class: 'card tool', role: 'button', tabindex: '0', title: 'Mark trees and boulders for your villagers to clear',
         onclick: () => this.input.startClearing(), onpointerenter: e => { if (e.pointerType !== 'touch') this.showToolInfo(e.currentTarget); }, onpointerleave: () => this.hideInfo() },
-        h('span', { class: 'art thumb' }, icon('demolish', 40)), h('span', { class: 'nm' }, 'Clear land'), h('span', { class: 'cost' }, h('span', { class: 'c free' }, 'Builders do it'))));
+        h('span', { class: 'art thumb' }, icon('demolish', 40)), h('span', { class: 'nm' }, 'Clear land'), h('span', { class: 'cost' }, h('span', { class: 'c free' }, 'Villagers do it'))));
     }
     for (const [type, d] of Object.entries(BUILDINGS)) {
       if (d.cat !== this.cat) continue;
-      const locked = (d.th || 1) > g.thLevel;
+      const locked = (d.th || 1) > g.thLevel, lim = g.buildLimit(type), have = lim !== null ? g.countType(type) : 0, full = !locked && lim !== null && have >= lim;
       const infoBtn = h('button', { class: 'infobtn', title: 'What does it do?', onclick: e => { e.stopPropagation(); this.toggleInfo(type, card); } }, icon('info', 16));
-      const card = h('div', { class: 'card' + (locked ? ' locked' : ''), role: 'button', tabindex: '0',
-        onclick: () => { if (locked) { this.toggleInfo(type, card); this.toast(`Upgrade your Keep to level ${d.th} to build the ${d.name}`, 'warn'); } else this.input.startPlacing(type); },
+      const card = h('div', { class: 'card' + (locked || full ? ' locked' : ''), role: 'button', tabindex: '0',
+        onclick: () => { if (locked) { this.toggleInfo(type, card); this.toast(`Upgrade your Keep to level ${d.th} to build the ${d.name}`, 'warn'); } else if (full) this.toast(lim ? `You have all ${lim} allowed (${d.name}) — upgrade them, or upgrade the Keep to build more` : `The ${d.name} unlocks at a higher Keep level`, 'warn'); else this.input.startPlacing(type); },
         onpointerenter: e => { if (e.pointerType !== 'touch') this.showInfo(type, card); }, onpointerleave: () => this.hideInfo() },
         art('building', type, d.kanji, 'thumb'), h('span', { class: 'nm' }, d.name),
         locked ? h('span', { class: 'lock' }, `Keep level ${d.th}`) : costChips(g, d.cost, this.live), infoBtn);
+      if (lim !== null && !locked && lim > 1) card.append(h('span', { class: 'limit' + (full ? ' full' : '') }, `${have}/${lim}`));
       card.dataset.type = type;
       row.append(card);
     }
@@ -137,7 +138,7 @@ export class Hud {
     const row = (ic, text) => rows.push(h('div', { class: 'irow' }, icon(ic, 18), h('span', null, text)));
     if (type === 'townhall') {
       const T = TOWNHALL[L];
-      row('house', `Homes for ${T.housing} villagers`); row('storage', `Stores ${T.storage} of every resource`); row('build', `Room for ${T.builders} builders`);
+      row('house', `Homes for ${T.housing} villagers`); row('storage', `Stores ${T.storage} of every resource`);
       row('camp', `Bandit raids come in bands of about ${T.raid}`);
       return rows;
     }
@@ -168,7 +169,7 @@ export class Hud {
       h('div', { class: 'ihead' }, art('building', type, d.kanji, 'big'), h('div', null, h('h3', null, d.name), h('span', { class: 'kan' }, d.kanji))),
       h('p', null, d.desc),
       locked ? h('div', { class: 'irow warnrow' }, icon('castle', 18), h('span', null, `Unlocks at Keep level ${d.th}`)) : null,
-      h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, d.time ? `Your builders need about ${fmtTime(d.time)}` : 'Laid instantly')),
+      h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, d.time ? `Your villagers need about ${fmtTime(d.time)}` : 'Laid instantly')),
       h('div', { class: 'irow' }, icon('grid', 18), h('span', null, `Size ${w} × ${dd}` + (d.line ? ' — drawn as a line' : ''))),
       this.infoRows(type),
       h('div', { class: 'irow costrow' }, h('b', null, 'Cost'), costChips(this.game, d.cost, this.live)));
@@ -176,8 +177,8 @@ export class Hud {
   showToolInfo(card) {
     this.info.textContent = '';
     this.info.append(h('div', { class: 'icard' }, h('div', { class: 'ihead' }, h('span', { class: 'art big' }, icon('demolish', 44)), h('div', null, h('h3', null, 'Clear land'))),
-      h('p', null, 'Click one corner, then the other, to mark every tree and boulder in between. Your builders fell the trees and break up the rocks, bringing back wood and stone.'),
-      h('div', { class: 'irow' }, icon('build', 18), h('span', null, 'Needs builders — assign them at the Keep'))));
+      h('p', null, 'Click one corner, then the other, to mark every tree and boulder in between. Your free villagers fell the trees and break up the rocks, bringing back wood and stone.'),
+      h('div', { class: 'irow' }, icon('build', 18), h('span', null, 'Unemployed villagers do this on their own'))));
     this.placeInfo(card);
   }
   placeInfo(card) {
@@ -234,15 +235,15 @@ export class Hud {
         h('p', { class: 'desc' }, d.desc));
       if (!b.done || b.upg) {
         p.append(this.bar2(() => b.done ? b.upg && b.upg.progress : b.progress), this.live(h('p', { class: 'sub' }), el => {
-          const n = [...g.villagers.values()].filter(v => v.site === b.id).length, builders = g.countJob('builder');
-          el.textContent = n ? `${n} builder${n > 1 ? 's' : ''} at work` : builders ? 'Waiting for a free builder' : 'No builders! Assign villagers as builders at the Keep.';
+          const n = [...g.villagers.values()].filter(v => v.site === b.id).length, free = g.idleVillagers().length;
+          el.textContent = n ? `${n} villager${n > 1 ? 's' : ''} at work` : free ? 'Waiting for a free villager' : 'Nobody is free! Click a worker and press “Aid construction”, or make someone unemployed.';
         }));
-        p.append(h('button', { class: 'btn small ' + (b.prio ? 'gold' : 'ghost'), title: 'Builders finish prioritised jobs first', onclick: () => { b.prio = !b.prio; for (const v of g.villagers.values()) if (v.job === 'builder' && v.site !== b.id) v.reset = true; this.renderPanel(); } }, icon('flag', 16), b.prio ? 'Priority — builders come here first' : 'Make this a priority'));
+        p.append(h('button', { class: 'btn small ' + (b.prio ? 'gold' : 'ghost'), title: 'Villagers finish prioritised buildings first', onclick: () => { b.prio = !b.prio; for (const v of g.villagers.values()) if ((v.job === 'idle' || v.aid) && v.site !== b.id) v.reset = true; this.renderPanel(); } }, icon('flag', 16), b.prio ? 'Priority — villagers come here first' : 'Make this a priority'));
       }
       const rows = this.infoRows(b.type, b);
       if (rows.length) p.append(h('div', { class: 'irows' }, rows));
       if (d.hp) p.append(this.bar2(() => b.hp / g.maxHp(b), 'hp'));
-      // workers (the Keep's workers are its builders)
+      // workers
       const slots = g.jobSlots(b);
       if (slots && b.done) {
         const J = JOBS[d.job];
@@ -274,12 +275,16 @@ export class Hud {
     } else {
       const v = g.villagers.get(sel.id); if (!v) { p.hidden = true; return; }
       const J = JOBS[v.job], work = v.work ? g.buildings.get(v.work) : null;
-      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work && v.job !== 'builder' ? ` · ${work.def.name}` : '')))),
+      p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work ? ` · ${work.def.name}` : '') + (v.aid ? ' · aiding construction' : '')))),
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
       if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / work.def.trainTime));
       const actions = h('div', { class: 'actions' });
       actions.append(h('button', { class: 'btn ghost', onclick: () => { this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } }, icon('eye', 16), 'Follow'));
+      if (v.job !== 'idle' && !v.away) {
+        if (v.aid) actions.append(h('button', { class: 'btn ghost', title: 'Stop building and go back to their job', onclick: () => { v.aid = false; v.reset = true; this.renderPanel(); } }, icon('stop', 16), 'Back to work'));
+        else if (g.hasBuildWork()) actions.append(h('button', { class: 'btn', title: 'Leave their job for a while and help build — they return when the building work is done', onclick: () => { v.aid = true; v.reset = true; if (v.carry) { g.add(v.carry.res, v.carry.amt); v.carry = null; v.person.setCarry(null); } this.renderPanel(); } }, icon('build', 16), 'Aid construction'));
+      }
       if (v.job !== 'idle' && !J.soldier) actions.append(h('button', { class: 'btn ghost', onclick: () => { g.setJob(v, 'idle'); this.renderPanel(); } }, icon('stop', 16), 'Make unemployed'));
       p.append(actions);
       if (v.job === 'idle') {
@@ -290,7 +295,7 @@ export class Hud {
             const J2 = JOBS[b.def.job];
             return h('button', { class: 'jobcard', onclick: () => { g.setJob(v, b.def.job, b.id); this.renderPanel(); } }, art('person', J2.look, null, 'face'),
               h('span', null, h('b', null, J2.name), h('small', null, `${b.def.name} · ${b.workers.length}/${g.jobSlots(b)}`)));
-          })) : h('p', { class: 'sub' }, 'No free jobs — build a field, lumber camp, quarry or dojo, or add builders at the Keep.'));
+          })) : h('p', { class: 'sub' }, 'No free jobs — build a field, lumber camp, quarry, mine or dojo. Meanwhile they help build.'));
       }
     }
   }
@@ -309,7 +314,7 @@ export class Hud {
       const u = g.upgradeInfo(k), next = unlocksAt(L + 1);
       p.append(h('div', { class: 'upgrade keepup' },
         h('div', { class: 'jrow' }, icon('castle', 20), h('b', null, `Keep level ${L + 1}`), u && !u.busy ? h('span', { class: 'sub' }, fmtTime(u.time)) : null),
-        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, +1 builder` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + '. Raids get bigger.'),
+        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + '. Raids get bigger.'),
         u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
           u.why ? h('p', { class: 'why' }, u.why) : null] : null));
     } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));
@@ -415,7 +420,7 @@ export class Hud {
       ['Walls, roads & clearing', 'Click start, click end — keeps going until Esc'], ['M', 'Country map'],
       ['Delete', 'Demolish (press twice)'], ['Space', 'Pause'], ['F', 'Game speed 1× / 2× / 3×'], ['Esc', 'Cancel / close']];
     this.openModal('How to play', h('div', null,
-      h('p', null, 'Grow your clan slowly and calmly. Unemployed villagers get jobs at fields, camps, quarries and mines, and builders (assigned at the Keep) build, upgrade and clear land. New families arrive only now and then, so every villager counts.'),
+      h('p', null, 'Grow your clan slowly and calmly. Unemployed villagers get jobs at fields, camps, quarries and mines, and anyone without a job builds, upgrades and clears land. Need more hands? Click a worker and press Aid construction. New families move in while you have empty homes and spare wheat.'),
       h('p', null, 'Upgrade your Keep to unlock new buildings and bigger upgrades — but a richer village draws bigger bandit raids, so keep walls, towers and soldiers ready. When you are strong enough, open the Map to scout the country and raid your rivals.'),
       h('dl', { class: 'kv keys2' }, rows.map(([k, v]) => [h('dt', null, k), h('dd', null, v)]))));
   }
@@ -424,7 +429,6 @@ export class Hud {
     const toggle = (label, get, set) => h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: get() ? true : null, onchange: e => set(e.target.checked) }), label);
     let q = 'auto'; try { q = localStorage.getItem('tenka.quality') || 'auto'; } catch (_) { /* */ }
     this.openModal('Menu', h('div', { class: 'menu' },
-      toggle('Unemployed villagers help build when builders are busy', () => s.autoBuild, v => { s.autoBuild = v; }),
       toggle('Welcome new families when there is room', () => s.welcome, v => { s.welcome = v; }),
       toggle('Scrolling moves the camera instead of zooming', () => this.settings.scrollPans, v => { this.settings.scrollPans = v; this.saveSettings(); }),
       toggle('Sound', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
