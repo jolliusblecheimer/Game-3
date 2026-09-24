@@ -7,6 +7,7 @@ import { Game, SAVE_KEY } from './game/world.js';
 import { RTSCamera } from './ui/camera.js';
 import { Input } from './ui/input.js';
 import { Hud } from './ui/hud.js';
+import { Views } from './ui/views.js';
 import { h } from './util.js';
 
 const BACKUP_KEY = 'tenka.save.backup';
@@ -39,6 +40,7 @@ function boot() {
   const hud = new Hud(game);
   const cam = new RTSCamera(stage.camera);
   const input = new Input(game, stage, cam, hud);
+  const views = new Views({ game, stage, hud, input, cam });
 
   // Autosave is switched off if the save couldn't be read, so a bad update can never overwrite it.
   let blocked = false;
@@ -103,7 +105,7 @@ function boot() {
   document.getElementById('loading').remove();
   // debug: advance the game by hand (used for testing when the tab isn't animating)
   const advance = (sec = 1) => { for (let t = 0; t < sec; t += 0.05) { game.update(0.05); for (const f of hooks.frame) f(0.05); } step(0); };
-  window.tenka = { game, stage, cam, input, hud, save: saveNow, advance, hooks };
+  window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks };
 }
 
 try { boot(); }

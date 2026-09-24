@@ -4,8 +4,9 @@ import { PLOT } from '../render/nature.js';
 export const FREE = 0, TREE = -1, ROCK = -2;
 
 export class Grid {
-  constructor() {
-    this.n = PLOT.n; this.cell = PLOT.cell; this.half = PLOT.half;
+  // n×n cells of `cell` units, centred on (ox, oz). The village uses the defaults; battles use their own grid.
+  constructor(n = PLOT.n, cell = PLOT.cell, ox = 0, oz = 0) {
+    this.n = n; this.cell = cell; this.half = n * cell / 2; this.ox = ox; this.oz = oz;
     this.occ = new Int32Array(this.n * this.n);       // 0 free, >0 building id, -1 tree, -2 rock
     this.pass = new Uint8Array(this.n * this.n).fill(1); // walkable?
     this.speed = new Float32Array(this.n * this.n).fill(1); // walking speed multiplier (roads > 1)
@@ -13,8 +14,8 @@ export class Grid {
   static MAX_SPEED = 1.9;
   idx(cx, cz) { return cz * this.n + cx; }
   inside(cx, cz) { return cx >= 0 && cz >= 0 && cx < this.n && cz < this.n; }
-  toCell(x, z) { return [Math.floor((x + this.half) / this.cell), Math.floor((z + this.half) / this.cell)]; }
-  center(cx, cz) { return { x: -this.half + cx * this.cell + this.cell / 2, z: -this.half + cz * this.cell + this.cell / 2 }; }
+  toCell(x, z) { return [Math.floor((x - this.ox + this.half) / this.cell), Math.floor((z - this.oz + this.half) / this.cell)]; }
+  center(cx, cz) { return { x: this.ox - this.half + cx * this.cell + this.cell / 2, z: this.oz - this.half + cz * this.cell + this.cell / 2 }; }
   set(cx, cz, v, walkable, speed = 1) { const i = this.idx(cx, cz); this.occ[i] = v; this.pass[i] = walkable ? 1 : 0; this.speed[i] = speed; }
   speedAt(x, z) { const [cx, cz] = this.toCell(x, z); return this.inside(cx, cz) ? this.speed[this.idx(cx, cz)] : 1; }
   get(cx, cz) { return this.inside(cx, cz) ? this.occ[this.idx(cx, cz)] : ROCK; }
@@ -73,7 +74,7 @@ export class Grid {
     const hfn = (cx, cz) => { const dx = Math.abs(cx - gx), dz = Math.abs(cz - gz); return ((dx + dz) + (Math.SQRT2 - 2) * Math.min(dx, dz)) / Grid.MAX_SPEED; };
     g[start] = 0; push(start, hfn(sx, sz));
     let found = false, iter = 0;
-    while (heap.length && iter++ < 6000) {
+    while (heap.length && iter++ < n * n * 1.5) {
       const cur = pop(); if (closed[cur]) continue; closed[cur] = 1;
       if (cur === end) { found = true; break; }
       const cx = cur % n, cz = (cur / n) | 0;
@@ -93,16 +94,15 @@ export class Grid {
     if (exactGoal) pts[pts.length - 1] = { x: to.x, z: to.z };
     // string-pulling: skip points we can see past
     // (a shortcut is only taken if it's no slower than following the path — keeps villagers on roads)
+    const cum = [0]; // walking time along the path up to each point
+    for (let q = 1; q < pts.length; q++) cum.push(cum[q - 1] + this.lineTime(pts[q - 1].x, pts[q - 1].z, pts[q].x, pts[q].z));
     const out = []; let anchor = { x: from.x, z: from.z }, i = 0;
     while (i < pts.length) {
       let j = pts.length - 1;
+      const toI = this.lineTime(anchor.x, anchor.z, pts[i].x, pts[i].z);
       while (j > i) {
         const direct = this.lineTime(anchor.x, anchor.z, pts[j].x, pts[j].z);
-        if (direct < Infinity) {
-          let along = this.lineTime(anchor.x, anchor.z, pts[i].x, pts[i].z);
-          for (let q = i; q < j; q++) along += this.lineTime(pts[q].x, pts[q].z, pts[q + 1].x, pts[q + 1].z);
-          if (direct <= along * 1.02) break;
-        }
+        if (direct < Infinity && direct <= (toI + cum[j] - cum[i]) * 1.02) break;
         j--;
       }
       out.push(pts[j]); anchor = pts[j]; i = j + 1;

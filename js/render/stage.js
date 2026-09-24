@@ -150,6 +150,7 @@ export class Stage {
     const fx = Math.round(focus.x / texel) * texel, fz = Math.round(focus.z / texel) * texel;
     this.sun.target.position.set(fx, 0, fz);
     this.sun.position.set(fx + this.lightDir.x * 160, this.lightDir.y * 160, fz + this.lightDir.z * 160);
+    this.water.position.x = focus.x; this.water.position.z = focus.z; // the sea follows you to the map and battlefields
     // particles
     this.pt += dt;
     const P = this.petals.geometry.attributes.position, arr = P.array, S = this.petalSeed;

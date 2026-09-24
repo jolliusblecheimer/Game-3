@@ -6,6 +6,7 @@ import { PLOT } from '../render/nature.js';
 import { buildModel, buildScaffold } from '../render/buildings.js';
 import { Person } from '../render/people.js';
 import { thinkVillager, updateVillager } from './villagers.js';
+import { Country } from './country.js';
 import { NAMES, mulberry32, clamp } from '../util.js';
 
 export const SAVE_KEY = 'tenka.save.v1';
@@ -28,6 +29,7 @@ export class Game {
     // trees & rocks occupy grid cells
     for (const t of nature.trees) this.grid.set(t.cx, t.cz, TREE, false);
     for (const r of nature.rocks) this.grid.set(r.cx, r.cz, ROCK, false);
+    this.country = new Country(this);
   }
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit(type, data) { this.version++; for (const fn of this.listeners) fn(type, data); }
@@ -42,8 +44,14 @@ export class Game {
   hungry() { return this.state.res.wheat <= 0; }
   workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100); }
   countJob(job) { let n = 0; for (const v of this.villagers.values()) if (v.job === job) n++; return n; }
-  idleVillagers() { return [...this.villagers.values()].filter(v => v.job === 'idle'); }
-  soldiers() { return [...this.villagers.values()].filter(v => JOBS[v.job].soldier); }
+  idleVillagers() { return [...this.villagers.values()].filter(v => v.job === 'idle' && !v.away); }
+  soldiers(all = false) { return [...this.villagers.values()].filter(v => JOBS[v.job].soldier && (all || !v.away)); }
+  killVillager(id) {
+    const v = this.villagers.get(id); if (!v) return;
+    if (v.work) { const b = this.buildings.get(v.work); if (b) b.workers = b.workers.filter(i => i !== id); }
+    this.scene.remove(v.person.group); v.person.dispose();
+    this.villagers.delete(id); this.emit('villager');
+  }
 
   canAfford(cost) { for (const r in cost) if ((this.state.res[r] || 0) < cost[r]) return false; return true; }
   pay(cost) { for (const r in cost) this.state.res[r] -= cost[r]; this.emit('res'); }
@@ -240,7 +248,12 @@ export class Game {
       else if (t.alive && t.grow < 1) { t.grow = Math.min(1, t.grow + dt / 25); this.nature.syncTree(t); }
     }
     // villagers
+    this.countryT = (this.countryT || 0) + dt;
+    if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
+    // rams take time to build at the workshop
+    if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     for (const v of this.villagers.values()) {
+      if (v.away) { v.person.group.visible = false; continue; }
       if (v.reset) { v.reset = false; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (!v.post) v.elev = 0; }
       if (!v.path && v.act <= 0) thinkVillager(this, v);
       updateVillager(this, v, dt);
@@ -275,11 +288,12 @@ export class Game {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4) })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid })).concat(this.keptVillagers || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null })).concat(this.keptVillagers || []),
+      rams: S.rams || 0, ramBuild: S.ramBuild || null,
       // trees & rocks are stored by grid cell, so future map changes can't scramble them
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
-      country: this.country || null,
+      country: this.country.serialize(),
     };
   }
   load(s) {
@@ -314,10 +328,12 @@ export class Game {
     for (const v of s.villagers || []) {
       try {
         if (!JOBS[v.job]) { this.keptVillagers.push(v); continue; }
-        this.spawnVillager({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: v.x, z: v.z, train: v.train, paid: v.paid });
+        const nv = this.spawnVillager({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: v.x, z: v.z, train: v.train, paid: v.paid });
+        if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
-    if (s.country) this.country = s.country;
+    S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null;
+    try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); this.keptCountry = s.country; }
     for (const v of this.villagers.values()) { v.person.setLook(JOBS[v.job].look); v.person.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'villager', id: v.id }; }); }
     this.refreshWorkers();
     if (![...this.buildings.values()].some(b => b.type === 'townhall')) this.place('townhall', PLOT.n / 2 - 2, PLOT.n / 2 - 2, 0, { done: true, free: true });

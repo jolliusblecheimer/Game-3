@@ -38,6 +38,51 @@ export const JOBS = {
   trainee:     { name: 'Recruit',     look: 'trainee' },
   ashigaru:    { name: 'Ashigaru',    look: 'ashigaru', soldier: true, desc: 'Spearman — the backbone of your army.' },
   archer:      { name: 'Yumi Archer', look: 'archer',   soldier: true, desc: 'Archer — mans towers and fires from cover.' },
+  berserker:   { name: 'Berserker',   look: 'berserker', soldier: true, commander: true, desc: 'Commander. Climbs enemy walls and draws their fire. Huge damage.' },
+  taisho:      { name: 'Taishō',      look: 'taisho',    soldier: true, commander: true, desc: 'Commander. His banner makes nearby troops fight harder; can rally them mid-battle.' },
+};
+
+// Commanders are appointed at the Keep.
+export const COMMANDERS = {
+  berserker: { cost: { gold: 60, wheat: 40 }, ability: 'Scale the Wall', abilityDesc: 'Climbs straight over walls to a spot you choose and draws every enemy’s fire for 10s while taking half damage.' },
+  taisho:    { cost: { gold: 80, wood: 40 }, ability: 'Rally Banner', abilityDesc: 'Nearby troops heal 30% and move and strike 40% faster for 8s.' },
+};
+
+// Battle stats (per unit). range in world units; dps = dmg / cd.
+export const UNITS = {
+  ashigaru:  { hp: 120, dmg: 14, cd: 1.0, range: 1.8, speed: 3.3, look: 'ashigaru', r: 0.5 },
+  archer:    { hp: 70, dmg: 11, cd: 1.5, range: 21, speed: 3.3, look: 'archer', ranged: true, r: 0.45 },
+  berserker: { hp: 560, dmg: 36, cd: 1.1, range: 2.2, speed: 3.9, look: 'berserker', cleave: 2.4, r: 0.6, climb: true },
+  taisho:    { hp: 380, dmg: 22, cd: 1.0, range: 2.0, speed: 3.5, look: 'taisho', aura: 10, r: 0.55 },
+  ram:       { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
+  // enemies
+  bandit:         { hp: 85, dmg: 11, cd: 1.0, range: 1.8, speed: 3.2, look: 'bandit', r: 0.5 },
+  enemy_ashigaru: { hp: 115, dmg: 13, cd: 1.0, range: 1.8, speed: 3.1, look: 'enemy_ashigaru', r: 0.5 },
+  enemy_archer:   { hp: 65, dmg: 10, cd: 1.6, range: 20, speed: 3.1, look: 'enemy_archer', ranged: true, r: 0.45 },
+  enemy_samurai:  { hp: 260, dmg: 24, cd: 1.0, range: 2.0, speed: 3.4, look: 'enemy_samurai', r: 0.55 },
+  enemy_lord:     { hp: 520, dmg: 30, cd: 1.0, range: 2.0, speed: 3.4, look: 'enemy_lord', r: 0.6 },
+};
+
+// Places on the country map.
+export const SITES = {
+  bandits: { name: 'Bandit Camp',   tier: 1, count: 4, dist: [55, 130],  icon: 'camp',     loot: { wheat: 160, wood: 140, gold: 40 },  tribute: { wheat: 6, wood: 4 },  threat: 3 },
+  village: { name: 'Rival Village', tier: 2, count: 4, dist: [95, 190],  icon: 'village2', loot: { wheat: 300, wood: 260, stone: 140, gold: 90 }, tribute: { wheat: 10, wood: 6, stone: 3 }, threat: 7 },
+  fort:    { name: 'Clan Fort',     tier: 3, count: 3, dist: [150, 240], icon: 'castle',   loot: { wheat: 450, wood: 400, stone: 300, gold: 200 }, tribute: { stone: 8, gold: 5 }, threat: 12 },
+  castle:  { name: 'Daimyō Castle', tier: 4, count: 2, dist: [215, 285], icon: 'castle',   loot: { wheat: 800, wood: 700, stone: 600, gold: 450 }, tribute: { wheat: 10, stone: 8, gold: 12 }, threat: 20 },
+  ruins:   { name: 'Old Ruins',     tier: 0, count: 3, dist: [70, 260],  icon: 'torii',    loot: { gold: 80, stone: 60 } },
+};
+export const PLACE_NAMES = ['Kiyosu', 'Nagashino', 'Okehazama', 'Inabayama', 'Kanegasaki', 'Odawara', 'Takatenjin', 'Mikatagahara', 'Anegawa', 'Sekigahara', 'Kawanakajima',
+  'Itami', 'Takamatsu', 'Nanao', 'Hachigata', 'Shizugatake', 'Yamazaki', 'Toriimoto', 'Kurosawa', 'Hanamaki', 'Shirakawa', 'Aizu', 'Yoshino', 'Matsumoto'];
+
+export const WAR = {
+  scoutSpeed: 2.4,       // map units per second
+  armySpeed: 1.5,
+  scoutCost: { wheat: 10 },
+  marchCost: 4,          // wheat per soldier per march
+  scoutReveal: 26,       // fog radius around a travelling scout
+  homeReveal: 60,
+  garrisonMin: 2,
+  holdCheckEvery: 600,   // game seconds between counter-attack checks on held places
 };
 
 export const CATEGORIES = [
@@ -72,6 +117,8 @@ export const BUILDINGS = {
                 desc: 'Recruits train here and graduate as Ashigaru spearmen.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 120, stone: 30, gold: 30 }, time: 45, jobs: 4, job: 'trainee', trains: 'archer', trainTime: 50, trainCost: { wood: 15, gold: 5 }, h: 4,
                 desc: 'Recruits practise the way of the bow and become Yumi archers.' },
+  workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 140, stone: 60, gold: 20 }, time: 45, h: 4,
+                desc: 'Carpenters build battering rams here for breaking castle gates.' },
   wall:       { name: 'Castle Wall', kanji: '石垣', cat: 'defense', size: [1, 1], cost: { stone: 8, wood: 2 }, time: 5, blocks: true, line: true, h: 3.2,
                 desc: 'Stone base, plastered top. Blocks attackers — archers on towers shoot over it.' },
   gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 40, stone: 30 }, time: 20, walkable: true, h: 4.5,

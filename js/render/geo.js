@@ -12,6 +12,7 @@ export function initMaterials() {
   MAT.ghostOk = new THREE.MeshBasicMaterial({ color: '#7be08f', transparent: true, opacity: 0.45, depthWrite: false });
   MAT.ghostBad = new THREE.MeshBasicMaterial({ color: '#ff6b5a', transparent: true, opacity: 0.45, depthWrite: false });
   MAT.select = new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.55, depthWrite: false });
+  MAT.hidden = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, transparent: true, opacity: 0.5, color: '#cfe8b8' });
 }
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
@@ -74,6 +75,20 @@ export class Mesher {
     const rl = Math.max(0.2, (rotY ? D : W) * 0), topW = Math.max(0.3, mW - mD * (1 - ridge) * 0.9), topD = mD * 0.12;
     this.frustum(mW, mD, topW, topD, h2, hex, [cx, y + h1, cz], [0, rotY, 0]);
     this.box(topW + 0.25, 0.22, topD + 0.2, ridgeHex, [cx, y + h + 0.05, cz], [0, rotY, 0]);
+    if (W > 2.6 && !rotY) {
+      // round tile ends along the eaves
+      const tile = ridgeHex, step = 0.34;
+      for (const sz of [-1, 1]) for (let x = -W / 2 + 0.2; x <= W / 2 - 0.2; x += step) this.cyl(0.075, 0.075, 0.14, 6, tile, [cx + x, y + 0.02, cz + sz * D / 2], [Math.PI / 2, 0, 0]);
+      for (const sx of [-1, 1]) for (let z = -D / 2 + 0.2 + step; z <= D / 2 - 0.2 - step; z += step) this.cyl(0.075, 0.075, 0.14, 6, tile, [cx + sx * W / 2, y + 0.02, cz + z], [0, 0, Math.PI / 2]);
+      // tile courses up the slope
+      for (const t of [0.22, 0.46, 0.7]) {
+        const ww = mW + (topW - mW) * t, dd = mD + (topD - mD) * t, yy = y + h1 + h2 * t;
+        this.box(ww + 0.04, 0.05, 0.07, tile, [cx, yy, cz + dd / 2 + 0.01]); this.box(ww + 0.04, 0.05, 0.07, tile, [cx, yy, cz - dd / 2 - 0.01]);
+        this.box(0.07, 0.05, dd + 0.04, tile, [cx + ww / 2 + 0.01, yy, cz]); this.box(0.07, 0.05, dd + 0.04, tile, [cx - ww / 2 - 0.01, yy, cz]);
+      }
+      // onigawara ridge-end tiles
+      for (const s of [-1, 1]) this.box(0.22, 0.34, topD + 0.3, ridgeHex, [cx + s * (topW / 2 + 0.12), y + h + 0.12, cz]);
+    }
     if (ornaments) for (const s of [-1, 1]) {
       const ox = Math.cos(rotY) * s * (topW / 2 + 0.1), oz = -Math.sin(rotY) * s * (topW / 2 + 0.1);
       this.box(0.14, 0.4, 0.16, ornaments, [cx + ox, y + h + 0.3, cz + oz], [0, rotY, s * 0.35]);

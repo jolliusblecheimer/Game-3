@@ -1,0 +1,453 @@
+// Switches between the village, the country map and battles; owns their interfaces and controls.
+import * as THREE from 'three';
+import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
+import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
+import { RTSCamera } from './camera.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES } from '../game/data.js';
+import { h, fmtTime } from '../util.js';
+import { icon } from './icons.js';
+import { art, costChips } from './hud.js';
+
+const STATUS = { hidden: 'Unexplored', known: 'Not scouted', scouted: 'Scouted', held: 'Yours — held by your garrison', ruined: 'Ruined' };
+const UNIT_NAMES = { bandit: 'Bandits', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
+
+export class Views {
+  constructor(ctx) {
+    this.ctx = ctx; const { game, hud } = ctx;
+    this.game = game; this.hud = hud; this.stage = ctx.stage;
+    this.mode = 'village';
+    this.ray = new THREE.Raycaster(); this.ndc = new THREE.Vector2();
+    hud.onMap = () => this.mode === 'map' ? this.toVillage() : this.mode === 'village' ? this.toMap() : null;
+    hud.keyHook = (k, e) => this.onKey(k, e);
+    hud.extraPanel = (p, b) => this.extraPanel(p, b);
+    game.on((type, m) => {
+      if (type === 'armyReady') this.hud.toast(`Army at ${this.game.country.site(m.site).name} awaits your command — open the Map`, 'warn');
+      if (type === 'country' && this.mode === 'map') this.renderMapUI();
+    });
+    const cv = ctx.stage.renderer.domElement;
+    cv.addEventListener('pointerdown', e => this.onDown(e));
+    window.addEventListener('pointermove', e => this.onMove(e));
+    window.addEventListener('pointerup', e => this.onUp(e));
+    cv.addEventListener('wheel', e => this.onWheel(e), { passive: false });
+    this.ui = h('div', { class: 'viewui', hidden: true });
+    document.getElementById('ui').append(this.ui);
+    this.labels = h('div', { class: 'maplabels' }); this.ui.append(this.labels);
+  }
+  setView(v) { window.tenkaView = v; }
+
+  /* ================= country map ================= */
+  toMap() {
+    const g = this.game;
+    this.ctx.input.cancelPlacing(); this.ctx.input.select(null);
+    if (!this.map) {
+      this.map = new CountryMap(this.stage.scene, g.country);
+      this.mapCam = new RTSCamera(this.stage.camera, { x0: MAP_ORIGIN.x - 280, x1: MAP_ORIGIN.x + 280, z0: MAP_ORIGIN.z - 280, z1: MAP_ORIGIN.z + 280 }, [50, 480]);
+      this.mapCam.target.set(MAP_ORIGIN.x, 0, MAP_ORIGIN.z + 20); this.mapCam.dist = this.mapCam.goalDist = 300; this.mapCam.yaw = this.mapCam.goalYaw = 0.35;
+    }
+    this.mode = 'map'; this.map.root.visible = true;
+    document.getElementById('ui').classList.add('mode-map');
+    this.hud.mapBtn.lastChild.textContent = 'Village';
+    this.ui.hidden = false;
+    this.setView({ active: true, cam: this.mapCam, update: (dt, keys) => this.updateMap(dt, keys) });
+    this.renderMapUI();
+  }
+  toVillage() {
+    this.mode = 'village'; if (this.map) this.map.root.visible = false;
+    document.getElementById('ui').classList.remove('mode-map', 'mode-battle');
+    this.hud.mapBtn.lastChild.textContent = 'Map';
+    this.ui.hidden = true; this.setView(null); this.ctx.cam.apply();
+  }
+  updateMap(dt, keys) {
+    this.mapCam.update(dt, keys);
+    this.map.update(dt, this.game.state.clock);
+    // labels over places
+    const cam = this.stage.camera, W = window.innerWidth, H = window.innerHeight, C = this.game.country;
+    const items = [{ key: 'home', x: 0, z: 0, text: 'Your village', cls: 'home', ic: 'castle' }];
+    for (const s of C.sites) { const st = C.status(s); if (st === 'hidden') continue; items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub: SITES[s.type].name, cls: st, ic: SITES[s.type].icon }); }
+    for (const m of C.missions) if (m.kind === 'army' && m.phase === 'ready') { const s = C.site(m.site); items.push({ key: 'm' + m.id, x: s.x, z: s.z + 14, text: 'Your army is waiting', cls: 'army', ic: 'flag', mission: m }); }
+    const seen = new Set();
+    for (const it of items) {
+      seen.add(it.key);
+      let el = this.labels.querySelector(`[data-k="${it.key}"]`);
+      if (!el) {
+        el = h('button', { class: 'maplabel ' + it.cls, 'data-k': it.key, onclick: () => { if (it.mission) this.openBattle(it.mission); else if (it.site) this.selectSite(it.site); else this.selectHome(); } },
+          icon(it.ic, 20), h('span', null, h('b', null, it.text), it.sub ? h('small', null, it.sub) : null));
+        this.labels.append(el);
+      }
+      el.className = 'maplabel ' + it.cls + (this.sel && this.sel.site === it.site && it.site ? ' on' : '');
+      const p = this.map.worldPos(it.x, it.z, 12).project(cam);
+      const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
+      el.style.display = vis ? '' : 'none';
+      if (vis) el.style.transform = `translate(${(p.x + 1) / 2 * W}px, ${(1 - p.y) / 2 * H}px) translate(-50%, -100%)`;
+    }
+    for (const el of [...this.labels.children]) if (!seen.has(el.dataset.k)) el.remove();
+    this.liveT = (this.liveT || 0) + dt; if (this.liveT > 0.5) { this.liveT = 0; this.renderMissions(); }
+  }
+  renderMapUI() {
+    if (!this.mapPanel) {
+      this.missionBox = h('div', { class: 'mapside' }); this.mapPanel = h('aside', { class: 'panel mappanel', hidden: true });
+      this.mapHint = h('div', { class: 'maphint' }, 'Click the land to send a scout · click a place for details · drag or scroll to look around');
+      this.ui.append(this.missionBox, this.mapPanel, this.mapHint);
+    }
+    this.renderMissions(); this.renderSitePanel();
+  }
+  renderMissions() {
+    const C = this.game.country, box = this.missionBox; if (!box) return;
+    box.textContent = '';
+    box.append(h('h3', null, 'Your people abroad'));
+    if (!C.missions.length && !Object.keys(C.holds).length) box.append(h('p', { class: 'sub' }, 'No one is out. Send scouts to uncover the country — the clouds hide everything you haven’t seen.'));
+    for (const m of C.missions) {
+      const p = C.posOf(m), site = m.site ? C.site(m.site) : null;
+      const left = m.phase === 'ready' ? 0 : Math.max(0, m.dur - (C.clock - m.t0));
+      const title = m.kind === 'scout' ? `Scout ${this.game.villagers.get(m.vids[0])?.name || ''}` : `Army of ${m.vids.length}${m.rams ? ` + ${m.rams} ram${m.rams > 1 ? 's' : ''}` : ''}`;
+      const what = m.phase === 'ready' ? `Waiting at ${site.name}` : m.phase === 'back' ? `Coming home · ${fmtTime(left)}` : site ? `Marching on ${site.name} · ${fmtTime(left)}` : `Exploring · ${fmtTime(left)}`;
+      box.append(h('div', { class: 'mission' }, icon(m.kind === 'scout' ? 'scout' : 'flag', 22), h('div', null, h('b', null, title), h('small', null, what),
+        h('div', { class: 'bar' }, h('i', { style: `width:${(m.phase === 'ready' ? 1 : p.t) * 100}%` }))),
+        m.phase === 'ready' ? h('button', { class: 'btn danger small', onclick: () => this.openBattle(m) }, icon('sword', 16), 'Attack') : null));
+    }
+    for (const id of Object.keys(C.holds)) {
+      const s = C.site(+id), n = [...this.game.villagers.values()].filter(v => v.away === 'hold:' + id).length;
+      box.append(h('div', { class: 'mission' }, icon('castle', 22), h('div', null, h('b', null, s.name), h('small', null, `Held by ${n} · pays ${this.costText(SITES[s.type].tribute)} a minute`))));
+    }
+    box.append(h('button', { class: 'btn ghost small', onclick: () => this.toVillage() }, icon('house', 16), 'Back to the village'));
+  }
+  costText(c) { return Object.keys(c).map(r => `${c[r]} ${RES[r].name.toLowerCase()}`).join(', '); }
+  selectHome() { this.sel = null; this.map.select(null); this.renderSitePanel(); this.mapCam.follow = null; }
+  selectSite(s) { this.sel = { site: s }; this.map.select(s); this.renderSitePanel(); }
+  selectPoint(p) { this.sel = { point: p }; this.map.pinAt(p); this.renderSitePanel(); }
+  renderSitePanel() {
+    const P = this.mapPanel, C = this.game.country, g = this.game; if (!P) return;
+    P.textContent = ''; P.hidden = !this.sel; if (!this.sel) return;
+    P.append(h('button', { class: 'x', onclick: () => { this.sel = null; this.map.select(null); this.map.pinAt(null); this.renderSitePanel(); } }, icon('close', 16)));
+    if (this.sel.point) {
+      const p = this.sel.point, d = Math.hypot(p.x, p.z), t = d / (WAR.scoutSpeed * C.speedMult('scout'));
+      P.append(h('div', { class: 'phead' }, h('span', { class: 'art big' }, icon('scout', 48)), h('div', null, h('h2', null, C.isRevealed(p.x, p.z) ? 'Explored land' : 'Unexplored land'), h('p', { class: 'sub' }, `${Math.round(d)} leagues from home`))),
+        h('p', { class: 'desc' }, 'Send a scout here. They reveal the land along the way and report what they find — the farther, the longer the trip.'),
+        h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `About ${fmtTime(t)} there and ${fmtTime(t)} back`)),
+        h('div', { class: 'irow' }, icon('wheat', 18), h('span', null, 'Costs 10 wheat for supplies')),
+        h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => { C.sendScout(p); this.map.pinAt(null); this.sel = null; this.renderMapUI(); } }, icon('scout', 16), 'Send a scout')));
+      return;
+    }
+    const s = this.sel.site, S = SITES[s.type], st = C.status(s);
+    const stars = '★'.repeat(S.tier) + '☆'.repeat(Math.max(0, 4 - S.tier));
+    P.append(h('div', { class: 'phead' }, h('span', { class: 'art big' }, icon(S.icon, 50)), h('div', null, h('h2', null, s.name), h('p', { class: 'sub' }, `${S.name} ${S.tier ? '· ' + stars : ''}`))),
+      h('p', { class: 'desc status' }, STATUS[st]));
+    if (s.type === 'ruins') { P.append(h('p', null, st === 'ruined' ? 'Your scouts have already searched these ruins.' : 'Old ruins. A scout who reaches them may find buried treasure.')); }
+    else {
+      const march = C.marchTime(s);
+      P.append(h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(march)} each way`)));
+      if (st === 'scouted' || st === 'held') {
+        const L = makeLayout(s), counts = {};
+        for (const d of L.defenders) counts[d.type] = (counts[d.type] || 0) + 1;
+        const towers = L.structs.filter(x => x.type === 'tower').length, walls = L.structs.some(x => x.type === 'wall') ? 'Stone walls' : L.structs.some(x => x.type === 'palisade') ? 'Bamboo palisade' : 'No walls';
+        const gate = L.structs.some(x => x.type === 'gate' || x.type === 'pgate');
+        P.append(h('h3', null, 'Defenses'), h('div', { class: 'intel' }, Object.entries(counts).map(([t, n]) => h('span', { class: 'chip' }, art('person', UNITS[t].look, null, 'face'), `${n} ${UNIT_NAMES[t]}`))),
+          h('div', { class: 'irow' }, icon('wall', 18), h('span', null, `${walls}${towers ? `, ${towers} watchtower${towers > 1 ? 's' : ''} with archers` : ''}${gate ? ', a gate' : ''}`)),
+          gate ? h('div', { class: 'irow' }, icon('ram', 18), h('span', null, 'Bring a battering ram to break the gate')) : null,
+          h('div', { class: 'irow' }, icon('sakura', 18), h('span', null, 'Bushes around the walls — archers hidden there are hard to spot')));
+      } else P.append(h('p', { class: 'sub' }, 'Send a scout close to learn its defenses before you attack.'));
+      P.append(h('div', { class: 'irow costrow' }, h('b', null, 'Loot'), costChips(g, S.loot)));
+      if (st === 'held') {
+        const n = [...g.villagers.values()].filter(v => v.away === 'hold:' + s.id).length;
+        P.append(h('p', null, `${n} of your soldiers guard it. It pays ${this.costText(S.tribute)} every minute, but may be attacked.`),
+          h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: () => { C.recall(s); this.renderMapUI(); } }, 'Recall the garrison')));
+      }
+    }
+    const waiting = C.missions.find(m => m.kind === 'army' && m.site === s.id && m.phase === 'ready');
+    const actions = h('div', { class: 'actions' });
+    if (waiting) actions.append(h('button', { class: 'btn danger', onclick: () => this.openBattle(waiting) }, icon('sword', 16), 'Lead the attack'));
+    else if (s.type !== 'ruins' && st !== 'held' && st !== 'ruined' && !C.missions.some(m => m.site === s.id)) actions.append(h('button', { class: 'btn danger', onclick: () => this.armyPicker(s) }, icon('flag', 16), 'Raid'));
+    if (st !== 'ruined' || s.type !== 'ruins') actions.append(h('button', { class: 'btn ghost', onclick: () => { C.sendScout({ x: s.x, z: s.z }); this.renderMapUI(); } }, icon('scout', 16), 'Send a scout'));
+    P.append(actions);
+  }
+  armyPicker(site) {
+    const g = this.game, C = g.country, soldiers = g.soldiers();
+    const types = ['ashigaru', 'archer', 'berserker', 'taisho'];
+    const pick = Object.fromEntries(types.map(t => [t, soldiers.filter(v => v.job === t).length]));
+    let rams = Math.min(g.state.rams || 0, 2);
+    const body = h('div', { class: 'menu' });
+    const render = () => {
+      body.textContent = '';
+      if (!soldiers.length) { body.append(h('p', null, 'You have no soldiers. Train Ashigaru at the Dojo and archers at the Kyūdō Range, and appoint commanders at the Keep.')); return; }
+      for (const t of types) {
+        const have = soldiers.filter(v => v.job === t).length; if (!have) continue;
+        body.append(h('div', { class: 'selrow' }, art('person', JOBS[t].look, null, 'face'), h('b', null, JOBS[t].name), h('span', { class: 'sub' }, JOBS[t].commander ? COMMANDERS[t].ability : ''),
+          h('button', { class: 'mini', onclick: () => { pick[t] = Math.max(0, pick[t] - 1); render(); } }, '−'), h('span', { class: 'count' }, `${pick[t]} / ${have}`), h('button', { class: 'mini', onclick: () => { pick[t] = Math.min(have, pick[t] + 1); render(); } }, '+')));
+      }
+      const haveRams = g.state.rams || 0;
+      body.append(h('div', { class: 'selrow' }, icon('ram', 30), h('b', null, 'Battering ram'), h('span', { class: 'sub' }, haveRams ? '' : 'Build one at a Siege Workshop'),
+        h('button', { class: 'mini', onclick: () => { rams = Math.max(0, rams - 1); render(); } }, '−'), h('span', { class: 'count' }, `${rams} / ${haveRams}`), h('button', { class: 'mini', onclick: () => { rams = Math.min(haveRams, rams + 1); render(); } }, '+')));
+      const n = Object.values(pick).reduce((a, b) => a + b, 0);
+      body.append(h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(C.marchTime(site))} — supplies: ${WAR.marchCost * n} wheat`)));
+    };
+    render();
+    this.hud.openModal(`Raid ${site.name}`, body, [{ label: 'Cancel', cls: 'ghost' }, { label: 'March!', cls: 'danger', fn: () => {
+      const vids = []; for (const t of types) vids.push(...soldiers.filter(v => v.job === t).slice(0, pick[t]).map(v => v.id));
+      C.sendArmy(site, vids, rams); this.renderMapUI();
+    } }], { wide: true });
+  }
+
+  /* ================= battle ================= */
+  openBattle(m) {
+    const g = this.game, site = g.country.site(m.site);
+    if (!this.map) this.toMap();
+    this.map.root.visible = false;
+    this.ui.hidden = false;
+    m.phase = 'battle';
+    this.battle = new Battle({ game: g, stage: this.stage }, m, site);
+    this.battle.onEnd = r => this.battleEnded(r);
+    this.selected = [];
+    this.battleCam = new RTSCamera(this.stage.camera, { x0: BATTLE_ORIGIN.x - 66, x1: BATTLE_ORIGIN.x + 66, z0: BATTLE_ORIGIN.z - 66, z1: BATTLE_ORIGIN.z + 66 }, [14, 110]);
+    this.battleCam.target.set(BATTLE_ORIGIN.x, 0, BATTLE_ORIGIN.z + 18); this.battleCam.yaw = this.battleCam.goalYaw = 0; this.battleCam.dist = this.battleCam.goalDist = 92;
+    this.mode = 'battle';
+    document.getElementById('ui').classList.remove('mode-map'); document.getElementById('ui').classList.add('mode-battle');
+    this.labels.textContent = '';
+    if (this.mapPanel) { this.mapPanel.hidden = true; this.missionBox.hidden = true; this.mapHint.hidden = true; }
+    this.hud.paused = true;
+    this.buildBattleUI(site);
+    this.setView({ active: true, cam: this.battleCam, update: (dt, keys) => this.updateBattle(dt, keys) });
+    this.hud.sound('war');
+  }
+  buildBattleUI(site) {
+    const b = this.battle;
+    this.bui = h('div', { class: 'battleui' });
+    this.bTop = h('div', { class: 'btop' }); this.bBottom = h('div', { class: 'bbottom' });
+    this.bFloat = h('div', { class: 'bfloat' }); this.bBox = h('div', { class: 'selbox', hidden: true });
+    this.bui.append(this.bTop, this.bBottom, this.bFloat, this.bBox);
+    this.ui.append(this.bui);
+    this.renderBattleUI(true);
+  }
+  groups() {
+    const mine = this.battle.units.filter(u => u.team === 0 && !u.dead && !u.fled);
+    return [['ashigaru', 'Spearmen', '1'], ['archer', 'Archers', '2'], ['cmd', 'Commanders', '3'], ['ram', 'Rams', '4']].map(([k, name, key]) => ({ k, name, key, units: mine.filter(u => k === 'cmd' ? (u.type === 'berserker' || u.type === 'taisho') : u.type === k) })).filter(g => g.units.length);
+  }
+  renderBattleUI() {
+    const b = this.battle, site = b.site; if (!this.bTop) return;
+    const foes = b.units.filter(u => u.team === 1 && !u.dead && !u.fled).length, keep = b.structs.find(s => s.def.keep);
+    this.bTop.textContent = '';
+    this.bTop.append(h('div', { class: 'btitle' }, h('b', null, `Raid on ${site.name}`), h('small', null, keep ? 'Take the keep: reach it and clear the defenders around it' : 'Defeat or drive off every defender')),
+      h('div', { class: 'bstat' }, icon('soldier', 18), `${foes} enemies left`),
+      keep ? h('div', { class: 'bstat cap' }, icon('flag', 18), h('div', { class: 'bar' }, h('i', { style: `width:${b.capture * 100}%` }))) : null,
+      this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
+    if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, 'Plan your attack while paused: drag to select troops, click to move them, click an enemy to attack. Hide archers in bushes, send the ram at the gate.'));
+    this.bBottom.textContent = '';
+    const grp = h('div', { class: 'groups' });
+    for (const G of this.groups()) {
+      const look = G.k === 'cmd' ? G.units[0].type : G.k === 'ram' ? null : G.k;
+      const on = G.units.every(u => this.selected.includes(u));
+      grp.append(h('button', { class: 'grp' + (on ? ' on' : ''), title: `Select (${G.key})`, onclick: e => this.selectUnits(G.units, e.shiftKey) },
+        look ? art('person', UNITS[look].look, null, 'face') : icon('ram', 30), h('span', null, h('b', null, `${G.units.length}`), h('small', null, G.name)), h('kbd', null, G.key)));
+    }
+    const sel = this.selected.filter(u => !u.dead);
+    const cmds = h('div', { class: 'cmds' },
+      h('button', { class: 'btn ghost small' + (this.armed === 'amove' ? ' armed' : ''), title: 'Attack-move (T): walk and fight anything on the way', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'amove' ? null : 'amove'; this.renderBattleUI(); } }, icon('sword', 16), 'Attack-move', h('kbd', null, 'T')),
+      h('button', { class: 'btn ghost small', title: 'Hold (G): stay put and fight only what comes in range', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'hold') }, icon('stop', 16), 'Hold', h('kbd', null, 'G')),
+      h('button', { class: 'btn ghost small', title: 'Stop (X)', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'stop') }, icon('close', 16), 'Stop', h('kbd', null, 'X')));
+    for (const u of sel.filter(u => u.type === 'berserker' || u.type === 'taisho')) {
+      const C = COMMANDERS[u.type];
+      cmds.append(h('button', { class: 'btn small ability' + (this.armed === 'climb' ? ' armed' : ''), title: C.abilityDesc, disabled: u.abilityCd > 0 ? true : null,
+        onclick: () => { if (u.type === 'taisho') { this.battle.ability(u); this.renderBattleUI(); } else { this.armed = this.armed === 'climb' ? null : 'climb'; this.abilityUnit = u; this.renderBattleUI(); } } },
+        art('person', UNITS[u.type].look, null, 'tiny'), u.abilityCd > 0 ? `${C.ability} (${Math.ceil(u.abilityCd)}s)` : C.ability, h('kbd', null, 'R')));
+    }
+    this.bBottom.append(grp, cmds, h('button', { class: 'btn danger small retreat', title: 'Pull every unit back off the field', onclick: () => this.battle.retreat() }, 'Retreat'));
+    if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the Berserker should climb to — on or over a wall'));
+    if (this.armed === 'amove') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where to attack-move'));
+  }
+  selectUnits(list, add = false) {
+    if (!add) this.selected = [];
+    for (const u of list) if (!this.selected.includes(u)) this.selected.push(u);
+    this.renderBattleUI();
+  }
+  updateBattle(dt, keys) {
+    const b = this.battle;
+    this.battleCam.update(dt, keys);
+    if (!this.hud.paused) { let sim = dt * this.hud.speed; while (sim > 0) { const s = Math.min(sim, 0.05); b.update(s); sim -= s; } }
+    else b.animate(0);
+    this.selected = this.selected.filter(u => !u.dead && !u.fled);
+    b.setSelection(this.selected);
+    // floating shouts & banners
+    const cam = this.stage.camera, W = window.innerWidth, H = window.innerHeight;
+    this.bFloat.textContent = '';
+    for (const f of b.fx) {
+      if (f.kind === 'banner') this.bFloat.append(h('div', { class: 'bbanner', style: `opacity:${Math.min(1, 3 - f.t)}` }, f.text));
+      if (f.kind === 'shout') { const p = new THREE.Vector3(f.x, f.y + f.t * 0.5, f.z).project(cam); if (p.z < 1) this.bFloat.append(h('div', { class: 'shout', style: `left:${(p.x + 1) / 2 * W}px;top:${(1 - p.y) / 2 * H}px;opacity:${Math.min(1, 3 - f.t)}` }, f.text)); }
+    }
+    this.uiT = (this.uiT || 0) + dt; if (this.uiT > 0.4) { this.uiT = 0; this.renderBattleUI(); }
+  }
+  battleEnded(result) {
+    const b = this.battle, g = this.game, C = g.country, m = b.mission, site = b.site, S = SITES[site.type];
+    const r = b.results(), alive = r.survivors;
+    for (const id of m.vids) if (!alive.includes(id)) g.killVillager(id);
+    m.vids = alive.slice();
+    this.hud.paused = false;
+    const fallen = r.dead.length ? h('p', { class: 'sub' }, `Fallen: ${r.dead.join(', ')}. They will be remembered.`) : h('p', { class: 'sub' }, 'Not one of your soldiers fell.');
+    const finish = (loot, garrison) => {
+      if (garrison) { C.hold(site, garrison); m.vids = m.vids.filter(id => !garrison.includes(id)); }
+      C.returnArmy(m, m.vids, r.rams, loot);
+      this.closeBattle();
+    };
+    if (result === 'victory') {
+      if (C.status(site) !== 'held') C.setStatus(site, 'scouted');
+      const plunder = {}, take = {}; for (const k in S.loot) { plunder[k] = Math.round(S.loot[k] * 1.5); take[k] = Math.round(S.loot[k] * 0.6); }
+      const canHold = alive.length >= WAR.garrisonMin + 0;
+      const gSize = Math.min(alive.length, Math.max(WAR.garrisonMin, Math.ceil(alive.length / 3)));
+      this.hud.openModal(`Victory at ${site.name}!`, h('div', null,
+        h('p', null, `${site.name} is yours. What now?`), fallen,
+        h('div', { class: 'choice' },
+          h('div', null, h('h3', null, 'Plunder and burn'), h('p', { class: 'sub' }, 'Carry off everything of value and leave it in ruins.'), costChips(g, plunder)),
+          h('div', null, h('h3', null, 'Hold it'), h('p', { class: 'sub' }, canHold ? `Leave ${gSize} soldiers as a garrison. It pays ${this.costText(S.tribute)} every minute, but the enemy may try to take it back.` : `You need at least ${WAR.garrisonMin} survivors to hold it.`), costChips(g, take)))),
+        [{ label: 'Plunder', cls: 'danger', fn: () => { C.setStatus(site, 'ruined'); finish(plunder); } },
+         ...(canHold ? [{ label: `Hold with ${gSize}`, fn: () => { const garrison = alive.slice(0, gSize); finish(take, garrison); } }] : [])], { locked: true, wide: true });
+    } else {
+      if (C.status(site) === 'known') C.setStatus(site, 'scouted');
+      this.hud.openModal(result === 'retreat' ? 'Your army retreats' : 'Defeat', h('div', null,
+        h('p', null, alive.length ? `${alive.length} survivor${alive.length > 1 ? 's' : ''} march home.` : 'None of your soldiers survived.'), fallen,
+        h('p', { class: 'sub' }, 'Tip: scout first, hide archers in the bushes to thin out the wall archers, and bring a ram for the gate.')),
+        [{ label: 'Return to the map', fn: () => finish(null) }], { locked: true });
+    }
+  }
+  closeBattle() {
+    if (this.battle) { this.battle.dispose(); this.battle = null; }
+    if (this.bui) { this.bui.remove(); this.bui = null; this.bTop = null; }
+    document.getElementById('ui').classList.remove('mode-battle');
+    this.toMap();
+    if (this.mapPanel) { this.missionBox.hidden = false; this.mapHint.hidden = false; }
+  }
+
+  /* ================= input for map & battle ================= */
+  ndcOf(e) { const r = this.stage.renderer.domElement.getBoundingClientRect(); this.ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); this.ray.setFromCamera(this.ndc, this.stage.camera); }
+  groundBattle(e) { this.ndcOf(e); const p = new THREE.Vector3(); return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), p) ? p : null; }
+  groundMap(e) {
+    this.ndcOf(e);
+    const hits = this.ray.intersectObjects([this.map.terrain, ...this.map.siteObjs.values()], true);
+    const siteHit = hits.find(x => x.object.userData.mapPick && x.object.visible);
+    const ground = hits.find(x => x.object === this.map.terrain);
+    return { pick: siteHit && siteHit.object.userData.mapPick, point: ground ? { x: ground.point.x - MAP_ORIGIN.x, z: ground.point.z - MAP_ORIGIN.z } : null, world: ground && ground.point };
+  }
+  onDown(e) {
+    if (this.mode === 'village' || e.target !== this.stage.renderer.domElement) return;
+    const cam = this.mode === 'map' ? this.mapCam : this.battleCam;
+    this.down = { x: e.clientX, y: e.clientY, drag: false, shift: e.shiftKey, world: this.mode === 'map' ? this.groundMap(e).world : this.groundBattle(e) };
+    this.pointers = (this.pointers || 0) + 1;
+  }
+  onMove(e) {
+    if (this.mode === 'village' || !this.down) return;
+    const D = this.down;
+    if (!D.drag && Math.hypot(e.clientX - D.x, e.clientY - D.y) > 8) D.drag = true;
+    if (!D.drag) return;
+    if (this.mode === 'map') {
+      const gp = this.groundMap(e).world;
+      if (gp && D.world) { this.mapCam.pan(D.world.x - gp.x, D.world.z - gp.z); this.mapCam.apply(); }
+    } else {
+      // drag in battle = box select
+      const x0 = Math.min(D.x, e.clientX), y0 = Math.min(D.y, e.clientY);
+      Object.assign(this.bBox.style, { left: x0 + 'px', top: y0 + 'px', width: Math.abs(e.clientX - D.x) + 'px', height: Math.abs(e.clientY - D.y) + 'px' });
+      this.bBox.hidden = false;
+    }
+  }
+  onUp(e) {
+    const D = this.down; this.down = null; this.pointers = Math.max(0, (this.pointers || 1) - 1);
+    if (this.mode === 'village' || !D) return;
+    if (this.mode === 'map') {
+      if (D.drag) return;
+      const { pick, point } = this.groundMap(e);
+      if (pick && pick.kind === 'site') this.selectSite(this.game.country.site(pick.id));
+      else if (pick && pick.kind === 'home') this.selectHome();
+      else if (point) this.selectPoint(point);
+      return;
+    }
+    // battle
+    const b = this.battle; if (!b || b.over) return;
+    if (D.drag) {
+      this.bBox.hidden = true;
+      const x0 = Math.min(D.x, e.clientX), x1 = Math.max(D.x, e.clientX), y0 = Math.min(D.y, e.clientY), y1 = Math.max(D.y, e.clientY);
+      const inBox = b.units.filter(u => u.team === 0 && !u.dead && !u.fled).filter(u => { const s = this.screen(u); return s.x >= x0 && s.x <= x1 && s.y >= y0 && s.y <= y1; });
+      this.selectUnits(inBox, D.shift || e.shiftKey);
+      return;
+    }
+    const hit = this.pickBattle(e), g = this.groundBattle(e);
+    if (this.armed === 'climb' && g) { if (this.abilityUnit) b.ability(this.abilityUnit, { x: g.x, z: g.z }); this.armed = null; this.renderBattleUI(); return; }
+    if (hit && hit.team === 0) {
+      const now = performance.now();
+      if (this.lastClick && this.lastClick.u === hit && now - this.lastClick.t < 380) this.selectUnits(b.units.filter(u => u.team === 0 && u.type === hit.type && !u.dead));
+      else if (e.shiftKey) { if (this.selected.includes(hit)) this.selected = this.selected.filter(u => u !== hit); else this.selected.push(hit); this.renderBattleUI(); }
+      else this.selectUnits([hit]);
+      this.lastClick = { u: hit, t: now };
+      return;
+    }
+    if (!this.selected.length) return;
+    if (hit) { b.order(this.selected, 'attack', null, hit); b.focusTarget = hit; this.hud.sound('click'); }
+    else if (g) { b.order(this.selected, this.armed === 'amove' ? 'amove' : 'move', { x: g.x, z: g.z }); b.focusTarget = null; this.moveMark(g); }
+    this.armed = null; this.renderBattleUI();
+  }
+  moveMark(p) { this.battle.fx.push({ kind: 'shout', x: p.x, z: p.z, y: 0.5, text: '▼', t: 2.2 }); }
+  screen(u) { const p = new THREE.Vector3(u.x, (u.y || 0) + 1, u.z).project(this.stage.camera); return { x: (p.x + 1) / 2 * window.innerWidth, y: (1 - p.y) / 2 * window.innerHeight, z: p.z }; }
+  pickBattle(e) {
+    const b = this.battle; let best = null, bd = 26;
+    for (const u of b.units) { if (u.dead || u.fled) continue; if (u.team === 1 && u.hidden) continue; const s = this.screen(u); const d = Math.hypot(s.x - e.clientX, s.y - e.clientY); if (s.z < 1 && d < bd) { bd = d; best = u; } }
+    if (best) return best;
+    this.ndcOf(e);
+    const hits = this.ray.intersectObjects(b.structs.filter(s => !s.dead && s.maxHp).map(s => s.model), true);
+    if (hits.length) { const id = hits[0].object.userData.struct; return b.structs[id - 1]; }
+    return null;
+  }
+  onWheel(e) {
+    if (this.mode === 'village') return;
+    e.preventDefault();
+    const cam = this.mode === 'map' ? this.mapCam : this.battleCam;
+    if (e.ctrlKey) { cam.zoom(Math.exp(e.deltaY * 0.012)); return; }
+    const mouseWheel = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && e.deltaX === 0 && Number.isInteger(e.deltaY));
+    if (mouseWheel && !this.hud.settings.scrollPans) { cam.zoom(Math.exp(Math.sign(e.deltaY) * 0.12)); return; }
+    const k = cam.dist * 0.0022, f = cam.forward(), r = cam.right();
+    cam.pan((r.x * e.deltaX - f.x * e.deltaY) * k, (r.z * e.deltaX - f.z * e.deltaY) * k);
+  }
+  onKey(k) {
+    if (this.mode === 'village') return false;
+    if (!this.hud.modal.hidden) return false;
+    if (k === 'm' && this.mode === 'map') { this.toVillage(); return true; }
+    if (k === 'escape') {
+      if (this.mode === 'map') { if (this.sel) { this.sel = null; this.map.select(null); this.map.pinAt(null); this.renderSitePanel(); } else this.toVillage(); return true; }
+      if (this.armed) { this.armed = null; this.renderBattleUI(); return true; }
+      this.selected = []; this.renderBattleUI(); return true;
+    }
+    if (this.mode !== 'battle') return ['b', 'r', 'delete', 'backspace', 'h'].includes(k);
+    const b = this.battle, sel = this.selected.filter(u => !u.dead);
+    const G = this.groups();
+    if (/^[1-4]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
+    if (k === '5') { this.selectUnits(b.units.filter(u => u.team === 0 && !u.dead && !u.fled)); return true; }
+    if (k === 't') { this.armed = 'amove'; this.renderBattleUI(); return true; }
+    if (k === 'x') { b.order(sel, 'stop'); return true; }
+    if (k === 'g') { b.order(sel, 'hold'); return true; }
+    if (k === 'r') { const c = sel.find(u => u.type === 'berserker' || u.type === 'taisho'); if (c) { if (c.type === 'taisho') b.ability(c); else { this.armed = 'climb'; this.abilityUnit = c; } this.renderBattleUI(); } return true; }
+    if (k === ' ') { this.hud.paused = !this.hud.paused; this.renderBattleUI(); return true; }
+    return ['b', 'delete', 'backspace', 'm', 'h'].includes(k);
+  }
+
+  /* ================= keep & workshop panels ================= */
+  extraPanel(p, b) {
+    const g = this.game;
+    if (b.type === 'townhall' && b.done) {
+      const box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('soldier', 18), h('b', null, 'Commanders')));
+      for (const [type, C] of Object.entries(COMMANDERS)) {
+        const cur = [...g.villagers.values()].find(v => v.job === type);
+        box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name + (cur ? ` — ${cur.name}` : '')), h('small', null, `${C.ability}: ${C.abilityDesc}`)),
+          cur ? h('span', { class: 'pill' }, cur.away ? 'Away' : 'Ready') : h('button', { class: 'btn small', onclick: () => {
+            const cand = g.idleVillagers()[0] || g.soldiers().find(v => v.job === 'ashigaru');
+            if (!cand) return g.toast('No idle villager or spearman to promote', 'warn');
+            if (!g.canAfford(C.cost)) return g.toast('Not enough resources', 'warn');
+            g.pay(C.cost); g.setJob(cand, type); g.toast(`${cand.name} is now your ${JOBS[type].name}!`); this.hud.renderPanel();
+          } }, 'Appoint', costChips(g, C.cost))));
+      }
+      p.append(box);
+    }
+    if (b.type === 'workshop' && b.done) {
+      const cost = { wood: 120, stone: 20 };
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('ram', 22), h('b', null, 'Battering rams'), this.hud.live(h('span', { class: 'count' }), el => { el.textContent = `${g.state.rams || 0} ready`; })),
+        this.hud.live(h('div', null), el => {
+          el.textContent = '';
+          if (g.state.ramBuild) { const left = g.state.ramBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a ram… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / 45) * 100}%` }))); }
+          else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cost)) return g.toast('Not enough resources', 'warn'); g.pay(cost); g.state.ramBuild = { done: g.state.clock + 45 }; this.hud.renderPanel(); } }, 'Build a ram (45s)', costChips(g, cost)));
+        })));
+    }
+  }
+}

@@ -20,6 +20,15 @@ export const LOOKS = {
   archer:      { robe: ['#34402e'], pants: '#23262d', hat: 'jingasa', tool: 'yumi', armor: '#3c4636', quiver: true },
   samurai:     { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#1c1c22', crest: '#e0b04a' },
   monk:        { robe: ['#c9772e'], pants: '#8f4f1f', hat: 'bald', tool: 'staff' },
+  // commanders
+  berserker:   { robe: ['#3a2320'], pants: '#1f1716', hat: 'oni', tool: 'kanabo', armor: '#4a2a24', scale: 1.22 },
+  taisho:      { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#f2ece0', crest: '#e8c25a', cloak: '#b8342a', scale: 1.1 },
+  // the rival clans wear indigo
+  enemy_ashigaru: { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'yari', armor: '#2f3d5c', banner: '#2f4a7a' },
+  enemy_archer:   { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'yumi', armor: '#34466a', quiver: true },
+  enemy_samurai:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#e8e2d0', crest: '#c9ced4', scale: 1.08 },
+  enemy_lord:     { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#1f2b4d', crest: '#e8c25a', cloak: '#2f4a7a', scale: 1.15 },
+  bandit:         { robe: ['#6b5a44', '#5a4a3a', '#4f5a3a'], pants: '#3a3228', hat: 'bandit', tool: 'katana' },
 };
 
 function toolMesh(m, tool) {
@@ -33,6 +42,8 @@ function toolMesh(m, tool) {
     case 'yari': m.cyl(0.03, 0.03, 3.0, 5, '#4a3222', [0, 0.6, 0.05]); m.cone(0.06, 0.4, 4, '#c9ced4', [0, 2.3, 0.05]); break;
     case 'katana': m.box(0.04, 1.0, 0.07, '#d9dde2', [0, 0.35, 0.1], [0.3, 0, 0]); m.box(0.12, 0.04, 0.12, '#caa04a', [0, -0.12, 0.0]); break;
     case 'staff': m.cyl(0.03, 0.03, 1.9, 5, '#6b4a2e', [0, 0.3, 0.05]); m.box(0.12, 0.12, 0.12, '#caa04a', [0, 1.25, 0.05]); break;
+    case 'kanabo': m.cyl(0.05, 0.05, 0.5, 6, '#2a1c14', [0, -0.1, 0.05]); m.cyl(0.14, 0.07, 1.2, 7, '#3b2a20', [0, 0.72, 0.05]);
+      for (let i = 0; i < 10; i++) { const a = i * 2.4, y = 0.4 + (i % 5) * 0.16; m.box(0.05, 0.05, 0.05, '#9aa0a6', [Math.cos(a) * 0.12, y + 0.1, 0.05 + Math.sin(a) * 0.12]); } break;
   }
 }
 
@@ -70,6 +81,12 @@ export class Person {
       case 'cloth': b.box(0.34, 0.16, 0.34, '#6e5b48', [0, 1.9, 0]); break;
       case 'jingasa': b.cone(0.46, 0.16, 12, '#1f2024', [0, 1.99, 0]); b.ball(0.05, '#c9a04a', [0, 2.08, 0]); break;
       case 'bald': b.box(0.31, 0.08, 0.31, skin, [0, 1.89, 0]); break;
+      case 'oni':
+        b.ball(0.23, '#2a1c18', [0, 1.9, 0], [1, 0.75, 1], 1);
+        b.cone(0.05, 0.34, 5, '#e8dcc0', [-0.16, 2.14, 0.02], [0, 0, 0.5]); b.cone(0.05, 0.34, 5, '#e8dcc0', [0.16, 2.14, 0.02], [0, 0, -0.5]);
+        b.box(0.3, 0.26, 0.05, '#b8342a', [0, 1.7, 0.16]); b.box(0.22, 0.04, 0.02, '#f2ece0', [0, 1.62, 0.19]); b.box(0.06, 0.04, 0.02, '#ffd76a', [-0.07, 1.76, 0.19]); b.box(0.06, 0.04, 0.02, '#ffd76a', [0.07, 1.76, 0.19]);
+        b.frustum(0.6, 0.6, 0.34, 0.34, 0.16, '#1c1c1f', [0, 1.72, -0.05]); break;
+      case 'bandit': b.box(0.34, 0.08, 0.34, '#8a2a20', [0, 1.84, 0]); b.box(0.1, 0.2, 0.04, '#8a2a20', [0.1, 1.72, -0.18], [0.3, 0, 0.2]); b.box(0.08, 0.1, 0.18, HAIR, [0, 1.98, 0]); b.box(0.26, 0.08, 0.03, '#3a3228', [0, 1.66, 0.16]); break;
       case 'kabuto':
         b.ball(0.24, L.armor, [0, 1.9, 0], [1, 0.8, 1], 1);
         b.frustum(0.62, 0.62, 0.34, 0.34, 0.18, '#1c1c1f', [0, 1.72, -0.04]);
@@ -77,6 +94,7 @@ export class Person {
         b.box(0.26, 0.1, 0.03, '#2a1c1a', [0, 1.66, 0.16]); break;           // menpo mask
     }
     if (L.banner) { b.cyl(0.02, 0.02, 1.7, 4, '#2a2320', [0, 1.9, -0.22]); b.box(0.02, 0.8, 0.42, L.banner, [0, 2.35, -0.44]); b.ball(0.07, '#f2ece0', [0.02, 2.4, -0.44]); }
+    if (L.cloak) b.frustum(0.62, 0.2, 0.9, 0.24, 0.9, L.cloak, [0, 0.6, -0.2]);
     if (L.quiver) { b.cyl(0.08, 0.08, 0.7, 6, '#4a3222', [0.14, 1.3, -0.22], [0.3, 0, -0.3]); for (let i = 0; i < 3; i++) b.box(0.02, 0.2, 0.02, '#e9e4d8', [0.24 + i * 0.03, 1.72, -0.34]); }
     if (L.tool === 'katana' || L.armor) b.box(0.05, 0.05, 0.8, '#1d1a18', [-0.3, 0.98, 0.05], [0.25, 0, 0.3]); // sheathed sword
     this.body = b.mesh(MAT.flat, true, false);
@@ -112,6 +130,7 @@ export class Person {
     this.carry.stone = cm(m => { m.box(0.4, 0.3, 0.3, '#a9a397', [0, 1.72, -0.22]); });
     this.carry.gold = cm(m => { m.box(0.34, 0.24, 0.26, '#6b4a2e', [0, 1.68, -0.22]); m.ball(0.1, '#e0b04a', [0.05, 1.85, -0.2]); m.ball(0.08, '#e0b04a', [-0.08, 1.84, -0.24]); });
     this.pose = 'idle';
+    g.scale.setScalar(L.scale || 1);
   }
   setCarry(res) { for (const k in this.carry) this.carry[k].visible = k === res; }
   // pose: idle | walk | work | chop | pray | sit | train | shoot | guard

@@ -199,13 +199,14 @@ export class Input {
     cv.addEventListener('wheel', e => this.onWheel(e), { passive: false });
     // Safari trackpad pinch
     cv.addEventListener('gesturestart', e => { e.preventDefault(); this.gScale = 1; });
-    cv.addEventListener('gesturechange', e => { e.preventDefault(); const f = this.gScale / e.scale; this.gScale = e.scale; this.cam.zoom(f); });
+    cv.addEventListener('gesturechange', e => { e.preventDefault(); const f = this.gScale / e.scale; this.gScale = e.scale; const v = window.tenkaView; (v && v.active ? v.cam : this.cam).zoom(f); });
     cv.addEventListener('contextmenu', e => e.preventDefault());
     window.addEventListener('keydown', e => this.onKey(e, true));
     window.addEventListener('keyup', e => this.onKey(e, false));
     window.addEventListener('blur', () => this.keys.clear());
   }
   onDown(e) {
+    if (window.tenkaView && window.tenkaView.active) return;
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pointers.size === 2) { // pinch/pan with two fingers
       const [a, b] = [...this.pointers.values()];
@@ -216,6 +217,7 @@ export class Input {
     try { this.canvas.setPointerCapture(e.pointerId); } catch (_) { /* optional */ }
   }
   onMove(e) {
+    if (window.tenkaView && window.tenkaView.active) return;
     if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this.pinch && this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -244,6 +246,7 @@ export class Input {
     }
   }
   onUp(e) {
+    if (window.tenkaView && window.tenkaView.active) return;
     this.pointers.delete(e.pointerId);
     if (this.pointers.size < 2) this.pinch = null;
     const D = this.down; this.down = null;
@@ -258,6 +261,7 @@ export class Input {
   }
   onWheel(e) {
     e.preventDefault();
+    if (window.tenkaView && window.tenkaView.active) return;
     if (e.ctrlKey) { this.cam.zoom(Math.exp(e.deltaY * 0.012)); return; } // pinch on most browsers
     const mouseWheel = e.deltaMode === 1 || (Math.abs(e.deltaY) >= 50 && e.deltaX === 0 && Number.isInteger(e.deltaY));
     if (mouseWheel && !this.hud.settings.scrollPans) { this.cam.zoom(Math.exp(Math.sign(e.deltaY) * 0.12)); return; }
