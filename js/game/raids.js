@@ -33,12 +33,12 @@ export class Raids {
     this.postpone();
   }
   // the bigger your village, the bigger the band: about one bandit for every four villagers
-  popBand() { return Math.max(2, Math.round(this.game.pop / 4)); }
-  // bands still grow slowly raid after raid, and never far beyond what your soldiers can face
+  popBand() { return Math.max(2, Math.round(this.game.pop / 3.5)); }
+  // bands grow raid after raid (by up to 4), and never far beyond what your soldiers can face
   bandSize() {
     if (!this.firstDone) return 2;
     const soldiers = this.game.soldiers(true).length;
-    return Math.max(2, Math.min(this.popBand(), 2 + (this.count || 0), soldiers * 2 + 1));
+    return Math.max(2, Math.min(this.popBand(), 2 + 4 * (this.count || 0), soldiers * 3 + 2));
   }
   timeLeft() { return this.next == null ? Infinity : this.next - this.clock; }
 
@@ -58,7 +58,10 @@ export class Raids {
   start() {
     const g = this.game, n = this.bandSize();
     this.side = Object.keys(SIDES)[Math.floor(g.rand() * 4)];
-    const [sx, sz] = SIDES[this.side], weak = !this.firstDone;
+    // a big band splits and comes from two sides at once
+    const turn = { north: 'east', east: 'south', south: 'west', west: 'north' };
+    this.side2 = n > 15 ? turn[this.side] : null;
+    const weak = !this.firstDone;
     // from Keep level 4 the warlords send real soldiers instead of bandits
     const src = this.firstDone && g.thLevel >= 4 ? g.country.warlordSource() : null;
     this.source = src ? src.id : null;
@@ -66,12 +69,13 @@ export class Raids {
     this.count = (this.count || 0) + 1;
     this.active = true; this.alarm = false; this.bandits = []; this.stolen = {}; this.killed = 0; this.victims = 0;
     for (let i = 0; i < n; i++) {
-      const along = (g.rand() - 0.5) * 30, edge = PLOT.half - 1.2;
+      const side = this.side2 && i % 2 ? this.side2 : this.side, [sx, sz] = SIDES[side];
+      const along = (g.rand() - 0.5) * (n > 15 ? 60 : 30), edge = PLOT.half - 1.2;
       const x = sx ? sx * edge : along, z = sz ? sz * edge : along;
       const type = kind(i), U = UNITS[type];
       const p = new Person(U.look, 900 + i * 17 + Math.floor(this.clock));
       p.group.position.set(x, 0, z); g.scene.add(p.group);
-      const u = { type, U, ranged: !!U.ranged, x, z, hp: U.hp * TOUGH, maxHp: U.hp * TOUGH, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
+      const u = { type, U, side, ranged: !!U.ranged, x, z, hp: U.hp * TOUGH, maxHp: U.hp * TOUGH, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
       p.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'bandit' }; });
       this.bandits.push(u);
     }
@@ -84,7 +88,8 @@ export class Raids {
     if (!this.active || this.alarm) return;
     this.alarm = true;
     const n = this.alive().length, band = this.bandName(n);
-    g.toast(why || (by ? `${by.name} spotted ${band} sneaking in from the ${this.side}! Villagers run for cover.` : `You raise the alarm: ${band} from the ${this.side}! Your soldiers move in, villagers run for cover.`), 'bad');
+    const from = this.side2 ? `the ${this.side} and the ${this.side2}` : `the ${this.side}`;
+    g.toast(why || (by ? `${by.name} spotted ${band} sneaking in from ${from}! Villagers run for cover.` : `You raise the alarm: ${band} from ${from}! Your soldiers move in, villagers run for cover.`), 'bad');
     for (const v of g.villagers.values()) v.reset = true;
     g.emit('raid');
   }
@@ -132,7 +137,7 @@ export class Raids {
       }
       // enemy archers loose arrows at anyone out in the open (and give themselves away doing it)
       if (u.ranged && !u.carry) {
-        const shot = [...g.villagers.values()].filter(v => !v.hidden && !v.away).map(v => [v, Math.hypot(v.pos.x - u.x, v.pos.z - u.z)]).sort((a, b) => a[1] - b[1])[0];
+        let shot = null; { let bd = 15; for (const v of g.villagers.values()) { if (v.hidden || v.away) continue; const d = Math.hypot(v.pos.x - u.x, v.pos.z - u.z); if (d < bd) { bd = d; shot = [v, d]; } } }
         if (shot && shot[1] < 15 && (this.alarm || shot[1] < 11)) {
           this.face(u, shot[0].pos.x - u.x, shot[0].pos.z - u.z, dt);
           if (u.cd <= 0) { u.cd = 1.8; this.enemyShoot(u, shot[0], u.dmg); if (!this.alarm) this.raiseAlarm(null, `Arrows! ${this.bandName(this.alive().length)} are attacking the village!`); }
@@ -141,7 +146,14 @@ export class Raids {
       }
       // villagers caught outside are attacked
       if (!u.carry) {
-        const prey = [...g.villagers.values()].filter(v => !JOBS[v.job].soldier && !v.hidden && !v.away && !(v.elev > 1)).map(v => [v, Math.hypot(v.pos.x - u.x, v.pos.z - u.z)]).sort((a, b) => a[1] - b[1])[0];
+        // look around for someone caught outside a few times a second (not every frame: big bands, big villages)
+        if (!u.preyT || u.preyT <= 0 || (u.preyV && (u.preyV.hidden || !g.villagers.has(u.preyV.id)))) {
+          u.preyT = 0.35 + g.rand() * 0.2; let best = null, bd = 9;
+          for (const v of g.villagers.values()) { if (JOBS[v.job].soldier || v.hidden || v.away || v.elev > 1) continue; const d = Math.hypot(v.pos.x - u.x, v.pos.z - u.z); if (d < bd) { bd = d; best = v; } }
+          u.preyV = best;
+        }
+        u.preyT -= dt;
+        const prey = u.preyV && g.villagers.has(u.preyV.id) ? [u.preyV, Math.hypot(u.preyV.pos.x - u.x, u.preyV.pos.z - u.z)] : null;
         if (prey && prey[1] < 1.6) {
           this.face(u, prey[0].pos.x - u.x, prey[0].pos.z - u.z, dt); pose = 'chop';
           if (u.cd <= 0) { u.cd = 1.2; this.hurtVillager(prey[0], u.dmg); }
@@ -168,7 +180,7 @@ export class Raids {
       if (!u.path || u.repath <= 0) {
         u.repath = 3;
         let goal;
-        if (u.carry) { const [sx, sz] = SIDES[this.side]; goal = { x: sx ? sx * (PLOT.half - 1) : u.x, z: sz ? sz * (PLOT.half - 1) : u.z }; }
+        if (u.carry) { const [sx, sz] = SIDES[u.side || this.side]; goal = { x: sx ? sx * (PLOT.half - 1) : u.x, z: sz ? sz * (PLOT.half - 1) : u.z }; }
         else { const st = this.storage().sort((a, b) => Math.hypot(g.center(a).x - u.x, g.center(a).z - u.z) - Math.hypot(g.center(b).x - u.x, g.center(b).z - u.z))[0]; if (!st) { u.gone = true; continue; } u.goalB = st; goal = g.door(st, 1); }
         const p = this.banditPath({ x: u.x, z: u.z }, goal);
         if (p) { u.path = p; u.pathI = 0; }
