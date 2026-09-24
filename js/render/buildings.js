@@ -23,6 +23,22 @@ function lattice(m, x, y, z, w, h, side = 0, hex = '#3b2619') {
   }
   if (side) m.box(0.04, 0.04, w, hex, [x + side * 0.03, y, z]); else m.box(w, 0.04, 0.04, hex, [x, y, z + 0.03]);
 }
+// latticed window with a glowing pane on a wall facing -z
+function backWindow(b, x, y, z, w, h, glow = '#ffcf7a') {
+  b.g.box(w, h, 0.06, glow, [x, y, z]);
+  const nx = Math.max(2, Math.round(w / 0.18));
+  for (let i = 1; i < nx; i++) b.m.box(0.03, h, 0.04, '#3b2619', [x - w / 2 + i * w / nx, y, z - 0.03]);
+  b.m.box(w, 0.04, 0.04, '#3b2619', [x, y, z - 0.03]);
+  b.m.box(w + 0.16, 0.08, 0.08, '#3b2619', [x, y - h / 2 - 0.04, z - 0.03]); b.m.box(w + 0.16, 0.08, 0.08, '#3b2619', [x, y + h / 2 + 0.04, z - 0.03]);
+}
+// straw rice bales (tawara)
+function bales(m, x, z, n = 3) {
+  for (let i = 0; i < n; i++) {
+    const bx = x + (i % 2) * 0.64 + (i >= 2 ? 0.32 : 0), by = 0.25 + (i >= 2 ? 0.42 : 0);
+    m.cyl(0.24, 0.24, 0.6, 8, '#cdb27a', [bx, by, z], [0, 0, Math.PI / 2]);
+    for (const o of [-0.2, 0.2]) m.cyl(0.25, 0.25, 0.05, 8, '#8f7040', [bx + o, by, z], [0, 0, Math.PI / 2]);
+  }
+}
 function posts(m, w, d, h, y, hex, r = 0.13) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(r * 2, h, r * 2, hex, [sx * (w / 2 - r), y + h / 2, sz * (d / 2 - r)]);
 }
@@ -80,6 +96,12 @@ const MODELS = {
     for (const x of [-2, 2]) { b.g.box(0.7, 0.55, 0.08, '#ffcf7a', [x, 3.8, 3.17]); lattice(m, x, 3.8, 3.2, 0.7, 0.55); }
     for (const z of [-1.6, 1.6]) { b.g.box(0.08, 0.55, 0.7, '#ffcf7a', [3.17, 3.8, z]); b.g.box(0.08, 0.55, 0.7, '#ffcf7a', [-3.17, 3.8, z]); lattice(m, 3.2, 3.8, z, 0.7, 0.55, 1); lattice(m, -3.2, 3.8, z, 0.7, 0.55, -1); }
     hangingLantern(b, -1.1, 4.3, 3.35); hangingLantern(b, 1.1, 4.3, 3.35);
+    // back: a small service door, two windows, a timber band and supplies at the foot of the base
+    m.box(1.0, 1.5, 0.1, WOOD_D, [0, 3.05, -3.17]); m.box(1.2, 0.1, 0.14, WOOD, [0, 3.85, -3.2]);
+    for (const x of [-2, 2]) backWindow(b, x, 3.8, -3.18, 0.7, 0.55);
+    hangingLantern(b, 0, 4.3, -3.4);
+    for (const [x, z, w, d] of [[0, 3.2, 6.34, 0.06], [0, -3.2, 6.34, 0.06], [3.2, 0, 0.06, 6.34], [-3.2, 0, 0.06, 6.34]]) m.box(w, 0.1, d, WOOD, [x, 3.1, z]);
+
     for (const x of [-2.6, 2.6]) { m.cyl(0.05, 0.05, 4.2, 5, WOOD_D, [x, 2.1, 4.6]); m.box(0.05, 2.2, 0.7, VERM, [x, 2.9, 4.95]); m.box(0.06, 0.5, 0.5, PLASTER, [x, 3.3, 4.95]); }
     if (L === 1) { m.roof(6.3, 6.3, 2.2, ROOF, 5.0, { over: 0.95, ridge: 0.45, ornaments: GOLD }); return; }
     m.roof(6.3, 6.3, 1.7, ROOF, 5.0, { over: 0.95, ridge: 0.4 });
@@ -90,6 +112,8 @@ const MODELS = {
     for (const [x, z, w, d] of [[0, 2.72, 5.3, 0.06], [0, -2.72, 5.3, 0.06], [2.72, 0, 0.06, 5.3], [-2.72, 0, 0.06, 5.3]]) { m.box(w, 0.06, d, WOOD_D, [x, 6.55, z]); m.box(w, 0.06, d, WOOD_D, [x, 6.25, z]); }
     for (let i = -2; i <= 2; i++) for (const [x, z] of [[i * 1.3, 2.72], [i * 1.3, -2.72], [2.72, i * 1.3], [-2.72, i * 1.3]]) m.box(0.07, 0.5, 0.07, WOOD_D, [x, 6.3, z]);
     m.box(5.5, 0.1, 5.5, WOOD, [0, 6.02, 0]);
+    for (const x of [-1.2, 1.2]) backWindow(b, x, 7.3, -2.42, 0.6, 0.5);
+    for (const z of [-1.2, 1.2]) for (const sx of [-1, 1]) { b.g.box(0.08, 0.5, 0.6, '#ffcf7a', [sx * 2.42, 7.3, z]); lattice(m, sx * 2.44, 7.3, z, 0.6, 0.5, sx); }
     m.frustum(2.6, 1.3, 0.3, 1.0, 0.9, ROOF, [0, 8.1, 2.55]); // karahafu gable
     if (L === 2) { m.roof(4.8, 4.8, 2.0, ROOF, 8.3, { over: 0.85, ridge: 0.4, ornaments: GOLD }); return; }
     m.roof(4.8, 4.8, 1.5, ROOF, 8.3, { over: 0.85, ridge: 0.4 });
@@ -97,6 +121,8 @@ const MODELS = {
     m.box(3.3, 1.9, 3.3, PLASTER, [0, 9.2 + 0.95, 0]);
     m.box(3.45, 0.2, 3.45, WOOD, [0, 9.3, 0]); posts(m, 3.45, 3.45, 1.9, 9.2, WOOD, 0.12);
     b.g.box(0.9, 0.5, 0.08, '#ffcf7a', [0, 10.2, 1.67]); lattice(m, 0, 10.2, 1.7, 0.9, 0.5);
+    backWindow(b, 0, 10.2, -1.67, 0.9, 0.5);
+    for (const sx of [-1, 1]) { b.g.box(0.08, 0.5, 0.7, '#ffcf7a', [sx * 1.67, 10.2, 0]); lattice(m, sx * 1.7, 10.2, 0, 0.7, 0.5, sx); }
     m.cyl(0.32, 0.32, 0.05, 12, GOLD, [0, 10.8, 1.72], [Math.PI / 2, 0, 0]); m.cyl(0.18, 0.18, 0.06, 12, ROOF, [0, 10.8, 1.73], [Math.PI / 2, 0, 0]);
     m.roof(3.3, 3.3, 1.9, ROOF, 11.1, { over: 0.75, ridge: 0.35, ornaments: GOLD, ridgeHex: L >= 5 ? GOLD : '#2a2e36' });
     stoneLantern(b, -3.4, 5.2, 0.9); stoneLantern(b, 3.4, 5.2, 0.9);
@@ -131,6 +157,12 @@ const MODELS = {
     m.roof(3.1, 2.8, 2.5, THATCH, 2.35, { over: 0.75, ridge: 0.45, ridgeHex: THATCH_D, cz: -0.2 });
     m.box(0.5, 0.5, 0.5, WOOD_L, [1.2, 0.25, 2.1]); m.cyl(0.25, 0.28, 0.5, 8, WOOD, [-1.3, 0.25, 2.1]); // barrel & crate
     hangingLantern(b, 1.3, 1.9, 1.35);
+    // back: a latticed window, a mid-height beam, a rain barrel and drying persimmons under the eaves
+    backWindow(b, 0.55, 1.55, -1.62, 0.9, 0.6, PAPER);
+    m.box(3.14, 0.08, 0.06, WOOD, [0, 0.95, -1.62]);
+    m.cyl(0.22, 0.22, 0.5, 10, WOOD, [1.25, 0.7, -1.85]); m.cyl(0.23, 0.23, 0.05, 10, DARK, [1.25, 0.8, -1.85]); m.cyl(0.19, 0.19, 0.02, 10, '#2e4a58', [1.25, 0.96, -1.85]);
+    for (const x of [-0.9, -0.55, -0.2]) { m.box(0.02, 0.6, 0.02, '#c9b58a', [x, 2.0, -1.75]); for (let k = 0; k < 4; k++) m.ball(0.06, '#e07a2e', [x, 1.78 + k * 0.14, -1.75]); }
+    b.g.box(0.06, 0.7, 0.9, PAPER, [-1.57, 1.5, -0.2]); lattice(m, -1.6, 1.5, -0.2, 0.9, 0.7, -1);
   },
   storehouse(b) {
     const m = b.m;
@@ -144,6 +176,12 @@ const MODELS = {
     m.box(0.3, 0.4, 0.3, GOLD, [0, 2.95, 2.62]);
     m.cyl(0.3, 0.3, 0.04, 12, DARK, [0, 3.25, 2.57], [Math.PI / 2, 0, 0]); m.cyl(0.2, 0.2, 0.05, 12, PLASTER, [0, 3.25, 2.58], [Math.PI / 2, 0, 0]); m.box(0.2, 0.04, 0.02, DARK, [0, 3.25, 2.6]);
     for (let i = 0; i < 3; i++) m.box(0.6, 0.45, 0.45, i % 2 ? '#a07a4a' : '#8a6a44', [1.1 - i * 0.2, 0.62 + (i === 2 ? 0.45 : 0), 2.95 - (i === 2 ? 0.1 : 0)]);  // crates at the door
+    // back: a small barred window with a plaster shutter, rice bales and a ladder
+    m.box(0.7, 0.55, 0.08, DARK, [0, 2.8, -2.56]); for (let i = -1; i <= 1; i++) m.box(0.05, 0.55, 0.05, '#9aa0a6', [i * 0.18, 2.8, -2.61]);
+    m.box(0.45, 0.6, 0.12, PLASTER, [0.62, 2.8, -2.6]);
+    bales(m, -1.1, -2.83, 3);
+    for (const x of [1.0, 1.45]) m.box(0.07, 2.4, 0.07, WOOD, [x, 1.4, -2.75], [-0.18, 0, 0]);
+    for (let i = 0; i < 5; i++) m.box(0.5, 0.05, 0.05, WOOD, [1.22, 0.55 + i * 0.42, -2.83 + i * 0.075]);
   },
   farm(b, w, d) {
     const m = b.m;
@@ -189,6 +227,7 @@ const MODELS = {
       const x = -0.9 + i * 0.55 + r * 0.27, y = 0.28 + r * 0.46;
       m.cyl(0.26, 0.26, 2.4, 8, i % 2 ? '#7a5438' : '#6d4a31', [x, y, -0.5], [0, 0, Math.PI / 2]);
       m.cyl(0.22, 0.22, 0.02, 8, '#d2b07a', [x, y, 0.71], [Math.PI / 2, 0, 0]); // cut ends
+      m.cyl(0.22, 0.22, 0.02, 8, '#d2b07a', [x, y, -1.71], [Math.PI / 2, 0, 0]);
     }
     // chopping block with an axe, sawhorse with a saw, plank stack, hand cart
     m.cyl(0.4, 0.45, 0.6, 8, '#6b4a33', [1.2, 0.3, 1.2]); m.cyl(0.36, 0.36, 0.02, 8, '#c9a878', [1.2, 0.61, 1.2]);
@@ -217,6 +256,10 @@ const MODELS = {
     for (const a of [0, 2.1, 4.2]) m.cyl(0.07, 0.07, 3.2, 5, WOOD, [0.6 + Math.cos(a) * 0.6, 1.5, 0.2 + Math.sin(a) * 0.6], [Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35]);
     m.cyl(0.02, 0.02, 1.6, 4, '#c9b58a', [0.6, 2.2, 0.2]); m.box(0.5, 0.35, 0.35, '#a9a397', [0.6, 1.2, 0.2]);
     b.g.box(0.2, 0.2, 0.2, '#ffcf7a', [w / 2 - 0.5, 1.2, -0.6]);
+    // behind the face: scree, shrubs and a rope ladder down the rock
+    for (let i = 0; i < 5; i++) m.add(new THREE.DodecahedronGeometry(0.22 + (i % 3) * 0.08, 0), i % 2 ? '#9a958a' : '#77726a', [-w / 2 + 0.6 + i * (w - 1.2) / 4, 0.18, -d / 2 + 0.28], [i, i * 2, 0], [1, 0.7, 1]);
+    for (const [x, sc] of [[-w / 2 + 0.5, 0.7], [w / 2 - 0.5, 0.8]]) bush(m, x, -d / 2 + 0.5, sc, '#4a6f36');
+    for (const x of [0.9, 1.3]) m.box(0.04, 2.4, 0.04, '#c9b58a', [x, 1.25, -d / 2 + 0.22]); for (let i = 0; i < 6; i++) m.box(0.44, 0.05, 0.05, WOOD, [1.1, 0.25 + i * 0.4, -d / 2 + 0.2]);
     if (L >= 3) { m.box(w - 0.6, 0.08, 0.3, WOOD, [0, 1.8, -d / 2 + 1.7]); for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) m.box(0.1, 1.8, 0.1, WOOD, [x, 0.9, -d / 2 + 1.7]); }
   },
   mine(b, w, d) {
@@ -239,6 +282,11 @@ const MODELS = {
     for (const [x, y, z] of [[-1.2, 1.5, 0.4], [1.3, 1.8, -0.1], [0.4, 2.6, -0.4]]) m.box(0.22, 0.18, 0.2, GOLD, [x, y, z], [0.5, 0.7, 0]);
     // tools leaning by the door
     for (const x of [1.15, 1.3]) { m.box(0.05, 1.0, 0.05, '#6b4a2e', [x, 0.5, 1.5], [0, 0, 0.2]); m.box(0.4, 0.06, 0.06, '#6f7378', [x + 0.1, 1.0, 1.5]); }
+    // back of the hill: a timbered air shaft, moss and shrubs
+    m.box(0.6, 0.9, 0.6, WOOD, [0.9, 2.3, -1.7]); for (const [x, z] of [[0.62, -1.42], [1.18, -1.42], [0.62, -1.98], [1.18, -1.98]]) m.box(0.08, 1.0, 0.08, WOOD_D, [x, 2.3, z]);
+    m.roof(0.7, 0.7, 0.4, '#6b4c35', 2.8, { over: 0.15, ridgeHex: WOOD_D, cx: 0.9, cz: -1.7 });
+    for (const [x, z, sc] of [[-1.2, -2.2, 0.9], [-0.2, -2.45, 0.7], [1.9, -2.1, 0.8], [-2.3, -1.2, 0.7]]) bush(m, x, z, sc, '#4a6f36');
+    for (const [x, y, z] of [[-0.9, 1.9, -1.6], [0.3, 2.4, -1.3]]) m.ball(0.5, MOSS, [x, y, z], [1.4, 0.4, 1.2]);
     if (L >= 3) { m.box(0.8, 1.6, 0.8, WOOD_L, [-1.6, 0.8, 1.4]); m.roof(0.8, 0.8, 0.5, THATCH, 1.6, { over: 0.2, ridgeHex: THATCH_D, cx: -1.6, cz: 1.4 }); }
   },
   dojo(b, w, d) {
@@ -261,6 +309,14 @@ const MODELS = {
     m.box(0.8, 0.08, 0.5, WOOD_D, [2.0, 0.6, -0.9]); for (const x of [1.7, 2.3]) m.box(0.06, 0.6, 0.06, WOOD_D, [x, 0.3, -0.9]);
     for (let i = 0; i < 5; i++) m.box(0.22, 0.16, 0.02, '#c9a36f', [-1.6 + i * 0.26, 1.3, 0.75]); // ema prayer boards
     if ((b.level || 1) >= 3) { for (const x of [-2.3, 2.3]) stoneLantern(b, x, 1.9, 0.6); }
+    // back and sides: a paper window band, a back door, a barrel and a rack of drying towels
+    for (const x of [-1.3, 1.3]) backWindow(b, x, 2.3, -2.52, 1.4, 0.6, PAPER);
+    m.box(0.9, 1.4, 0.06, WOOD_D, [0, 1.3, -2.52]);
+    for (const sx of [-1, 1]) { b.g.box(0.06, 0.6, 2.2, PAPER, [sx * 2.22, 2.3, -0.9]); lattice(m, sx * 2.24, 2.3, -0.9, 2.2, 0.6, sx); }
+    m.box(4.44, 0.1, 0.06, WOOD_D, [0, 1.5, -2.53]);
+    m.cyl(0.28, 0.28, 0.65, 10, WOOD, [1.6, 0.33, -2.8]); m.cyl(0.29, 0.29, 0.05, 10, DARK, [1.6, 0.5, -2.8]);
+    for (const x of [-1.9, -0.9]) m.box(0.07, 1.2, 0.07, WOOD, [x, 0.6, -2.8]); m.box(1.1, 0.05, 0.05, WOOD, [-1.4, 1.15, -2.8]);
+    for (let i = 0; i < 3; i++) m.box(0.25, 0.5, 0.02, i % 2 ? '#e8e0cc' : '#2f4a7a', [-1.75 + i * 0.35, 0.92, -2.8]);
   },
   kyudojo(b, w, d) {
     const m = b.m, L = b.level || 1;
@@ -297,6 +353,9 @@ const MODELS = {
     m.box(0.04, 0.04, d - 3.2, BAMBOO, [-w / 2 + 0.15, 0.5, 0.5]); m.box(0.04, 0.04, d - 3.2, BAMBOO, [w / 2 - 0.15, 0.5, 0.5]);
     m.cyl(0.04, 0.04, 3.2, 5, WOOD_D, [w / 2 - 0.4, 1.6, -d / 2 + 2.6]); m.box(0.04, 1.8, 0.5, '#27354f', [w / 2 - 0.4, 2.3, -d / 2 + 2.9]); m.cyl(0.14, 0.14, 0.05, 10, '#f5efe0', [w / 2 - 0.37, 2.6, -d / 2 + 2.9], [0, 0, Math.PI / 2]);
     m.box(1.2, 0.1, 0.35, WOOD_L, [-w / 2 + 1.0, 0.45, 0.6]); for (const x of [-w / 2 + 0.55, -w / 2 + 1.45]) m.box(0.08, 0.4, 0.3, WOOD_D, [x, 0.2, 0.6]);
+    // outside of the hall: windows and a beam
+    for (const x of [-w / 4, w / 4]) backWindow(b, x, 1.9, -d / 2 + 0.17, w / 2 - 1.0, 0.6, PAPER);
+    m.box(w - 0.4, 0.08, 0.06, WOOD_D, [0, 1.2, -d / 2 + 0.17]);
     if (L >= 2) stoneLantern(b, -w / 2 + 0.5, -d / 2 + 2.9, 0.6);
     if (L >= 3) { for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) { m.cyl(0.05, 0.05, 2.6, 5, WOOD_D, [x, 1.3, d / 2 - 2.2]); m.box(0.04, 1.4, 0.45, VERM, [x, 1.9, d / 2 - 1.95]); } }
   },
@@ -319,6 +378,12 @@ const MODELS = {
     m.box(1.0, 1.1, 0.3, WOOD_D, [-1.6, 0.55, 1.9]); for (let i = 0; i < 6; i++) m.cyl(0.05, 0.05, 0.3, 6, '#efe3c4', [-1.95 + (i % 3) * 0.33, 0.35 + Math.floor(i / 3) * 0.4, 1.95], [Math.PI / 2, 0, 0]);
     m.cyl(0.3, 0.3, 0.04, 12, '#1c1c1f', [-0.3, 1.3, 1.3], [Math.PI / 2, 0, 0]); m.cyl(0.14, 0.14, 0.05, 12, GOLD, [-0.3, 1.3, 1.32], [Math.PI / 2, 0, 0]); m.box(0.05, 0.6, 0.05, WOOD_D, [-0.3, 0.8, 1.3]);
     for (const x of [-2.3, 2.3]) { m.cyl(0.05, 0.05, 3.4, 5, WOOD_D, [x, 1.7, 1.4]); m.box(0.04, 1.8, 0.55, x < 0 ? VERM : '#27354f', [x, 2.4, 1.7]); }
+    // back and sides
+    for (const x of [-1.3, 0, 1.3]) backWindow(b, x, 1.5, -2.32, 0.8, 0.9, PAPER);
+    for (const sx of [-1, 1]) { b.g.box(0.06, 0.9, 1.6, PAPER, [sx * 2.12, 1.5, -0.6]); lattice(m, sx * 2.14, 1.5, -0.6, 1.6, 0.9, sx); }
+    backWindow(b, 0, 3.9, -1.72, 1.2, 0.5, PAPER);
+    for (const sx of [-1, 1]) { b.g.box(0.06, 0.5, 1.0, PAPER, [sx * 1.42, 3.9, -0.6]); lattice(m, sx * 1.44, 3.9, -0.6, 1.0, 0.5, sx); }
+    for (let i = 0; i < 3; i++) { m.cyl(0.04, 0.04, 2.6, 5, WOOD_D, [-1.2 + i * 1.2, 1.3, -2.9]); m.box(0.04, 1.2, 0.4, [VERM, '#27354f', GOLD][i], [-1.2 + i * 1.2, 1.9, -2.72]); }
   },
   workshop(b, w, d) {
     const m = b.m;
@@ -334,6 +399,13 @@ const MODELS = {
     for (let i = 0; i < 4; i++) m.box(2.2, 0.16, 0.22, i % 2 ? '#a07a4a' : '#8b6a44', [-0.5, 0.1 + i * 0.16, 2.1]);   // planks
     m.box(0.9, 0.06, 0.25, '#8c6a4a', [1.6, 0.7, 2.0]); for (const x of [1.25, 1.95]) m.box(0.07, 0.7, 0.4, '#8c6a4a', [x, 0.35, 2.0], [0.3, 0, 0]);
     hangingLantern(b, -1.4, 2.2, 1.0);
+    // back wall of planks with saws, mallets and rope
+    const bz = -(d - 1.2) / 2 + 0.05;
+    for (let i = 0; i < 9; i++) m.box((w - 0.9) / 9 - 0.03, 2.2, 0.08, i % 2 ? '#7a5438' : '#6d4a31', [-(w - 0.9) / 2 + (i + 0.5) * (w - 0.9) / 9, 1.1, bz]);
+    m.box(w - 0.9, 0.1, 0.1, WOOD_D, [0, 1.7, bz - 0.06]);
+    m.box(0.9, 0.18, 0.02, '#aab0b6', [-1.2, 1.4, bz - 0.08]); m.box(0.08, 0.5, 0.06, WOOD_D, [0, 1.4, bz - 0.1]); m.box(0.3, 0.2, 0.2, '#8b5e3c', [0, 1.7, bz - 0.12]);
+    m.cyl(0.25, 0.25, 0.1, 12, '#c9b58a', [1.2, 1.35, bz - 0.1], [Math.PI / 2, 0, 0]);
+    for (let i = 0; i < 3; i++) m.cyl(0.15, 0.15, 2.0, 7, '#7a5438', [0.6, 0.15 + i * 0.28, bz - 0.5], [0, 0, Math.PI / 2]);
   },
   wall(b, w, d, conn) {
     const m = b.m;
@@ -373,13 +445,16 @@ const MODELS = {
     m.box(1.3, 2.6, 0.12, WOOD_L, [-1.0, 1.35, 0.7], [0, -1.2, 0]); m.box(1.3, 2.6, 0.12, WOOD_L, [1.0, 1.35, 0.7], [0, 1.2, 0]);
     for (const x of [-1.5, 1.5]) for (const y of [0.8, 1.9]) m.ball(0.06, GOLD, [x * 0.55 + (x > 0 ? 0.35 : -0.35), y, 1.2]);
     hangingLantern(b, -1.1, 2.3, 0.35); hangingLantern(b, 1.1, 2.3, 0.35);
+    // inner side: a heavy locking bar (kannuki) resting in brackets, and bracing on the posts
+    for (const x of [-1.55, 1.55]) { m.box(0.3, 0.16, 0.2, WOOD_D, [x, 1.5, -0.3]); m.box(0.08, 1.6, 0.08, WOOD, [x + (x > 0 ? -0.35 : 0.35), 2.2, -0.25], [0, 0, x > 0 ? -0.5 : 0.5]); }
+    m.box(3.3, 0.18, 0.18, '#6b4c35', [0, 1.66, -0.32]);
   },
   tower(b) {
     const m = b.m;
     m.frustum(4, 4, 3.2, 3.2, 2.0, STONE, [0, 0, 0]);
     courses(m, 4, 4, 3.2, 3.2, 2.0, 0, 3);
     posts(m, 3.0, 3.0, 3.4, 2.0, WOOD, 0.13);
-    for (const [x, z, rx, rz] of [[0.6, 1.6, 0.22, 0.05], [-0.6, 1.6, 0.22, 0.05], [1.6, 0.6, 0.05, 0.22], [-1.6, -0.6, 0.05, 0.22]]) m.box(rx, 0.22, rz, DARK, [x, 4.1, z]);
+    for (const [x, z, rx, rz] of [[0.6, 1.6, 0.22, 0.05], [-0.6, 1.6, 0.22, 0.05], [0.6, -1.6, 0.22, 0.05], [-0.6, -1.6, 0.22, 0.05], [1.6, 0.6, 0.05, 0.22], [1.6, -0.6, 0.05, 0.22], [-1.6, 0.6, 0.05, 0.22], [-1.6, -0.6, 0.05, 0.22]]) m.box(rx, 0.22, rz, DARK, [x, 4.1, z]);
     m.box(3.3, 0.22, 3.3, WOOD_L, [0, 3.5, 0]);
     for (const [x, z, rx, rz] of [[0, 1.55, 3.1, 0.1], [0, -1.55, 3.1, 0.1], [1.55, 0, 0.1, 3.1], [-1.55, 0, 0.1, 3.1]]) m.box(rx, 0.9, rz, PLASTER, [x, 4.05, z]);
     for (const [x, z, rx, rz] of [[0, 1.6, 3.2, 0.12], [0, -1.6, 3.2, 0.12], [1.6, 0, 0.12, 3.2], [-1.6, 0, 0.12, 3.2]]) m.box(rx, 0.12, rz, WOOD_D, [x, 4.55, z]);
@@ -441,6 +516,10 @@ const MODELS = {
     for (const x of [-0.6, 0, 0.6]) m.box(0.08, 0.3, 0.02, '#f7f3ea', [x, 1.95, 0.14]);
     m.ball(0.14, GOLD, [0, 1.8, 0.16]);
     stoneLantern(b, -1.6, 0.6, 0.8); stoneLantern(b, 1.6, 0.6, 0.8);
+    // back: framed panels, a beam and a stand of bamboo
+    for (const x of [-0.6, 0.6]) { m.box(0.9, 1.1, 0.04, '#cdbb92', [x, 1.3, -2.02]); m.box(0.98, 0.06, 0.05, VERM, [x, 1.88, -2.03]); m.box(0.98, 0.06, 0.05, VERM, [x, 0.72, -2.03]); }
+    m.box(0.08, 1.7, 0.06, VERM, [0, 1.35, -2.03]);
+    for (let i = 0; i < 6; i++) { const x = -1.3 + i * 0.5 + (i % 2) * 0.12, z = -d / 2 + 0.35 + (i % 3) * 0.12, hgt = 3.2 + (i % 3) * 0.5; m.cyl(0.05, 0.06, hgt, 5, BAMBOO, [x, hgt / 2, z]); m.ball(0.3, '#6f9a4a', [x, hgt, z], [1, 1.4, 1]); }
     for (const x of [-0.9, 0.9]) { m.box(0.35, 0.35, 0.35, STONE, [x, 0.18, 1.1]); m.box(0.3, 0.4, 0.3, '#9c978c', [x, 0.55, 1.1]); m.box(0.2, 0.2, 0.25, '#9c978c', [x, 0.8, 1.2]); }
   },
   garden(b, w, d) {
@@ -483,6 +562,11 @@ const MODELS = {
     m.box(1.6, 0.35, 0.6, VERM, [0.2, 0.45, 1.35]); m.box(1.6, 0.05, 0.7, '#b8392a', [0.2, 0.63, 1.35]);
     m.cyl(0.04, 0.04, 2.2, 5, WOOD, [1.3, 1.1, 1.3]); m.cone(1.1, 0.5, 14, VERM, [1.3, 2.3, 1.3]);
     hangingLantern(b, -1.2, 1.7, 0.8);
+    // back: a round window and a woven bamboo fence
+    b.g.cyl(0.35, 0.35, 0.06, 16, PAPER, [-0.5, 1.3, -1.66], [Math.PI / 2, 0, 0]); m.cyl(0.4, 0.4, 0.04, 16, WOOD_D, [-0.5, 1.3, -1.64], [Math.PI / 2, 0, 0]);
+    for (let i = -2; i <= 2; i++) m.box(0.03, 0.66, 0.03, WOOD_D, [-0.5 + i * 0.13, 1.3, -1.7]);
+    for (let i = 0; i <= 10; i++) m.cyl(0.04, 0.04, 1.1, 5, BAMBOO, [-1.7 + i * 0.34, 0.85, -1.8]);
+    for (const y of [0.6, 1.1]) m.box(3.5, 0.05, 0.05, '#8b7a4c', [0, y, -1.76]);
   },
   sakura(b) {
     const m = b.m;
