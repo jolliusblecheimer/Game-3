@@ -1,6 +1,6 @@
 // Bandit raids on your village. The band grows with your Town Hall; walls, towers and soldiers keep them out.
 import * as THREE from 'three';
-import { RAIDS, TOWNHALL, JOBS, UNITS, RES } from './data.js';
+import { RAIDS, JOBS, UNITS, RES } from './data.js';
 import { PLOT } from '../render/nature.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
@@ -32,11 +32,13 @@ export class Raids {
     if (!this.firstDone && !this.game.soldiers(true).length) this.next = null;
     this.postpone();
   }
-  // bands grow slowly: raid after raid, with your Keep, and never far beyond what your soldiers can face
+  // the bigger your village, the bigger the band: about one bandit for every four villagers
+  popBand() { return Math.max(2, Math.round(this.game.pop / 4)); }
+  // bands still grow slowly raid after raid, and never far beyond what your soldiers can face
   bandSize() {
     if (!this.firstDone) return 2;
-    const g = this.game, soldiers = g.soldiers(true).length;
-    return Math.max(2, Math.min(TOWNHALL[g.thLevel].raid, 2 + (this.count || 0), Math.ceil(soldiers * 1.5) + 1));
+    const soldiers = this.game.soldiers(true).length;
+    return Math.max(2, Math.min(this.popBand(), 2 + (this.count || 0), soldiers * 2 + 1));
   }
   timeLeft() { return this.next == null ? Infinity : this.next - this.clock; }
 

@@ -149,7 +149,7 @@ export class Hud {
     if (type === 'townhall') {
       const T = TOWNHALL[L];
       row('house', `Homes for ${T.housing} villagers`); row('storage', `Stores ${T.storage} of every resource`);
-      row('camp', `Bandit raids come in bands of about ${T.raid}`);
+      row('camp', `Bandit raids grow with your village: about one bandit for every four villagers (now ${g.raids.popBand()})`);
       return rows;
     }
     if (d.housing) row('house', `Homes for ${d.housing + 2 * (L - 1)} villagers`);
@@ -334,7 +334,7 @@ export class Hud {
       const u = g.upgradeInfo(k), next = unlocksAt(L + 1);
       p.append(h('div', { class: 'upgrade keepup' },
         h('div', { class: 'jrow' }, icon('castle', 20), h('b', null, `Keep level ${L + 1}`), u && !u.busy ? h('span', { class: 'sub' }, fmtTime(u.time)) : null),
-        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + '. Raids get bigger.'),
+        h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') ),
         u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
           u.why ? h('p', { class: 'why' }, u.why) : null] : null));
     } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));
@@ -461,7 +461,7 @@ export class Hud {
       ['Delete', 'Demolish (press twice)'], ['Space', 'Pause'], ['F', 'Game speed 1× / 2× / 3×'], ['Esc', 'Cancel / close']];
     this.openModal('How to play', h('div', null,
       h('p', null, 'Grow your clan slowly and calmly. Unemployed villagers get jobs at fields, camps, quarries and mines, and anyone without a job builds, upgrades and clears land. Need more hands? Click a worker and press Aid construction. New families move in while you have empty homes and spare wheat.'),
-      h('p', null, 'Upgrade your Keep to unlock new buildings and bigger upgrades — but a richer village draws bigger bandit raids, so keep walls, towers and soldiers ready. When you are strong enough, open the Map to scout the country and raid your rivals.'),
+      h('p', null, 'Upgrade your Keep to unlock new buildings and bigger upgrades — but a bigger village draws bigger bandit raids, so keep walls, towers and soldiers ready. When you are strong enough, open the Map to scout the country and raid your rivals.'),
       h('dl', { class: 'kv keys2' }, rows.map(([k, v]) => [h('dt', null, k), h('dd', null, v)]))));
   }
   openMenu() {

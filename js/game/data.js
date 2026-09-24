@@ -32,11 +32,11 @@ export const ECON = {
 // Town Hall levels: everything else grows from here.
 export const TOWNHALL = [
   null,
-  { housing: 8,  storage: 500,  raid: 2 },
-  { housing: 10, storage: 800,  raid: 4, cost: { wood: 240, stone: 140, gold: 30 },  time: 150, needPop: 12 },
-  { housing: 12, storage: 1200, raid: 6, cost: { wood: 520, stone: 400, gold: 120 }, time: 240, needPop: 16 },
-  { housing: 14, storage: 1800, raid: 9, cost: { wood: 850, stone: 750, gold: 300 }, time: 330, needPop: 21 },
-  { housing: 16, storage: 2600, raid: 13, cost: { wood: 1300, stone: 1200, gold: 600 }, time: 420, needPop: 26 },
+  { housing: 8,  storage: 500 },
+  { housing: 10, storage: 800, cost: { wood: 240, stone: 140, gold: 30 },  time: 150, needPop: 12 },
+  { housing: 12, storage: 1200, cost: { wood: 520, stone: 400, gold: 120 }, time: 240, needPop: 16 },
+  { housing: 14, storage: 1800, cost: { wood: 850, stone: 750, gold: 300 }, time: 330, needPop: 21 },
+  { housing: 16, storage: 2600, cost: { wood: 1300, stone: 1200, gold: 600 }, time: 420, needPop: 26 },
 ];
 export const MAX_TH = 5;
 
