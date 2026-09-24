@@ -1,0 +1,216 @@
+// Terrain, forests, rocks and grass. The village plot (a 48×48 grid of 2-unit
+// cells centred on the origin) is perfectly flat; hills and mountains rise around it.
+import * as THREE from 'three';
+import { Mesher, MAT } from './geo.js';
+import { makeNoise2D, fbm, smoothstep, mulberry32, clamp } from '../util.js';
+
+export const PLOT = { n: 48, cell: 2, half: 48 };
+const nA = makeNoise2D(7), nB = makeNoise2D(13), nC = makeNoise2D(29);
+
+export function heightAt(x, z) {
+  const dx = Math.max(Math.abs(x) - 50, 0), dz = Math.max(Math.abs(z) - 50, 0), d = Math.hypot(dx, dz);
+  if (d <= 0) return 0;
+  const edge = smoothstep(0, 36, d);
+  const rolling = fbm(nA, x * 0.011, z * 0.011, 4) * 7 + fbm(nB, x * 0.035, z * 0.035, 3) * 2.2 + 4;
+  const m = Math.max(0, fbm(nB, x * 0.0055 + 10, z * 0.0055 - 4, 5) * 0.5 + 0.55);
+  const mountains = Math.pow(m, 2.3) * 110 * smoothstep(40, 230, d);
+  let h = edge * (rolling + mountains);
+  // a lake to the south-east of the village
+  const lk = Math.hypot((x - 105) * 0.85, z - 55);
+  h -= smoothstep(52, 14, lk) * (h + 3.5);
+  return h;
+}
+
+function terrainColor(c, x, z, h, slope) {
+  const n = fbm(nC, x * 0.05, z * 0.05, 3), n2 = nA(x * 0.2, z * 0.2);
+  const inPlot = Math.abs(x) < 50 && Math.abs(z) < 50;
+  if (h < -0.6) c.set('#b9a77a');                                // lake shore sand
+  else if (h > 70 && slope < 0.9) c.set('#eef2f6');              // snow caps
+  else if (slope > 0.75 || h > 48) c.set(n > 0 ? '#7c766b' : '#6d685f'); // rock
+  else if (inPlot) c.set(n > 0.25 ? '#86ad57' : n < -0.3 ? '#6c9446' : '#79a24e');
+  else c.set(n > 0.2 ? '#6f9748' : n < -0.25 ? '#55803b' : '#62893f');
+  c.offsetHSL(0, 0, n2 * 0.025);
+  return c;
+}
+
+const TREE_TYPES = ['pine', 'maple', 'sakura', 'cedar'];
+function treeGeometry(type) {
+  const m = new Mesher(type.length * 31, 0.07);
+  if (type === 'pine') {
+    m.cyl(0.18, 0.28, 2.4, 6, '#5a3d2a', [0, 1.2, 0]);
+    m.cone(1.9, 2.6, 7, '#2f5a36', [0, 2.8, 0]); m.cone(1.5, 2.3, 7, '#35653c', [0.1, 4.0, 0], [0, 0.5, 0]); m.cone(1.0, 1.9, 7, '#3b6f42', [0, 5.1, 0.05], [0, 1, 0]);
+  } else if (type === 'cedar') {
+    m.cyl(0.2, 0.3, 3, 6, '#5b3b28', [0, 1.5, 0]);
+    m.cone(1.4, 6.5, 7, '#2c4f33', [0, 5.2, 0]);
+  } else if (type === 'maple') {
+    m.cyl(0.16, 0.26, 2.6, 6, '#4b3326', [0, 1.3, 0]);
+    m.cyl(0.08, 0.12, 1.4, 5, '#4b3326', [0.45, 2.5, 0], [0, 0, -0.7]);
+    m.ball(1.25, '#c8452b', [0, 3.5, 0], [1.2, 0.85, 1.2]); m.ball(0.95, '#dc6a2f', [0.9, 3.1, 0.3], [1, 0.8, 1]); m.ball(0.9, '#b8392a', [-0.7, 3.0, -0.5], [1, 0.8, 1]); m.ball(0.8, '#e0873a', [0.1, 4.2, 0.4]);
+  } else {
+    m.cyl(0.18, 0.3, 2.2, 6, '#4a3530', [0, 1.1, 0], [0, 0, 0.08]);
+    m.cyl(0.09, 0.13, 1.6, 5, '#4a3530', [-0.55, 2.4, 0], [0, 0, 0.8]);
+    m.ball(1.3, '#f4b8c8', [0, 3.2, 0], [1.3, 0.8, 1.2]); m.ball(1.0, '#f7c9d6', [-1.0, 2.9, 0.3], [1.1, 0.75, 1]); m.ball(0.9, '#eea3b9', [0.9, 2.8, -0.4], [1, 0.8, 1]); m.ball(0.8, '#fbd6e1', [0.2, 3.9, 0.3]);
+  }
+  return m.geometry();
+}
+
+export class Nature {
+  constructor(scene, seed, quality) {
+    this.scene = scene; this.seed = seed; this.quality = quality;
+    this.rand = mulberry32(seed);
+    this.buildTerrain();
+    this.treeGeo = Object.fromEntries(TREE_TYPES.map(t => [t, treeGeometry(t)]));
+    this.buildForest();
+    this.buildPlotTrees();
+    this.buildRocks();
+    this.buildGrass();
+  }
+
+  buildTerrain() {
+    const size = 900, seg = this.quality === 'low' ? 150 : 230;
+    const g = new THREE.PlaneGeometry(size, size, seg, seg); g.rotateX(-Math.PI / 2);
+    const P = g.attributes.position, cols = new Float32Array(P.count * 3), c = new THREE.Color();
+    for (let i = 0; i < P.count; i++) P.setY(i, heightAt(P.getX(i), P.getZ(i)));
+    g.computeVertexNormals();
+    const N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) {
+      const slope = 1 - N.getY(i);
+      terrainColor(c, P.getX(i), P.getZ(i), P.getY(i), slope * 3);
+      cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    this.terrain = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }));
+    this.terrain.receiveShadow = true;
+    this.scene.add(this.terrain);
+  }
+
+  buildForest() {
+    const count = this.quality === 'low' ? 900 : this.quality === 'medium' ? 1800 : 3000;
+    const r = this.rand, buckets = Object.fromEntries(TREE_TYPES.map(t => [t, []]));
+    let tries = 0;
+    while (tries++ < count * 6 && Object.values(buckets).reduce((a, b) => a + b.length, 0) < count) {
+      const x = (r() - 0.5) * 760, z = (r() - 0.5) * 760;
+      if (Math.abs(x) < 56 && Math.abs(z) < 56) continue;
+      const h = heightAt(x, z);
+      if (h < -0.4 || h > 52) continue;
+      if (fbm(nC, x * 0.012, z * 0.012, 3) < -0.05 && r() > 0.15) continue;
+      const hh = heightAt(x + 1.5, z) - h, slope = Math.abs(hh) + Math.abs(heightAt(x, z + 1.5) - h);
+      if (slope > 2.2) continue;
+      const type = h > 26 ? (r() < 0.6 ? 'cedar' : 'pine') : r() < 0.45 ? 'pine' : r() < 0.55 ? 'maple' : r() < 0.6 ? 'cedar' : 'sakura';
+      buckets[type].push([x, h - 0.2, z, 0.8 + r() * 0.7, r() * 6.28]);
+    }
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+    for (const t of TREE_TYPES) {
+      const list = buckets[t]; if (!list.length) continue;
+      const im = new THREE.InstancedMesh(this.treeGeo[t], MAT.flat, list.length);
+      list.forEach(([x, y, z, s, a], i) => {
+        m4.compose(new THREE.Vector3(x, y, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(s, s * (0.9 + (i % 5) * 0.05), s));
+        im.setMatrixAt(i, m4); im.setColorAt(i, c.setHSL(0, 0, 0.85 + ((i * 37) % 30) / 100));
+      });
+      im.castShadow = true; im.receiveShadow = true;
+      this.scene.add(im);
+    }
+  }
+
+  // Trees inside the plot: woodcutters fell these and they regrow.
+  buildPlotTrees() {
+    const r = mulberry32(this.seed + 5), n = PLOT.n, trees = [];
+    for (let cz = 0; cz < n; cz++) for (let cx = 0; cx < n; cx++) {
+      const x = -PLOT.half + cx * 2 + 1, z = -PLOT.half + cz * 2 + 1;
+      if (Math.hypot(x, z) < 22) continue;
+      const d = fbm(nA, x * 0.045 + 3, z * 0.045 - 7, 3);
+      const edgeBoost = smoothstep(36, 47, Math.max(Math.abs(x), Math.abs(z))) * 0.35;
+      if (d + edgeBoost > 0.3 && r() < 0.42) {
+        const type = d > 0.45 ? 'pine' : r() < 0.35 ? 'maple' : r() < 0.25 ? 'sakura' : 'pine';
+        trees.push({ i: trees.length, cx, cz, x: x + (r() - 0.5) * 0.7, z: z + (r() - 0.5) * 0.7, type, s: 0.8 + r() * 0.35, a: r() * 6.28, alive: true, removed: false, regrowAt: 0, grow: 1 });
+      }
+    }
+    this.trees = trees;
+    this.treeMesh = {};
+    const c = new THREE.Color();
+    for (const t of ['pine', 'maple', 'sakura']) {
+      const list = trees.filter(tr => tr.type === t);
+      const im = new THREE.InstancedMesh(this.treeGeo[t], MAT.flat, Math.max(1, list.length));
+      im.count = list.length;
+      list.forEach((tr, k) => { tr.slot = k; im.setColorAt(k, c.setHSL(0, 0, 0.88 + ((k * 13) % 20) / 100)); });
+      im.castShadow = true; im.receiveShadow = true;
+      this.treeMesh[t] = im; this.scene.add(im);
+    }
+    const sm = new Mesher(99, 0.08); sm.cyl(0.3, 0.38, 0.45, 7, '#6b4a33', [0, 0.22, 0]); sm.cyl(0.26, 0.26, 0.02, 7, '#c9a878', [0, 0.46, 0]);
+    this.stumps = new THREE.InstancedMesh(sm.geometry(), MAT.flat, trees.length || 1);
+    this.stumps.castShadow = true; this.stumps.receiveShadow = true;
+    this.scene.add(this.stumps);
+    for (const tr of trees) this.syncTree(tr);
+  }
+  syncTree(tr) {
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), tr.a);
+    const s = tr.alive && !tr.removed ? tr.s * tr.grow : 0;
+    m4.compose(new THREE.Vector3(tr.x, 0, tr.z), q, new THREE.Vector3(s, s, s) );
+    const im = this.treeMesh[tr.type]; im.setMatrixAt(tr.slot, m4); im.instanceMatrix.needsUpdate = true;
+    const ss = !tr.alive && !tr.removed ? 1 : 0;
+    m4.compose(new THREE.Vector3(tr.x, 0, tr.z), q, new THREE.Vector3(ss, ss, ss));
+    this.stumps.setMatrixAt(tr.i, m4); this.stumps.instanceMatrix.needsUpdate = true;
+  }
+
+  buildRocks() {
+    const r = mulberry32(this.seed + 11), rocks = [];
+    const n = PLOT.n;
+    for (let cz = 1; cz < n - 1; cz++) for (let cx = 1; cx < n - 1; cx++) {
+      const x = -PLOT.half + cx * 2 + 1, z = -PLOT.half + cz * 2 + 1;
+      if (Math.hypot(x, z) < 20) continue;
+      if (nB(x * 0.06 + 40, z * 0.06) > 0.7 && r() < 0.35) rocks.push({ cx, cz, x, z, s: 0.8 + r() * 0.7, a: r() * 6.28 });
+    }
+    this.rocks = rocks;
+    const m = new Mesher(5, 0.1);
+    m.add(new THREE.DodecahedronGeometry(1, 0), '#8d887e', [0, 0.45, 0], [0.3, 0, 0.2], [1.1, 0.75, 0.95]);
+    m.add(new THREE.DodecahedronGeometry(0.6, 0), '#7f7a71', [0.75, 0.3, 0.35], [0, 0.6, 0], [1, 0.8, 1]);
+    const geo = m.geometry();
+    const im = new THREE.InstancedMesh(geo, MAT.flat, rocks.length + 260);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    rocks.forEach((k, i) => { m4.compose(new THREE.Vector3(k.x, 0, k.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), k.a), new THREE.Vector3(k.s, k.s, k.s)); im.setMatrixAt(i, m4); });
+    // decorative rocks in the hills
+    let j = rocks.length, tries = 0;
+    while (j < rocks.length + 260 && tries++ < 3000) {
+      const x = (r() - 0.5) * 600, z = (r() - 0.5) * 600; if (Math.abs(x) < 54 && Math.abs(z) < 54) continue;
+      const hgt = heightAt(x, z); if (hgt < -0.5) continue;
+      const s = 0.8 + r() * 2.2; m4.compose(new THREE.Vector3(x, hgt - 0.3, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6), new THREE.Vector3(s, s * 0.8, s)); im.setMatrixAt(j++, m4);
+    }
+    im.count = j; im.castShadow = true; im.receiveShadow = true;
+    this.scene.add(im);
+    this.rockMesh = im;
+  }
+  hideRock(i) {
+    const m4 = new THREE.Matrix4().makeScale(0, 0, 0);
+    this.rockMesh.setMatrixAt(i, m4); this.rockMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  buildGrass() {
+    const count = this.quality === 'low' ? 1200 : 3200;
+    const m = new Mesher(3, 0.12);
+    for (let k = 0; k < 4; k++) m.cone(0.06, 0.55 + k * 0.08, 3, k % 2 ? '#6f9a44' : '#88b454', [Math.cos(k * 1.7) * 0.12, 0.28, Math.sin(k * 1.7) * 0.12], [Math.cos(k) * 0.25, 0, Math.sin(k) * 0.25]);
+    const im = new THREE.InstancedMesh(m.geometry(), MAT.flat, count);
+    const r = mulberry32(this.seed + 17), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
+    this.grass = [];
+    for (let i = 0; i < count; i++) {
+      const x = (r() - 0.5) * 98, z = (r() - 0.5) * 98, s = 0.6 + r() * 0.8;
+      this.grass.push({ x, z, s, a: r() * 6 });
+      m4.compose(new THREE.Vector3(x, 0, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6), new THREE.Vector3(s, s, s));
+      im.setMatrixAt(i, m4); im.setColorAt(i, c.setHSL(0.25, 0.3, 0.75 + r() * 0.3));
+    }
+    im.receiveShadow = true;
+    this.grassMesh = im; this.scene.add(im);
+  }
+  // hide grass tufts under a building footprint (world rect)
+  clearGrass(x0, z0, x1, z1, hide = true) {
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    this.grass.forEach((g, i) => {
+      if (g.x < x0 || g.x > x1 || g.z < z0 || g.z > z1) return;
+      g.hidden = hide ? (g.hidden || 0) + 1 : Math.max(0, (g.hidden || 0) - 1);
+      const s = g.hidden ? 0 : g.s;
+      m4.compose(new THREE.Vector3(g.x, 0, g.z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), g.a), new THREE.Vector3(s, s, s));
+      this.grassMesh.setMatrixAt(i, m4);
+    });
+    this.grassMesh.instanceMatrix.needsUpdate = true;
+  }
+}
+export { clamp };
