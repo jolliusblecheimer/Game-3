@@ -328,3 +328,27 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .rnode.locked { opacity: 1; background: #f4eee0; }
 .rnode.locked > b, .rnode.locked > small { opacity: .6; }
 .rnode.locked .btn { opacity: .55; }
+/* army picker: west and east groups */
+.picker .selrow { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.picker .selrow.head { padding-bottom: 0; }
+.picker .selrow.head .sub { text-align: center; min-width: 104px; font-weight: 700; }
+.picker .selrow > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
+.picker .ctr { display: inline-flex; align-items: center; gap: 4px; min-width: 104px; justify-content: center; }
+.picker .ctr .count { min-width: 26px; text-align: center; }
+/* wounds */
+.hpbar { display: block; height: 5px; width: 100%; max-width: 120px; border-radius: 3px; background: #e7d9c2; overflow: hidden; margin-top: 3px; }
+.hpbar i { display: block; height: 100%; background: #c2412d; }
+/* plundered places are crossed out on the map */
+.maplabel.ruined b { text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: var(--verm); }
+.maplabel.ruined { position: absolute; }
+.maplabel.ruined > svg { opacity: .45; }
+/* keep text at its real size: iPad Safari otherwise enlarges text by itself when the iPad is turned sideways */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* long words and names wrap instead of running off the screen */
+.panel, .sheet, .toast, .btop, .info, .icard, .maplabel small, .hint { overflow-wrap: anywhere; }
+/* the side panel stops above the Turn / Move buttons */
+.panel { max-height: calc(100% - 400px); min-height: 180px; }
+@media (orientation: portrait) { .panel { max-height: calc(100% - 430px); } }
+.panel.mappanel { max-height: calc(100% - 90px); }
+.bbanner { font-size: clamp(17px, 3vw, 28px); width: max-content; max-width: calc(100vw - 40px); white-space: normal; text-align: center; line-height: 1.25; }
+.sheet h2 { font-size: clamp(19px, 3vw, 24px); }

@@ -406,6 +406,13 @@ export class Game {
       if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.emit('research'); }
     }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
+    // wounds heal slowly by themselves, four times faster with a Healer's House (resting inside: faster still)
+    const healer = [...this.buildings.values()].some(b => b.def.heals && b.done);
+    for (const v of this.villagers.values()) {
+      if (v.hpf == null || v.away || (this.raids.alarmed && v.rhp != null)) continue;
+      v.hpf += dt / (healer ? (v.resting ? 90 : 150) : 600);
+      if (v.hpf >= 1) { v.hpf = null; v.resting = false; }
+    }
     for (const v of this.villagers.values()) {
       if (v.away) { v.person.group.visible = false; continue; }
       if (v.reset) { v.reset = false; v.claim = null; v.path = null; v.act = 0; v.onDone = null; v.onArrive = null; v.site = null; v.building = null; v.hidden = false; if (v.onWall) { const c = this.grid.nearestWalkable(...this.grid.toCell(v.pos.x, v.pos.z), 3); if (c) { const p = this.grid.center(c[0], c[1]); v.pos.x = p.x; v.pos.z = p.z; } v.onWall = false; } if (!v.post) v.elev = 0; }
@@ -456,7 +463,7 @@ export class Game {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0 })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0 })).concat(this.keptVillagers || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
@@ -506,6 +513,7 @@ export class Game {
         const nv = this.spawnVillager({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: v.x, z: v.z, train: v.train, paid: v.paid });
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
         if (v.aid) nv.aid = true;
+        if (typeof v.hpf === 'number' && v.hpf < 1) nv.hpf = Math.max(0.05, v.hpf);
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
     for (const [kind, cx, cz] of s.marks || []) this.mark(kind, cx, cz);

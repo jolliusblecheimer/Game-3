@@ -26,6 +26,7 @@ export const LOOKS = {
   taisho:      { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#f2ece0', crest: '#e8c25a', cloak: '#b8342a', scale: 1.1 },
   // the rival clans wear indigo
   enemy_ashigaru: { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'yari', armor: '#2f3d5c', banner: '#2f4a7a' },
+  enemy_shield:   { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'katana', armor: '#2f3d5c', shield: '#5a4632' },
   enemy_archer:   { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'yumi', armor: '#34466a', quiver: true },
   enemy_samurai:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#e8e2d0', crest: '#c9ced4', scale: 1.08 },
   enemy_lord:     { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#1f2b4d', crest: '#e8c25a', cloak: '#2f4a7a', scale: 1.15 },
@@ -116,6 +117,13 @@ export class Person {
       if (L.armor) m.box(0.26, 0.28, 0.3, '#1c1c1f', [s * 0.05, -0.08, 0]);   // sode shoulder guard
       m.box(0.12, 0.3, 0.14, skin, [s * 0.02, -0.5, 0]);
       if (s === 1 && L.tool && L.tool !== 'yari') { const t = new Mesher(seed + 9, 0.02); toolMesh(t, L.tool); const tm = t.mesh(MAT.flat, true, false); tm.position.set(0.02, -0.62, 0.02); p.add(tm); }
+      if (s === -1 && L.shield) { // wooden hand shield with an iron rim and a painted crest
+        const t = new Mesher(seed + 11, 0.02);
+        t.box(0.62, 0.95, 0.07, L.shield, [0, 0, 0]); t.box(0.66, 0.06, 0.08, '#3a3d42', [0, 0.47, 0]); t.box(0.66, 0.06, 0.08, '#3a3d42', [0, -0.47, 0]);
+        for (const y of [-0.22, 0.22]) t.box(0.64, 0.04, 0.08, '#3d2c1e', [0, y, 0.01]);
+        t.cyl(0.14, 0.14, 0.02, 12, '#e8e2d0', [0, 0.05, 0.045], [Math.PI / 2, 0, 0]);
+        const tm = t.mesh(MAT.flat, true, false); tm.position.set(-0.08, -0.5, 0.26); p.add(tm);
+      }
       if (s === -1 && L.tool === 'yumi') {
         const t = new Mesher(seed + 10, 0.02);
         t.box(0.04, 1.3, 0.04, '#3a2418', [0, 0.35, 0.12], [0.2, 0, 0]); t.box(0.04, 0.7, 0.04, '#3a2418', [0, -0.55, 0.05], [-0.3, 0, 0]); t.box(0.01, 2.0, 0.01, '#e9e4d8', [0, 0.1, -0.02]);

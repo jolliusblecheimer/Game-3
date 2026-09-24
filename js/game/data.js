@@ -73,6 +73,8 @@ export const UNITS = {
   bandit:         { hp: 85, dmg: 11, cd: 1.0, range: 1.8, speed: 3.2, look: 'bandit', r: 0.5 },
   outlaw:         { hp: 50, dmg: 7, cd: 1.1, range: 1.7, speed: 3.0, look: 'bandit', r: 0.5 },
   enemy_ashigaru: { hp: 115, dmg: 13, cd: 1.0, range: 1.8, speed: 3.1, look: 'enemy_ashigaru', r: 0.5 },
+  // shield-bearers turn aside most arrows that come at them from the front
+  enemy_shield:   { hp: 125, dmg: 12, cd: 1.1, range: 1.8, speed: 3.0, look: 'enemy_shield', r: 0.55, block: 0.65 },
   enemy_archer:   { hp: 65, dmg: 10, cd: 1.6, range: 20, speed: 3.1, look: 'enemy_archer', ranged: true, r: 0.45 },
   enemy_samurai:  { hp: 260, dmg: 24, cd: 1.0, range: 2.0, speed: 3.4, look: 'enemy_samurai', r: 0.55 },
   enemy_lord:     { hp: 520, dmg: 30, cd: 1.0, range: 2.0, speed: 3.4, look: 'enemy_lord', r: 0.6 },
@@ -133,6 +135,8 @@ export const BUILDINGS = {
                 desc: 'Stonecutters split rock into blocks and haul them to storage.' },
   mine:       { name: 'Gold Mine', kanji: '金山', cat: 'resources', size: [3, 3], cost: { wood: 90, stone: 50 }, time: 60, jobs: 2, job: 'miner', h: 4, th: 1, maxLevel: 5, limit: [1, 1, 2, 3, 3], grow: { 3: [4, 4], 5: [5, 4] },
                 desc: 'Miners go deep into the hill for gold ore. Slow but precious.' },
+  infirmary:  { name: 'Healer’s House', kanji: '薬師', cat: 'military', size: [2, 2], cost: { wood: 90, stone: 40, gold: 15 }, time: 55, h: 4, th: 1, unique: true, heals: true,
+                desc: 'Wounded soldiers rest here and heal four times faster. Herbs dry on racks by the door.' },
   dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 1, maxLevel: 4, limit: [1, 1, 2, 2, 3], grow: { 3: [4, 3] },
                 desc: 'Unemployed villagers train here and graduate as Spearmen.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },

@@ -7,6 +7,8 @@ import { Mesher, MAT } from '../render/geo.js';
 
 const SIDES = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
 const SOLDIER_HP = { ashigaru: 120, archer: 70, berserker: 560, taisho: 380 };
+const TOUGH = 1.75; // everyone lasts longer in a fight
+const maxHp = v => (SOLDIER_HP[v.job] || 100) * TOUGH;
 
 export class Raids {
   constructor(game) {
@@ -63,11 +65,11 @@ export class Raids {
       const p = new Person('bandit', 900 + i * 17 + Math.floor(this.clock));
       p.group.position.set(x, 0, z); g.scene.add(p.group);
       const U = weak || (this.count <= 2 && i % 2) ? UNITS.outlaw : UNITS.bandit; // early bands are mostly outlaws
-      const u = { x, z, hp: U.hp, maxHp: U.hp, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
+      const u = { x, z, hp: U.hp * TOUGH, maxHp: U.hp * TOUGH, dmg: U.dmg, speed: U.speed * 0.8, person: p, heading: 0, cd: g.rand(), path: null, pathI: 0, repath: 0, carry: null, state: 'approach' };
       p.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'bandit' }; });
       this.bandits.push(u);
     }
-    for (const v of g.villagers.values()) if (JOBS[v.job].soldier) v.rhp = v.rhp || SOLDIER_HP[v.job] || 100;
+    for (const v of g.villagers.values()) if (JOBS[v.job].soldier) v.rhp = v.rhp || maxHp(v) * (v.hpf ?? 1);
     g.emit('raidStart');
   }
   // by = the soldier who saw them, or null when you point them out yourself
@@ -228,7 +230,7 @@ export class Raids {
   }
   hurtSoldier(v, dmg) {
     const g = this.game;
-    v.rhp = (v.rhp || SOLDIER_HP[v.job] || 100) - dmg;
+    v.rhp = (v.rhp || maxHp(v) * (v.hpf ?? 1)) - dmg;
     if (v.rhp <= 0) { g.toast(`${v.name} fell defending the village.`, 'bad'); g.killVillager(v.id); }
   }
   hurtBandit(u, dmg) {
@@ -263,7 +265,8 @@ export class Raids {
     for (const u of this.bandits) { g.scene.remove(u.person.group); u.person.dispose(); }
     for (const a of this.arrows) g.scene.remove(a.m);
     this.bandits = []; this.arrows = []; this.active = false; this.alarm = false; this.firstDone = true;
-    for (const v of g.villagers.values()) { v.reset = true; v.rhp = null; v.vhp = null; }
+    // soldiers keep their wounds and heal over time (faster at a Healer's House)
+    for (const v of g.villagers.values()) { v.reset = true; if (v.rhp != null) { const f = v.rhp / maxHp(v); v.hpf = f >= 0.99 ? null : Math.max(0.05, f); } v.rhp = null; v.vhp = null; }
     if (stolen.length) g.toast(`The raid is over. The bandits got away with ${stolen.map(([r, v]) => `${v} ${RES[r].name.toLowerCase()}`).join(', ')}.`, 'warn');
     else if (!this.victims) { g.toast(`Raid repelled! ${this.killed} bandit${this.killed === 1 ? '' : 's'} defeated${bounty ? ` — ${bounty} gold bounty` : ''}.`); g.state.stats.raidsBeaten = (g.state.stats.raidsBeaten || 0) + 1; }
     this.schedule();

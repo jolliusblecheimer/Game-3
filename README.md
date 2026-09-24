@@ -86,3 +86,15 @@ Small bandit hideouts lie close to your village on the map: three outlaws and no
 ## Scouts
 
 Unemployed villagers and soldiers can scout. Workers stay at their jobs.
+
+## Wounds and healing
+
+Soldiers keep their wounds after battles and raids and heal slowly at home. Build a **Healer's House** (Military) and the wounded go there to rest, healing four times faster. In battle, a soldier pulled out of the fight binds his wounds: after a few seconds without being hit or striking, he slowly regains health. Wounded soldiers are marked on the Army screen, and the healthiest are sent first when you march.
+
+## Battles
+
+- Everyone is much tougher, so fights last longer.
+- Enemy foot soldiers who are shot at charge the shooter (they even come out through their own gate). Hidden archers far off in a bush stay hidden.
+- **Shield-bearers** turn aside most arrows from the front — hit them from the side or behind.
+- **Attack from two sides:** when you march, split your troops into a west and an east group; they start on opposite flanks.
+- Plundered places are crossed out on the map.

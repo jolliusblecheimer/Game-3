@@ -289,6 +289,25 @@ const MODELS = {
     for (const [x, y, z] of [[-0.9, 1.9, -1.6], [0.3, 2.4, -1.3]]) m.ball(0.5, MOSS, [x, y, z], [1.4, 0.4, 1.2]);
     if (L >= 3) { m.box(0.8, 1.6, 0.8, WOOD_L, [-1.6, 0.8, 1.4]); m.roof(0.8, 0.8, 0.5, THATCH, 1.6, { over: 0.2, ridgeHex: THATCH_D, cx: -1.6, cz: 1.4 }); }
   },
+  infirmary(b) {
+    const m = b.m;
+    m.box(3.7, 0.35, 3.7, STONE, [0, 0.18, 0]);
+    m.box(3.0, 1.8, 2.6, PLASTER, [0, 0.35 + 0.9, -0.3]); posts(m, 3.1, 2.7, 1.85, 0.35, WOOD, 0.1);
+    m.box(3.14, 0.12, 2.74, WOOD, [0, 2.2, -0.3]); m.box(3.14, 0.08, 0.06, WOOD, [0, 1.1, 1.02]); m.box(3.14, 0.08, 0.06, WOOD, [0, 1.1, -1.62]);
+    b.g.box(1.1, 1.2, 0.06, PAPER, [-0.5, 1.0, 1.02]); for (let i = -2; i <= 2; i++) m.box(0.04, 1.2, 0.04, WOOD, [-0.5 + i * 0.22, 1.0, 1.06]);
+    for (let i = 0; i < 3; i++) m.box(0.34, 0.45, 0.03, '#4f7d4a', [-0.85 + i * 0.35, 1.45, 1.12]);   // green noren
+    m.cyl(0.14, 0.14, 0.03, 12, '#f5efe0', [-0.5, 1.5, 1.14], [Math.PI / 2, 0, 0]);
+    backWindow(b, 0.6, 1.4, -1.62, 1.0, 0.55, PAPER);
+    m.roof(3.0, 2.6, 1.7, ROOF, 2.25, { over: 0.65, ridge: 0.5, cz: -0.3 });
+    // herb drying racks, a simmering pot and a bench for the wounded
+    for (const x of [0.9, 1.5]) m.box(0.06, 1.3, 0.06, BAMBOO, [x, 1.0, 1.5]); m.box(0.8, 0.05, 0.05, BAMBOO, [1.2, 1.6, 1.5]);
+    for (let i = 0; i < 5; i++) m.cone(0.08, 0.35, 5, i % 2 ? '#6f9a4a' : '#9ab35a', [0.95 + i * 0.13, 1.4, 1.5], [Math.PI, 0, 0]);
+    m.cyl(0.28, 0.22, 0.35, 10, '#3a3d42', [1.3, 0.55, 0.6]); m.cyl(0.22, 0.22, 0.02, 10, '#8a9a5a', [1.3, 0.73, 0.6]);
+    for (let i = 0; i < 3; i++) m.box(0.07, 0.25, 0.07, '#6b4a2e', [1.3 + Math.cos(i * 2.1) * 0.22, 0.28, 0.6 + Math.sin(i * 2.1) * 0.22]);
+    b.g.box(0.18, 0.1, 0.18, '#ff9b6a', [1.3, 0.3, 0.6]);
+    m.box(1.2, 0.1, 0.4, WOOD_L, [-1.0, 0.6, 1.55]); for (const x of [-1.45, -0.55]) m.box(0.08, 0.25, 0.35, WOOD_D, [x, 0.47, 1.55]);
+    hangingLantern(b, 1.25, 1.75, 1.15);
+  },
   dojo(b, w, d) {
     const m = b.m;
     m.box(w - 0.2, 0.08, d - 0.2, SAND, [0, 0.04, 0]);

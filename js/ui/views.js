@@ -9,7 +9,7 @@ import { icon } from './icons.js';
 import { art, costChips } from './hud.js';
 
 const STATUS = { hidden: 'Unexplored', known: 'Not scouted', scouted: 'Scouted', held: 'Yours — held by your garrison', ruined: 'Ruined' };
-const UNIT_NAMES = { bandit: 'Bandits', outlaw: 'Outlaws', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
+const UNIT_NAMES = { bandit: 'Bandits', outlaw: 'Outlaws', enemy_shield: 'Shield-bearers', enemy_ashigaru: 'Spearmen', enemy_archer: 'Archers', enemy_samurai: 'Samurai', enemy_lord: 'Daimyō' };
 
 // one wheel step, whether from a mouse wheel (lines) or a trackpad (pixels)
 const clampWheel = e => Math.max(-120, Math.min(120, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY));
@@ -67,7 +67,7 @@ export class Views {
     // labels over places
     const cam = this.stage.camera, W = window.innerWidth, H = window.innerHeight, C = this.game.country;
     const items = [{ key: 'home', x: 0, z: 0, text: 'Your village', cls: 'home', ic: 'castle' }];
-    for (const s of C.sites) { const st = C.status(s); if (st === 'hidden') continue; items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub: SITES[s.type].name, cls: st, ic: SITES[s.type].icon }); }
+    for (const s of C.sites) { const st = C.status(s); if (st === 'hidden') continue; items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub: SITES[s.type].name + (st === 'ruined' ? (s.type === 'ruins' ? ' · searched' : ' · plundered') : ''), cls: st, ic: SITES[s.type].icon }); }
     for (const m of C.missions) if (m.kind === 'army' && m.phase === 'ready') { const s = C.site(m.site); items.push({ key: 'm' + m.id, x: s.x, z: s.z + 14, text: 'Your army is waiting', cls: 'army', ic: 'flag', mission: m }); }
     const seen = new Set();
     for (const it of items) {
@@ -76,9 +76,11 @@ export class Views {
       if (!el) {
         el = h('button', { class: 'maplabel ' + it.cls, 'data-k': it.key, onclick: () => { if (it.mission) this.openBattle(it.mission); else if (it.site) this.selectSite(it.site); else this.selectHome(); } },
           icon(it.ic, 20), h('span', null, h('b', null, it.text), it.sub ? h('small', null, it.sub) : null));
+        el.dataset.sub = it.sub || '';
         this.labels.append(el);
       }
       el.className = 'maplabel ' + it.cls + (this.sel && this.sel.site === it.site && it.site ? ' on' : '');
+      if (it.sub && el.dataset.sub !== it.sub) { el.dataset.sub = it.sub; const sm = el.querySelector('small'); if (sm) sm.textContent = it.sub; }
       const p = this.map.worldPos(it.x, it.z, 12).project(cam);
       const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
       el.style.display = vis ? '' : 'none';
@@ -167,27 +169,42 @@ export class Views {
   armyPicker(site) {
     const g = this.game, C = g.country, soldiers = g.soldiers();
     const types = ['ashigaru', 'archer', 'berserker', 'taisho'];
-    const pick = Object.fromEntries(types.map(t => [t, soldiers.filter(v => v.job === t).length]));
-    let rams = Math.min(g.state.rams || 0, 2);
-    const body = h('div', { class: 'menu' });
+    // two groups: the west group (everything, by default) and an east group for a pincer attack
+    const pick = Object.fromEntries(types.map(t => [t, [soldiers.filter(v => v.job === t).length, 0]]));
+    const haveRams = g.state.rams || 0, rams = [Math.min(haveRams, 2), 0];
+    const body = h('div', { class: 'menu picker' });
+    const counter = (arr, k, max) => h('span', { class: 'ctr' },
+      h('button', { class: 'mini', onclick: () => { arr[k] = Math.max(0, arr[k] - 1); render(); } }, '−'), h('span', { class: 'count' }, String(arr[k])),
+      h('button', { class: 'mini', onclick: () => { if (arr[0] + arr[1] < max) arr[k]++; else if (arr[1 - k] > 0) { arr[1 - k]--; arr[k]++; } render(); } }, '+'));
     const render = () => {
       body.textContent = '';
       if (!soldiers.length) { body.append(h('p', null, 'You have no soldiers. Train Ashigaru at the Dojo and archers at the Kyūdō Range, and appoint commanders at the Keep.')); return; }
+      body.append(h('div', { class: 'selrow head' }, h('span'), h('b', null, 'Troops'), h('span', { class: 'sub' }, 'West group'), h('span', { class: 'sub' }, 'East group')));
       for (const t of types) {
-        const have = soldiers.filter(v => v.job === t).length; if (!have) continue;
-        body.append(h('div', { class: 'selrow' }, art('person', JOBS[t].look, null, 'face'), h('b', null, JOBS[t].name), h('span', { class: 'sub' }, JOBS[t].commander ? COMMANDERS[t].ability : ''),
-          h('button', { class: 'mini', onclick: () => { pick[t] = Math.max(0, pick[t] - 1); render(); } }, '−'), h('span', { class: 'count' }, `${pick[t]} / ${have}`), h('button', { class: 'mini', onclick: () => { pick[t] = Math.min(have, pick[t] + 1); render(); } }, '+')));
+        const list = soldiers.filter(v => v.job === t), have = list.length; if (!have) continue;
+        const hurt = list.filter(v => v.hpf != null && v.hpf < 0.95).length;
+        body.append(h('div', { class: 'selrow' }, art('person', JOBS[t].look, null, 'face'),
+          h('span', null, h('b', null, `${JOBS[t].name} · ${have}`), h('small', { class: 'sub' }, hurt ? `${hurt} wounded` : JOBS[t].commander ? COMMANDERS[t].ability : '')),
+          counter(pick[t], 0, have), counter(pick[t], 1, have)));
       }
-      const haveRams = g.state.rams || 0;
-      body.append(h('div', { class: 'selrow' }, icon('ram', 30), h('b', null, 'Battering ram'), h('span', { class: 'sub' }, haveRams ? '' : 'Build one at a Siege Workshop'),
-        h('button', { class: 'mini', onclick: () => { rams = Math.max(0, rams - 1); render(); } }, '−'), h('span', { class: 'count' }, `${rams} / ${haveRams}`), h('button', { class: 'mini', onclick: () => { rams = Math.min(haveRams, rams + 1); render(); } }, '+')));
-      const n = Object.values(pick).reduce((a, b) => a + b, 0);
-      body.append(h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(C.marchTime(site))} — supplies: ${WAR.marchCost * n} wheat`)));
+      body.append(h('div', { class: 'selrow' }, icon('ram', 30), h('span', null, h('b', null, `Battering ram · ${haveRams}`), h('small', { class: 'sub' }, haveRams ? '' : 'Build one at a Siege Workshop')),
+        counter(rams, 0, haveRams), counter(rams, 1, haveRams)));
+      const n = types.reduce((a, t) => a + pick[t][0] + pick[t][1], 0), east = types.reduce((a, t) => a + pick[t][1], 0);
+      body.append(h('p', { class: 'sub' }, east ? 'The west group attacks from the west flank, the east group from the east — close in from both sides at once.' : 'Put troops in the east group to attack from two sides at once.'),
+        h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(C.marchTime(site))} — supplies: ${WAR.marchCost * n} wheat`)));
     };
     render();
     this.hud.openModal(`Raid ${site.name}`, body, [{ label: 'Cancel', cls: 'ghost' }, { label: 'March!', cls: 'danger', fn: () => {
-      const vids = []; for (const t of types) vids.push(...soldiers.filter(v => v.job === t).slice(0, pick[t]).map(v => v.id));
-      C.sendArmy(site, vids, rams); this.renderMapUI();
+      const vids = [], sides = {};
+      for (const t of types) {
+        // the healthiest go first
+        const list = soldiers.filter(v => v.job === t).sort((a, b) => (b.hpf ?? 1) - (a.hpf ?? 1));
+        list.slice(0, pick[t][0]).forEach(v => { vids.push(v.id); sides[v.id] = 'w'; });
+        list.slice(pick[t][0], pick[t][0] + pick[t][1]).forEach(v => { vids.push(v.id); sides[v.id] = 'e'; });
+      }
+      const m = C.sendArmy(site, vids, rams[0] + rams[1]);
+      if (m && typeof m === 'object') { m.sides = sides; m.ramsE = rams[1]; }
+      this.renderMapUI();
     } }], { wide: true });
   }
 
@@ -323,6 +340,7 @@ export class Views {
   battleEnded(result) {
     const b = this.battle, g = this.game, C = g.country, m = b.mission, site = b.site, S = SITES[site.type];
     const r = b.results(), alive = r.survivors;
+    for (const [id, f] of Object.entries(r.health || {})) { const v = g.villagers.get(+id); if (v) v.hpf = f >= 0.99 ? null : f; }
     if (m.defend) {
       const won = result === 'victory';
       C.defenseResult(site, won, alive);

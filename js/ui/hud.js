@@ -297,6 +297,7 @@ export class Hud {
       p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, J.name + (work ? ` · ${work.def.name}` : '') + (v.aid ? ' · aiding construction' : '')))),
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
+      if (v.hpf != null) p.append(h('div', { class: 'irow' }, icon('soldier', 16), h('span', null, 'Wounded'), this.bar2(() => v.hpf == null ? 1 : v.hpf, 'hp')));
       if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / work.def.trainTime));
       const actions = h('div', { class: 'actions' });
       actions.append(h('button', { class: 'btn ghost', onclick: () => { this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } }, icon('eye', 16), 'Follow'));
@@ -390,8 +391,12 @@ export class Hud {
       body.append(h('h3', null, `${name} · ${list.length}`));
       if (!list.length) { body.append(h('p', { class: 'sub' }, name === 'Commanders' ? 'Appoint commanders at the Keep (level 4 and 5).' : name === 'In training' ? 'Hire unemployed villagers at a Dojo or Kyūdō Range.' : 'None yet.')); continue; }
       body.append(h('div', { class: 'armygrid' }, list.map(v => h('button', { class: 'soldier', disabled: v.away ? true : null, onclick: () => { this.modal.hidden = true; this.input.select({ kind: 'villager', id: v.id }); this.cam.follow = () => g.villagers.get(v.id) && g.villagers.get(v.id).pos; } },
-        art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${JOBS[v.job].name} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null)))));
+        art('person', JOBS[v.job].look, null, 'face'), h('span', null, h('b', null, v.name), h('small', null, `${JOBS[v.job].name} · ${where(v)}`), JOBS[v.job].commander ? h('small', { class: 'ab' }, COMMANDERS[v.job].ability) : null,
+          v.hpf != null ? h('span', { class: 'hpbar' }, h('i', { style: `width:${Math.round(v.hpf * 100)}%` })) : null)))));
+
     }
+    const hurt = all.filter(v => v.hpf != null && !v.away).length;
+    if (hurt) body.append(h('p', { class: 'sub' }, [...g.buildings.values()].some(b => b.def.heals && b.done) ? `${hurt} wounded — they rest at the Healer’s House and heal quickly.` : `${hurt} wounded — they heal slowly. Build a Healer’s House (Military) to heal them four times faster.`));
     body.append(h('h3', null, `Battering rams · ${g.state.rams || 0}`), h('p', { class: 'sub' }, g.state.ramBuild ? 'One more is being built at the Siege Workshop.' : 'Built at the Siege Workshop.'));
     const holds = Object.keys(C.holds);
     if (holds.length) body.append(h('h3', null, 'Held places'), h('div', { class: 'chips' }, holds.map(id => { const s = C.site(+id); return h('span', { class: 'chip' }, icon(SITES[s.type].icon, 16), `${s.name} · ${C.garrison(s).length} guards`); })));

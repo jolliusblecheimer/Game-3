@@ -235,6 +235,7 @@ export function thinkVillager(game, v) {
       }, archer ? `Practising the bow (${pct()}%)` : `Drilling with the spear (${pct()}%)`, faceTo), 'Heading to training');
     }
     case 'archer':
+      if (v.post && v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) leaveTower(game, v);
       if (v.post) {
         const b = game.buildings.get(v.post.b);
         if (b && b.done) {
@@ -245,9 +246,15 @@ export function thinkVillager(game, v) {
         }
         leaveTower(game, v);
       }
-      if (climbTower(game, v)) return;
+      if (!(v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) && climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough
     case 'ashigaru': case 'berserker': case 'taisho': {
+      // wounded soldiers rest at the Healer's House
+      const healer = v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].find(b => b.def.heals && b.done);
+      if (healer) {
+        if (v.post) { v.post = null; v.elev = 0; }
+        return goTo(game, v, game.door(healer, 0.6), () => { v.resting = true; inside(v, 15, () => { v.resting = false; }, `Resting at the ${healer.def.name} (${Math.round(v.hpf * 100)}%)`); }, 'Going to the healer to rest');
+      }
       // from Keep level 4, spearmen patrol along the walkways of upgraded walls
       if (v.job === 'ashigaru' && game.thLevel >= 4 && game.rand() < 0.6 && wallPatrol(game, v)) return;
       const gates = [...game.buildings.values()].filter(b => b.done && (b.type === 'gate' || b.type === 'townhall'));
