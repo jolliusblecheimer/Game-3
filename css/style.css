@@ -296,3 +296,4 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .node.locked { opacity: .55; }
 .tline { width: 3px; height: 12px; background: var(--line); margin: 0 auto; }
 .tline.done { background: var(--leaf); }
+.btn.gold { background: var(--gold); color: #2a1d02; }

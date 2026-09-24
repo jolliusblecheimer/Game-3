@@ -237,6 +237,7 @@ export class Hud {
           const n = [...g.villagers.values()].filter(v => v.site === b.id).length, builders = g.countJob('builder');
           el.textContent = n ? `${n} builder${n > 1 ? 's' : ''} at work` : builders ? 'Waiting for a free builder' : 'No builders! Assign villagers as builders at the Keep.';
         }));
+        p.append(h('button', { class: 'btn small ' + (b.prio ? 'gold' : 'ghost'), title: 'Builders finish prioritised jobs first', onclick: () => { b.prio = !b.prio; for (const v of g.villagers.values()) if (v.job === 'builder' && v.site !== b.id) v.reset = true; this.renderPanel(); } }, icon('flag', 16), b.prio ? 'Priority — builders come here first' : 'Make this a priority'));
       }
       const rows = this.infoRows(b.type, b);
       if (rows.length) p.append(h('div', { class: 'irows' }, rows));
@@ -386,7 +387,8 @@ export class Hud {
         T.nodes.forEach((n, i) => {
           const done = g.hasResearch(n.id), active = A && A.id === n.id, why = g.researchBlock(n.id);
           const locked = !done && !active && why && why !== 'Not enough resources' && !why.startsWith('Scholars');
-          col.append(i ? h('div', { class: 'tline' + (done ? ' done' : '') }) : null,
+          if (i) col.append(h('div', { class: 'tline' + (done ? ' done' : '') }));
+          col.append(
             h('div', { class: 'node' + (done ? ' done' : active ? ' active' : locked ? ' locked' : '') },
               h('b', null, n.name), h('small', null, n.desc),
               done ? h('span', { class: 'pill' }, '✓ Learned') : active ? h('span', { class: 'pill' }, 'Studying…') : [h('div', { class: 'row' }, costChips(g, n.cost, this.live), h('small', { class: 'sub' }, fmtTime(n.time))),
