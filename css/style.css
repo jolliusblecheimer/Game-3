@@ -318,7 +318,12 @@ kbd { font: 700 10px ui-monospace, Menlo, monospace; background: var(--paper-2);
 .rtab.on { border-color: var(--verm); box-shadow: inset 0 0 0 2px var(--verm); background: #fff; }
 .rwrap { overflow: auto; display: flex; justify-content: center; padding: 6px 0 4px; }
 .rgraph { position: relative; flex: 0 0 auto; }
-.rgraph svg { position: absolute; inset: 0; pointer-events: none; }
-.rgraph path { fill: none; stroke: var(--line); stroke-width: 3; stroke-dasharray: 6 5; }
-.rgraph path.done { stroke: var(--leaf); stroke-dasharray: none; }
+.rgraph svg.rlines { position: absolute; inset: 0; pointer-events: none; }
+.rlines path { fill: none; stroke: var(--line); stroke-width: 3; stroke-dasharray: 6 5; }
+.rlines path.done { stroke: var(--leaf); stroke-dasharray: none; }
 .rnode { position: absolute; min-height: 118px; box-shadow: 0 2px 6px rgba(40, 30, 20, .08); }
+.rnode .cost { gap: 8px; flex-wrap: wrap; }
+.rnode .cost .c { font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; }
+.rnode .cost .c svg { width: 18px; height: 18px; }
+.rnode.locked { opacity: 1; background: #f4eee0; }
+.rnode.locked > b, .rnode.locked > small { opacity: .6; }

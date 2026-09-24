@@ -412,7 +412,7 @@ export class Hud {
       const graph = h('div', { class: 'rgraph', style: `width:${3 * W}px;height:${rows * H}px` });
       // branch lines
       const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('width', 3 * W); svg.setAttribute('height', rows * H);
+      svg.setAttribute('class', 'rlines'); svg.setAttribute('width', 3 * W); svg.setAttribute('height', rows * H);
       for (const n of T.nodes) for (const id of n.req || []) {
         const p = byId[id]; if (!p) continue;
         const x1 = p.c * W + W / 2, y1 = p.r * H + H - 38, x2 = n.c * W + W / 2, y2 = n.r * H, my = (y1 + y2) / 2;
