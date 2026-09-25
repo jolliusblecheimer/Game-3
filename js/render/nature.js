@@ -1,14 +1,17 @@
-// Terrain, forests, rocks and grass. The village plot (a 48×48 grid of 2-unit
-// cells centred on the origin) is perfectly flat; hills and mountains rise around it.
+// Terrain, forests, rocks and grass. The village plot (a 72×72 grid of 2-unit
+// cells centred on the origin; 48×48 before version 2.1) is perfectly flat; hills and mountains rise around it.
 import * as THREE from 'three';
 import { Mesher, MAT } from './geo.js';
 import { makeNoise2D, fbm, smoothstep, mulberry32, clamp } from '../util.js';
 
-export const PLOT = { n: 48, cell: 2, half: 48 };
+export const PLOT = { n: 72, cell: 2, half: 72 };
+export const OLD_PLOT_N = 48;                       // saves from before the plot grew
+const OLD_OFF = (PLOT.n - OLD_PLOT_N) / 2;          // the old plot sits in the middle of the new one
+const FLAT = PLOT.half + 2;
 const nA = makeNoise2D(7), nB = makeNoise2D(13), nC = makeNoise2D(29);
 
 export function heightAt(x, z) {
-  const dx = Math.max(Math.abs(x) - 50, 0), dz = Math.max(Math.abs(z) - 50, 0), d = Math.hypot(dx, dz);
+  const dx = Math.max(Math.abs(x) - FLAT, 0), dz = Math.max(Math.abs(z) - FLAT, 0), d = Math.hypot(dx, dz);
   if (d <= 0) return 0;
   const edge = smoothstep(0, 36, d);
   const rolling = fbm(nA, x * 0.011, z * 0.011, 4) * 7 + fbm(nB, x * 0.035, z * 0.035, 3) * 2.2 + 4;
@@ -16,14 +19,14 @@ export function heightAt(x, z) {
   const mountains = Math.pow(m, 2.3) * 110 * smoothstep(40, 230, d);
   let h = edge * (rolling + mountains);
   // a lake to the south-east of the village
-  const lk = Math.hypot((x - 105) * 0.85, z - 55);
+  const lk = Math.hypot((x - 150) * 0.85, z - 80);
   h -= smoothstep(52, 14, lk) * (h + 3.5);
   return h;
 }
 
 function terrainColor(c, x, z, h, slope) {
   const n = fbm(nC, x * 0.05, z * 0.05, 3), n2 = nA(x * 0.2, z * 0.2);
-  const inPlot = Math.abs(x) < 50 && Math.abs(z) < 50;
+  const inPlot = Math.abs(x) < FLAT && Math.abs(z) < FLAT;
   if (h < -0.6) c.set('#b9a77a');                                // lake shore sand
   else if (h > 70 && slope < 0.9) c.set('#eef2f6');              // snow caps
   else if (slope > 0.75 || h > 48) c.set(n > 0 ? '#7c766b' : '#6d685f'); // rock
@@ -101,7 +104,7 @@ export class Nature {
     let tries = 0;
     while (tries++ < count * 6 && Object.values(buckets).reduce((a, b) => a + b.length, 0) < count) {
       const x = (r() - 0.5) * 760, z = (r() - 0.5) * 760;
-      if (Math.abs(x) < 56 && Math.abs(z) < 56) continue;
+      if (Math.abs(x) < FLAT + 6 && Math.abs(z) < FLAT + 6) continue;
       const h = heightAt(x, z);
       if (h < -0.4 || h > 52) continue;
       if (fbm(nC, x * 0.012, z * 0.012, 3) < -0.05 && r() > 0.15) continue;
@@ -146,17 +149,21 @@ export class Nature {
 
   // Trees inside the plot: woodcutters fell these and they regrow.
   buildPlotTrees() {
-    const r = mulberry32(this.seed + 5), n = PLOT.n, trees = [];
-    for (let cz = 0; cz < n; cz++) for (let cx = 0; cx < n; cx++) {
+    const trees = [];
+    const grow = (r, cx, cz, edge) => {
       const x = -PLOT.half + cx * 2 + 1, z = -PLOT.half + cz * 2 + 1;
-      if (Math.hypot(x, z) < 22) continue;
+      if (Math.hypot(x, z) < 22) return;
       const d = fbm(nA, x * 0.045 + 3, z * 0.045 - 7, 3);
-      const edgeBoost = smoothstep(36, 47, Math.max(Math.abs(x), Math.abs(z))) * 0.35;
+      const edgeBoost = smoothstep(edge - 11, edge, Math.max(Math.abs(x), Math.abs(z))) * 0.35;
       if (d + edgeBoost > 0.3 && r() < 0.42) {
         const type = d > 0.45 ? 'pine' : r() < 0.35 ? 'maple' : r() < 0.25 ? 'sakura' : 'pine';
         trees.push({ i: trees.length, cx, cz, x: x + (r() - 0.5) * 0.7, z: z + (r() - 0.5) * 0.7, type, s: 0.8 + r() * 0.35, a: r() * 6.28, alive: true, removed: false, regrowAt: 0, grow: 1 });
       }
-    }
+    };
+    const r = mulberry32(this.seed + 5), r2 = mulberry32(this.seed + 55);
+    for (let cz = 0; cz < OLD_PLOT_N; cz++) for (let cx = 0; cx < OLD_PLOT_N; cx++) grow(r, cx + OLD_OFF, cz + OLD_OFF, 47);
+    const old = (cx, cz) => cx >= OLD_OFF && cz >= OLD_OFF && cx < OLD_OFF + OLD_PLOT_N && cz < OLD_OFF + OLD_PLOT_N;
+    for (let cz = 0; cz < PLOT.n; cz++) for (let cx = 0; cx < PLOT.n; cx++) if (!old(cx, cz)) grow(r2, cx, cz, PLOT.half - 1);
     this.trees = trees;
     this.treeMesh = {};
     const c = new THREE.Color();
@@ -185,13 +192,15 @@ export class Nature {
   }
 
   buildRocks() {
-    const r = mulberry32(this.seed + 11), rocks = [];
-    const n = PLOT.n;
-    for (let cz = 1; cz < n - 1; cz++) for (let cx = 1; cx < n - 1; cx++) {
+    const r = mulberry32(this.seed + 11), r2 = mulberry32(this.seed + 66), rocks = [];
+    const stone = (r, cx, cz) => {
       const x = -PLOT.half + cx * 2 + 1, z = -PLOT.half + cz * 2 + 1;
-      if (Math.hypot(x, z) < 20) continue;
+      if (Math.hypot(x, z) < 20) return;
       if (nB(x * 0.06 + 40, z * 0.06) > 0.7 && r() < 0.35) rocks.push({ cx, cz, x, z, s: 0.8 + r() * 0.7, a: r() * 6.28 });
-    }
+    };
+    // the old middle first (the same boulders as before), then the new ring
+    for (let cz = 1; cz < OLD_PLOT_N - 1; cz++) for (let cx = 1; cx < OLD_PLOT_N - 1; cx++) stone(r, cx + OLD_OFF, cz + OLD_OFF);
+    for (let cz = 1; cz < PLOT.n - 1; cz++) for (let cx = 1; cx < PLOT.n - 1; cx++) if (cx < OLD_OFF + 1 || cz < OLD_OFF + 1 || cx >= OLD_OFF + OLD_PLOT_N - 1 || cz >= OLD_OFF + OLD_PLOT_N - 1) stone(r2, cx, cz);
     this.rocks = rocks;
     const m = new Mesher(5, 0.1);
     m.add(new THREE.DodecahedronGeometry(1, 0), '#8d887e', [0, 0.45, 0], [0.3, 0, 0.2], [1.1, 0.75, 0.95]);
@@ -203,7 +212,7 @@ export class Nature {
     // decorative rocks in the hills
     let j = rocks.length, tries = 0;
     while (j < rocks.length + 260 && tries++ < 3000) {
-      const x = (r() - 0.5) * 600, z = (r() - 0.5) * 600; if (Math.abs(x) < 54 && Math.abs(z) < 54) continue;
+      const x = (r() - 0.5) * 600, z = (r() - 0.5) * 600; if (Math.abs(x) < FLAT + 4 && Math.abs(z) < FLAT + 4) continue;
       const hgt = heightAt(x, z); if (hgt < -0.5) continue;
       const s = 0.8 + r() * 2.2; m4.compose(new THREE.Vector3(x, hgt - 0.3, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6), new THREE.Vector3(s, s * 0.8, s)); im.setMatrixAt(j++, m4);
     }
@@ -217,14 +226,14 @@ export class Nature {
   }
 
   buildGrass() {
-    const count = this.quality === 'low' ? 1200 : 3200;
+    const count = this.quality === 'low' ? 2000 : 5600;
     const m = new Mesher(3, 0.12);
     for (let k = 0; k < 4; k++) m.cone(0.06, 0.55 + k * 0.08, 3, k % 2 ? '#6f9a44' : '#88b454', [Math.cos(k * 1.7) * 0.12, 0.28, Math.sin(k * 1.7) * 0.12], [Math.cos(k) * 0.25, 0, Math.sin(k) * 0.25]);
     const im = new THREE.InstancedMesh(m.geometry(), MAT.flat, count);
     const r = mulberry32(this.seed + 17), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color();
     this.grass = [];
     for (let i = 0; i < count; i++) {
-      const x = (r() - 0.5) * 98, z = (r() - 0.5) * 98, s = 0.6 + r() * 0.8;
+      const x = (r() - 0.5) * (PLOT.half * 2 + 2), z = (r() - 0.5) * (PLOT.half * 2 + 2), s = 0.6 + r() * 0.8;
       this.grass.push({ x, z, s, a: r() * 6 });
       m4.compose(new THREE.Vector3(x, 0, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r() * 6), new THREE.Vector3(s, s, s));
       im.setMatrixAt(i, m4); im.setColorAt(i, c.setHSL(0.25, 0.3, 0.75 + r() * 0.3));

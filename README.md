@@ -195,3 +195,9 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Big villages:** people far from where you're looking animate less often.
 - **Save file / save code** (Menu): there is no cloud save, because the game has no server. Download your village as a file (on iPad it goes to Files → Downloads) or copy the save code. Then load it on any other device.
 - **Offline / app:** open the game once online, then use Share → *Add to Home Screen*. It gets its own icon, starts full screen and works without internet. Updates still arrive whenever you're online.
+
+## More land, and merging houses
+- The building area is now **72×72 cells** (it was 48×48): more than twice the room. Older saves are converted automatically. Every building, felled tree and cleared rock stays exactly where it was, and the new land is added evenly around the edges.
+- **Samurai Manor:** select a Minka House at the top level and choose *Merge*. It joins with another top-level house into a Samurai Manor.
+  - The manor holds 20 people (28 when upgraded) instead of 16, and frees two house plots.
+  - If the two houses stand side by side, the manor takes their place. Otherwise the nearest top-level house is taken down and its family moves in.

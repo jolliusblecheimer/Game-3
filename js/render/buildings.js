@@ -415,6 +415,22 @@ const MODELS = {
     }
     m.box(w * 0.8, 0.4, d * 0.8, '#5f7a44', [0, 7.1, 0]);
   },
+  // Samurai Manor (buke-yashiki): a long white-walled hall on a stone base, shoji front, veranda and a heavy roof
+  yashiki(b, w, d) {
+    const m = b.m, L = b.level || 1, fz = d / 2 - 0.45;
+    m.box(w - 0.1, 0.4, d - 0.1, STONE, [0, 0.2, 0]);
+    m.box(w - 0.9, 2.3, d - 0.9, PLASTER, [0, 1.55, 0]);
+    m.box(w - 0.84, 0.7, d - 0.84, WOOD_D, [0, 0.75, 0]);
+    for (let i = 0; i <= 5; i++) m.box(0.12, 2.3, 0.12, WOOD_D, [-(w - 0.9) / 2 + i * (w - 0.9) / 5, 1.55, fz]);
+    m.box(w - 0.9, 0.12, 0.1, WOOD_D, [0, 1.95, fz]);
+    for (let i = 0; i < 5; i++) m.box((w - 0.9) / 5 - 0.18, 1.0, 0.03, PAPER, [-(w - 0.9) / 2 + (i + 0.5) * (w - 0.9) / 5, 1.35, fz + 0.02]);
+    m.box(w - 0.5, 0.1, 0.6, WOOD_L, [0, 0.5, d / 2 - 0.2]);
+    m.box(w - 0.3, 0.14, d - 0.3, WOOD, [0, 2.75, 0]);
+    m.roof(w - 0.7, d - 0.7, 1.7, ROOF, 2.8, { over: 0.65, ridge: 0.7 });
+    if (L >= 2) { m.box(1.4, 0.9, 0.9, PLASTER, [0, 4.1, 0]); m.roof(1.6, 1.1, 0.7, ROOF, 4.5, { over: 0.3, ridge: 0.4 }); }
+    backWindow(b, 0, 1.7, -(d - 0.9) / 2 - 0.02, 0.8, 0.45, PAPER);
+    hangingLantern(b, -w / 2 + 0.5, 1.9, d / 2 - 0.15); if (L >= 3) hangingLantern(b, w / 2 - 0.5, 1.9, d / 2 - 0.15);
+  },
   // Stables: open stalls under a long roof, three horses, hay
   stable(b, w, d) {
     const m = b.m;

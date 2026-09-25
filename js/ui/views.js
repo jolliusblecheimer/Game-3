@@ -636,6 +636,13 @@ export class Views {
       }
       p.append(box);
     }
+    if (b.type === 'house' && b.done && b.level >= b.def.maxLevel) {
+      const P = g.mergePlan(b), cost = g.mergeCost();
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('house', 20), h('b', null, 'Merge into a Samurai Manor')),
+        h('p', { class: 'sub' }, 'Join this house with another Minka House at the top level. The Manor holds 20 people (28 when upgraded) instead of 16, and frees two house plots.'),
+        P.why ? h('p', { class: 'why' }, P.why) : h('p', { class: 'sub' }, P.covers ? 'Merges with the house right next to it.' : 'The nearest top-level house is taken down and its family moves in here.'),
+        h('div', { class: 'row' }, costChips(g, cost), h('button', { class: 'btn small', disabled: P.why ? true : null, onclick: () => { const m = g.mergeHouses(b); if (m) this.hud.input.select({ kind: 'building', id: m.id }); } }, 'Merge'))));
+    }
     if (b.type === 'market' && b.done) {
       const L = g.life, box = h('div', { class: 'jobs market' }, h('div', { class: 'jrow' }, icon('gold', 20), h('b', null, 'Trade')));
       for (const r of ['wheat', 'wood', 'stone', 'iron', 'sake']) {

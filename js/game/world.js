@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
 import { Grid, FREE, TREE, ROCK } from './grid.js';
-import { PLOT } from '../render/nature.js';
+import { PLOT, OLD_PLOT_N } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
@@ -172,6 +172,41 @@ export class Game {
     this.nature.rocks.forEach((r, i) => { if (!r.removed && r.cx >= cx && r.cx < cx + w && r.cz >= cz && r.cz < cz + d) { this.removeRock(r, i); stone += 8; } });
     if (wood) this.add('wood', wood);
     if (stone) this.add('stone', stone);
+  }
+  /* ---------- merging two top-level houses into a Samurai Manor ---------- */
+  mergeCost() { return { wood: 120, stone: 80, gold: 40 }; }
+  // where the manor would go: it always covers house a; best of all it covers the partner too (side by side)
+  mergePlan(a) {
+    const maxed = b => b.type === 'house' && b.done && !b.upg && b.level >= b.def.maxLevel;
+    if (!maxed(a)) return { why: 'Only a Minka House at the top level can be merged' };
+    if (this.thLevel < BUILDINGS.yashiki.th) return { why: `Needs Keep level ${BUILDINGS.yashiki.th}` };
+    const ca = this.center(a), partners = [...this.buildings.values()].filter(b => b !== a && maxed(b)).sort((p, q) => { const cp = this.center(p), cq = this.center(q); return Math.hypot(cp.x - ca.x, cp.z - ca.z) - Math.hypot(cq.x - ca.x, cq.z - ca.z); });
+    if (!partners.length) return { why: 'You need a second Minka House at the top level' };
+    const spots = []; for (const rot of [0, 1]) { const [w, d] = this.footprint('yashiki', rot); for (let dz = -(d - a.d); dz <= 0; dz++) for (let dx = -(w - a.w); dx <= 0; dx++) spots.push({ cx: a.cx + dx, cz: a.cz + dz, rot, w, d }); }
+    let best = null;
+    for (const p of partners.slice(0, 6)) {
+      this.occupy(a, false); this.occupy(p, false);
+      for (const s of spots) {
+        if (!this.canPlace('yashiki', s.cx, s.cz, s.rot).ok) continue;
+        const covers = p.cx >= s.cx && p.cz >= s.cz && p.cx + p.w <= s.cx + s.w && p.cz + p.d <= s.cz + s.d;
+        if (covers) { best = { ...s, partner: p, covers }; break; }
+        if (!best) best = { ...s, partner: p, covers };
+      }
+      this.occupy(a, true); this.occupy(p, true);
+      if (best && best.covers) break;
+    }
+    if (!best) return { why: 'There\u2019s no room: a Samurai Manor is 4×2 — clear the space beside this house' };
+    return best;
+  }
+  mergeHouses(a) {
+    const P = this.mergePlan(a); if (P.why) { this.toast(P.why, 'warn'); return false; }
+    const cost = this.mergeCost(); if (!this.canAfford(cost)) { this.toast('Not enough resources to merge', 'warn'); return false; }
+    this.pay(cost);
+    this.demolish(a.id, { silent: true }); this.demolish(P.partner.id, { silent: true });
+    const m = this.place('yashiki', P.cx, P.cz, P.rot, { done: true, free: true });
+    this.sfx('fanfare'); this.toast(P.covers ? 'The two houses are now one: a Samurai Manor!' : 'A Samurai Manor rises here — the family from the other house moves in.');
+    this.progress.log('Two houses were joined into a Samurai Manor.', 'life');
+    this.emit('built', m); return m;
   }
   removeTree(t) { t.removed = true; this.nature.syncTree(t); this.unmark('t', t.cx, t.cz); }
   removeRock(r, i) { r.removed = true; this.nature.hideRock(i); this.unmark('r', r.cx, r.cz); }
@@ -531,7 +566,7 @@ export class Game {
   serialize() {
     const S = this.state;
     return {
-      v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
+      v: SAVE_VERSION, plot: PLOT.n, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined })).concat(this.keptBuildings || []),
       villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
@@ -547,6 +582,13 @@ export class Game {
   }
   load(s) {
     const S = this.state;
+    // saves from the smaller plot: everything shifts so it stays exactly where it was
+    const off = Math.round((PLOT.n - (s.plot || OLD_PLOT_N)) / 2), newRows = (s.v || 1) >= 2;
+    if (off) s = { ...s,
+      buildings: (s.buildings || []).map(b => ({ ...b, cx: b.cx + off, cz: b.cz + off })),
+      trees: newRows ? (s.trees || []).map(t => [t[0] + off, t[1] + off, ...t.slice(2)]) : s.trees,
+      rocks: newRows ? (s.rocks || []).map(t => [t[0] + off, t[1] + off]) : s.rocks,
+      marks: (s.marks || []).map(([k, x, z]) => [k, x + off, z + off]) };
     for (const k of ['clock', 'time', 'day', 'nextId', 'arriveT', 'eatAcc']) if (typeof s[k] === 'number' && isFinite(s[k])) S[k] = s[k];
     for (const r in RES) S.res[r] = Math.max(0, +s.res?.[r] || 0);
     Object.assign(S.settings, s.settings || {}); Object.assign(S.stats, s.stats || {});
