@@ -11,7 +11,7 @@ import { Views } from './ui/views.js';
 import { h } from './util.js';
 import { Music } from './audio/music.js';
 
-const BACKUP_KEY = 'tenka.save.backup';
+const BACKUP_KEY = 'tenka.classic.backup';
 
 function pickQuality() {
   let q = null;
@@ -20,9 +20,15 @@ function pickQuality() {
   const iPad = navigator.maxTouchPoints > 1 && /Mac|iPad/.test(navigator.platform || navigator.userAgent);
   return iPad ? 'medium' : 'high';
 }
-function readRaw() { try { return localStorage.getItem(SAVE_KEY); } catch (_) { return null; } }
-// before version 2 touches anything, keep a snapshot of the village for the classic (v1) backup at /v1/
-try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v1snapshot')) localStorage.setItem('tenka.v1snapshot', raw); } catch (_) { /* storage off */ }
+// this is the classic (v1) backup of the game: it keeps its own save. The first time it runs it starts from
+// the snapshot version 2 took of your village before changing anything (or, failing that, the current save).
+function readRaw() {
+  try {
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { raw = localStorage.getItem('tenka.v1snapshot') || localStorage.getItem('tenka.save.v1'); if (raw) localStorage.setItem(SAVE_KEY, raw); }
+    return raw;
+  } catch (_) { return null; }
+}
 
 function boot() {
   const quality = pickQuality();

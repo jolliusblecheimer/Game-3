@@ -32,7 +32,7 @@ export class Hud {
     this.cat = 'village';
     this.buildOpen = true;
     this.settings = { scrollPans: true, sound: false, music: true, musicVol: 0.6 };
-    try { Object.assign(this.settings, JSON.parse(localStorage.getItem('tenka.ui') || '{}')); } catch (_) { /* no storage */ }
+    try { Object.assign(this.settings, JSON.parse(localStorage.getItem('tenka.classic.ui') || '{}')); } catch (_) { /* no storage */ }
     // scrolling now zooms by default (two-finger scroll / mouse wheel); drag to move
     if (!this.settings.zoomV) { this.settings.scrollPans = false; this.settings.zoomV = 1; this.saveSettings(); }
     this.speed = 1; this.paused = false;
@@ -40,7 +40,7 @@ export class Hud {
     this.build();
     game.on((type, data) => this.onGame(type, data));
   }
-  saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
+  saveSettings() { try { localStorage.setItem('tenka.classic.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
 
   live = (el, fn) => { this.lives.push({ el, fn }); fn(el); return el; };
@@ -66,7 +66,7 @@ export class Hud {
       el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
-    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
+    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka v1')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
     this.renderMute();
     // raid warnings under the top bar
     this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }), el => {
@@ -563,8 +563,7 @@ export class Hud {
       h('div', { class: 'row' }, h('span', null, 'Music style: '), [['mix', 'Mix'], ['piano', 'Ambient piano'], ['chip', 'Tenka theme (chiptune)'], ['calm', 'Calm koto']].map(([k, label]) => h('button', { class: 'btn small ' + ((this.settings.musicStyle || 'mix') === k ? '' : 'ghost'), onclick: e => { this.settings.musicStyle = k; this.saveSettings(); if (this.music) { this.music.setStyle(k); this.music.unlock(); } e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, label))),
       toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
-      h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.'),
-      h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' — it keeps its own save.')),
+      h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.')),
       [{ label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
        { label: 'Save code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
@@ -573,7 +572,7 @@ export class Hud {
   openSaveCode() {
     this.saver();
     let code = '';
-    try { code = btoa(unescape(encodeURIComponent(localStorage.getItem('tenka.save.v1') || ''))); } catch (_) { /* */ }
+    try { code = btoa(unescape(encodeURIComponent(localStorage.getItem('tenka.classic.save') || ''))); } catch (_) { /* */ }
     const out = h('textarea', { readonly: true, rows: 4 }); out.value = code;
     const inp = h('textarea', { rows: 4, placeholder: 'Paste a save code here…' });
     const msg = h('p', { class: 'sub' });
@@ -585,8 +584,8 @@ export class Hud {
         try {
           const json = decodeURIComponent(escape(atob(inp.value.trim())));
           const obj = JSON.parse(json); if (!obj || !obj.v || !obj.buildings) throw new Error('bad');
-          localStorage.setItem('tenka.save.backup', localStorage.getItem('tenka.save.v1') || '');
-          localStorage.setItem('tenka.save.v1', json); this.saver.block(); location.reload();
+          localStorage.setItem('tenka.classic.backup', localStorage.getItem('tenka.classic.save') || '');
+          localStorage.setItem('tenka.classic.save', json); this.saver.block(); location.reload();
         } catch (_) { msg.textContent = 'That doesn’t look like a Tenka save code. Check it was copied completely.'; }
       } }, 'Load this save')), msg), [{ label: 'Close' }]);
   }
