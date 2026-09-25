@@ -44,6 +44,16 @@ export class Hud {
     game.onSfx = kind => this.sfx(kind);
     this.root.classList.toggle('lefty', !!this.settings.lefty);
   }
+  raidOrder(kind) {
+    const R = this.game.raids; if (!R.alarmed) return;
+    if (!R.cmd.size) { this.toast('Select some soldiers first (click them, or use the buttons)', 'warn'); return; }
+    if (kind === 'wall') {
+      const c = R.centroid() || { x: 0, z: 0 }, T = R.threatPoint(c), at = T ? this.game.center(T) : c;
+      if (!R.wallSpots(at, 60).length) { this.toast('No wall walk to stand on — upgrade stone walls to level 2 to give them a walkway', 'warn'); return; }
+      R.command('wall', { at });
+    } else R.command(kind);
+    this.toast({ charge: 'Charge!', wall: 'To the walls!', auto: 'They fight on their own again' }[kind]);
+  }
   applyLayout() { this.root.classList.toggle('lefty', !!this.settings.lefty); this.layout(); }
   saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
@@ -76,14 +86,42 @@ export class Hud {
     R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
     this.renderMute();
     // raid warnings under the top bar
-    this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }), el => {
+    const rbTitle = h('b'), rbSub = h('small'), rbIcon = h('span');
+    this.raidBanner = this.live(h('div', { class: 'raidbanner', hidden: true }, rbIcon, h('span', { class: 'rbtext' }, rbTitle, rbSub),
+      h('button', { class: 'btn small ghost', title: 'Look at the enemy', onclick: () => { const c = g.raids.centroid(); if (c) { this.cam.target.set(c.x, 0, c.z); this.cam.follow = null; } } }, icon('eye', 14), 'Show me')), el => {
       const R = g.raids, show = R.alarmed;
       el.hidden = !show; if (!show) return;
-      el.textContent = '';
-      el.append(icon(R.source ? 'castle' : 'camp', 20), h('b', null, `${R.source ? 'Attack' : 'Bandit raid'}! ${R.bandName(R.alive().length)} in the village`),
-        h('small', null, 'Your soldiers fight, archers shoot from towers, everyone else hides.'));
+      const n = R.alive().length, phases = R.groups.map(G => G.phase), T = R.groups.map(G => G.target).find(Boolean);
+      const what = phases.includes('march') || phases.includes('form') ? `forming up in the hills to ${R.fromText()}`
+        : R.alive().some(u => R.isInside && R.outside && R.isInside(u.x, u.z)) ? 'inside the village!' : T && g.buildings.has(T.id) ? `attacking your ${T.def.name}` : 'in the village';
+      const title = `${R.army ? 'Attack' : 'Bandit raid'}! ${R.bandName(n)} ${what}`;
+      if (rbTitle.textContent !== title) rbTitle.textContent = title;
+      const sub = R.cmd.size ? `${R.cmd.size} soldier${R.cmd.size > 1 ? 's' : ''} under your command — click the ground to send them, an enemy to attack, a wall to man it.` : 'Click your soldiers (or use the bar below) to command them — or let them fight on their own.';
+      if (rbSub.textContent !== sub) rbSub.textContent = sub;
+      if (rbIcon.dataset.k !== String(R.army)) { rbIcon.dataset.k = String(R.army); rbIcon.textContent = ''; rbIcon.append(icon(R.army ? 'castle' : 'camp', 20)); }
     });
     R.append(this.raidBanner);
+    // the raid command bar: pick your soldiers, give orders
+    const GROUPS = [['all', 'All soldiers', '1', () => true], ['spear', 'Spears & shields', '2', v => v.job === 'ashigaru' || v.job === 'shieldman'], ['archer', 'Archers', '3', v => v.job === 'archer'], ['elite', 'Samurai & elite', '4', v => !['ashigaru', 'shieldman', 'archer'].includes(v.job)]];
+    const pickGroup = (test, add) => { const list = g.soldiers().filter(test); g.raids.selectSoldiers(list, add); };
+    this.raidGroups = GROUPS;
+    const grpBtns = GROUPS.map(([k, name, key, test]) => this.live(h('button', { class: 'grp', title: `Select (${key})`, onclick: e => pickGroup(test, e.shiftKey) }, h('span', null, h('b'), h('small', null, name)), h('kbd', null, key)), el => {
+      const list = g.soldiers().filter(test); el.querySelector('b').textContent = String(list.length); el.disabled = !list.length;
+      el.classList.toggle('on', list.length > 0 && list.every(v => g.raids.cmd.has(v.id)));
+    }));
+    const order = (kind, label, key, tip, ic) => h('button', { class: 'btn small ghost', title: `${tip} (${key})`, onclick: () => this.raidOrder(kind) }, icon(ic, 15), label, h('kbd', null, key));
+    this.raidCmd = this.live(h('div', { class: 'raidcmd', hidden: true },
+      h('div', { class: 'groups' }, ...grpBtns),
+      h('div', { class: 'cmds' },
+        order('charge', 'Charge!', 'C', 'Go after every enemy on your land — out through the gate if need be', 'sword'),
+        order('wall', 'Man the walls', 'V', 'Up onto the nearest upgraded stone walls: spears stab down at the enemy, bows shoot further', 'wall'),
+        order('auto', 'On their own', 'K', 'Stop giving orders: they stand ready behind the point under attack and hunt down whoever gets in', 'soldier'),
+        h('button', { class: 'btn small ghost', title: 'Deselect (Esc)', onclick: () => g.raids.selectSoldiers([]) }, icon('close', 15), 'Deselect'))), el => {
+      const on = g.raids.alarmed;
+      el.hidden = !on; this.root.classList.toggle('raiding', on);
+      el.querySelectorAll('.cmds .btn').forEach((b, i) => { if (i < 3) b.disabled = !g.raids.cmd.size; });
+    });
+    R.append(this.raidCmd);
     // bottom-left: the clan at a glance
     this.clan = h('section', { class: 'clan' }); R.append(this.clan);
     this.renderClan();
@@ -756,6 +794,7 @@ export class Hud {
     const I = this.input;
     if (this.keyHook && this.keyHook(k, e)) return;
     if (k === 'escape') {
+      if (this.game.raids.cmd.size && this.modal.hidden) { this.game.raids.selectSoldiers([]); return; }
       if (!this.modal.hidden) this.modal.hidden = true;
       else if (this.infoPinned) this.hideInfo(true);
       else if (I.placing) { if (!I.endLine()) I.cancelPlacing(); }
@@ -764,6 +803,15 @@ export class Hud {
       return;
     }
     if (!this.modal.hidden) return;
+    // commanding soldiers during a raid
+    const R = this.game.raids;
+    if (R.alarmed) {
+      const G = this.raidGroups && this.raidGroups.find(x => x[2] === k);
+      if (G) { R.selectSoldiers(this.game.soldiers().filter(G[3]), e && e.shiftKey); return; }
+      if (k === 'c') return this.raidOrder('charge');
+      if (k === 'v') return this.raidOrder('wall');
+      if (k === 'k') return this.raidOrder('auto');
+    }
     if (k === 'n') return this.toggleMute();
     if (k === 'r') return I.rotatePlacing();
     if (k === 'g') return I.setMoveMode(!I.moveMode);

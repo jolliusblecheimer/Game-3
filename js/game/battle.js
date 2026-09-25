@@ -126,7 +126,7 @@ function battleHeight(x, z) {
   const dx = Math.max(Math.abs(x) - HALF - 4, 0), dz = Math.max(Math.abs(z) - HALF - 4, 0), d = Math.hypot(dx, dz);
   return d <= 0 ? 0 : smoothstep(0, 30, d) * (6 + d * 0.35);
 }
-function ramModel() {
+export function ramModel() {
   const m = new Mesher(3, 0.06);
   m.box(1.6, 0.25, 3.2, '#7a5438', [0, 0.55, 0]);
   for (const x of [-0.9, 0.9]) for (const z of [-1.1, 1.1]) m.cyl(0.45, 0.45, 0.18, 10, '#4a3222', [x, 0.45, z], [0, 0, Math.PI / 2]);

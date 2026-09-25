@@ -433,3 +433,16 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 #ui.lefty .clan { left: auto; right: 12px; }
 #ui.lefty .panel:not(.mappanel) { right: auto; left: 12px; }
 #ui.lefty .toasts { left: auto; right: 16px; align-items: flex-end; }
+
+/* raids: the banner and the command bar */
+.raidbanner .rbtext { display: flex; flex-direction: column; }
+.raidbanner .btn.ghost { color: #ffe9dc; border-color: #e0584a; background: transparent; }
+#ui.raiding .buildbar { display: none; }
+.raidcmd { position: fixed; left: 50%; transform: translateX(-50%); max-width: calc(100% - 520px); min-width: 300px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 11; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: center; background: var(--paper); border: 2px solid #c2412d; border-radius: 16px; box-shadow: var(--shade); padding: 8px; }
+.raidcmd .groups, .raidcmd .cmds { display: flex; flex-wrap: wrap; gap: 6px; }
+.raidcmd .grp { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--paper-2); border-radius: 10px; padding: 5px 9px; }
+.raidcmd .grp.on { background: #ffe9a8; border-color: #d9a441; }
+.raidcmd .grp span { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
+.raidcmd .grp b { font-size: 16px; }
+.raidcmd .grp small { font-size: 11px; color: var(--ink-2, #6b5f52); }
+@media (max-width: 1000px) { .raidcmd { max-width: calc(100% - 270px); left: auto; right: 132px; transform: none; } #ui.lefty .raidcmd { right: auto; left: 132px; } }

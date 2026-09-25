@@ -119,7 +119,7 @@ function wallPatrol(game, v) {
     const next = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dz]) => at.get((cur.cx + dx) + ',' + (cur.cz + dz))).filter(b => b && !seen.has(b.id));
     if (!next.length) break; const n = next[Math.floor(game.rand() * next.length)]; chain.push(n); seen.add(n.id);
   }
-  if (chain.length < 3) return false;
+  if (chain.length < 2) return false;
   const top = b => game.center(b), H = 2.95 * (1 + 0.14 * (start.level - 1));
   const foot = b => { const c = game.grid.nearestWalkable(b.cx, b.cz, 3); return c ? game.grid.center(c[0], c[1]) : null; };
   const up = foot(start), down = foot(chain[chain.length - 1]); if (!up || !down) return false;
@@ -175,8 +175,10 @@ export function thinkVillager(game, v) {
   // bandits! soldiers stand ready (the raid code moves them), everyone else hides
   if (game.raids.alarmed) {
     if (J.soldier) {
+      // commanded, or up on the wall: the raid code moves them
+      if (v.order || v.onWall || v.wallB) return act(v, 0.5, 'guard', null, v.onWall ? 'Defending the wall' : v.status);
       if (v.job === 'archer' && !v.post && climbTower(game, v)) return;
-      return act(v, 0.5, 'guard', null, v.post ? 'Shooting from the tower' : 'Ready to fight the bandits');
+      return act(v, 0.5, 'guard', null, v.post ? 'Shooting from the tower' : 'Ready to fight the raiders');
     }
     return goHome(game, v, 'Hiding from the bandits');
   }
@@ -285,8 +287,8 @@ export function thinkVillager(game, v) {
         if (v.post) { v.post = null; v.elev = 0; }
         return goTo(game, v, game.door(healer, 0.6), () => { v.resting = true; inside(v, 15, () => { v.resting = false; }, `Resting at the ${healer.def.name} (${Math.round(v.hpf * 100)}%)`); }, 'Going to the healer to rest');
       }
-      // from Keep level 4, spearmen patrol along the walkways of upgraded walls
-      if ((v.job === 'ashigaru' || v.job === 'shieldman') && game.thLevel >= 4 && game.rand() < 0.6 && wallPatrol(game, v)) return;
+      // soldiers patrol the walkways of upgraded stone walls (archers too, when the towers are full)
+      if (!J.commander && game.rand() < (v.job === 'archer' ? 0.8 : 0.55) && wallPatrol(game, v)) return;
       const gates = [...game.buildings.values()].filter(b => b.done && (b.type === 'gate' || b.type === 'townhall'));
       const g = gates[Math.floor(game.rand() * gates.length)];
       if (!g) return act(v, 4, 'guard', null, 'Standing guard');

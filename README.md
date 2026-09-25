@@ -201,3 +201,22 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Samurai Manor:** select a Minka House at the top level and choose *Merge*. It joins with another top-level house into a Samurai Manor.
   - The manor holds 20 people (28 when upgraded) instead of 16, and frees two house plots.
   - If the two houses stand side by side, the manor takes their place. Otherwise the nearest top-level house is taken down and its family moves in.
+
+## Defending the village (reworked)
+- **Raiders come from far away:** they appear out in the hills, visible when you zoom out, and walk in. "Show me" on the raid banner points the camera at them.
+- **Clan armies** (from Keep level 4) come in one to three groups from different sides:
+  - They form up out in the hills, then attack.
+  - A battering ram goes for your gate.
+  - Shield-bearers hack at the weakest stretch of wall while the rest wait for the breach, out of reach.
+  - Archers shoot your men off the walls and send fire arrows into the village.
+  - When a wall or gate falls, everyone storms in. Cut down to a third, a group breaks and runs.
+  - Raiders push through woods (slowly), so a forest isn't a wall.
+- **Command your soldiers during a raid:**
+  - Click soldiers to select them (Shift adds, double-click selects all of that kind). Or use the bar at the bottom: 1 all, 2 spears & shields, 3 archers, 4 samurai & elite.
+  - Then click the ground to send them there (they hold it), an enemy to attack it, or an upgraded stone wall to man it.
+  - C: charge. V: man the walls. K: let them fight on their own. Esc: deselect.
+- **On their own:**
+  - Archers take the towers, then the wall walks near the attack.
+  - Many spearmen and shield-bearers climb onto the wall above the point under attack and stab down at the enemy.
+  - The rest stand ready behind it, and anyone who gets inside is hunted down.
+- **Wall patrols:** soldiers walk the wall walks of upgraded (level 2+) stone walls in peacetime, from the moment you have them. It no longer waits for Keep level 4 and needs only 2 connected pieces. Archers join when the towers are full.

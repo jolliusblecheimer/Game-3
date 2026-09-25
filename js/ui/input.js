@@ -1,6 +1,6 @@
 // Mouse / trackpad / touch / keyboard. Left click only — no right-click needed.
 import * as THREE from 'three';
-import { BUILDINGS } from '../game/data.js';
+import { BUILDINGS, JOBS } from '../game/data.js';
 import { PLOT } from '../render/nature.js';
 import { buildModel } from '../render/buildings.js';
 import { MAT } from '../render/geo.js';
@@ -354,12 +354,36 @@ export class Input {
       return;
     }
     const p = this.pick(e.clientX, e.clientY);
+    if (this.raidClick(p, e)) return;
     if (p && p.kind === 'bandit') { this.game.raids.raiseAlarm(null); return; }
     // a second click on the same wall piece selects the whole wall
     const now = performance.now(), b = p && p.kind === 'building' && this.game.buildings.get(p.id);
     if (b && b.def.line && this.lastPick && this.lastPick.id === p.id && now - this.lastPick.t < 450) { this.lastPick = null; this.selectSegment(p.id); return; }
     this.lastPick = p ? { id: p.id, t: now } : null;
     this.select(p);
+  }
+  // during a raid: click soldiers to take command, then click the ground (go there and hold),
+  // an enemy (attack it) or an upgraded wall (man it)
+  raidClick(p, e) {
+    const g = this.game, R = g.raids;
+    if (!R.alarmed) return false;
+    const v = p && p.kind === 'villager' && g.villagers.get(p.id);
+    if (v && JOBS[v.job].soldier && !v.away) {
+      const now = performance.now();
+      if (this.lastSoldier && this.lastSoldier.id === v.id && now - this.lastSoldier.t < 400) R.selectSoldiers(g.soldiers().filter(o => o.job === v.job), e.shiftKey);
+      else if (e.shiftKey && R.cmd.has(v.id)) { R.cmd.delete(v.id); g.emit('raidCmd'); }
+      else R.selectSoldiers([v], e.shiftKey);
+      this.lastSoldier = { id: v.id, t: now };
+      this.select(null);
+      return true;
+    }
+    if (!R.cmd.size) return false;
+    if (p && p.kind === 'bandit') { if (R.command('attack', { id: p.id })) { const u = R.byId(p.id); if (u) R.mark(u.x, u.z, true); } return true; }
+    const b = p && p.kind === 'building' && g.buildings.get(p.id);
+    if (b && b.type === 'wall' && b.done && b.level >= 2) { const c = g.center(b); R.command('wall', { at: c }); R.mark(c.x, c.z); return true; }
+    const gp = this.ground(e.clientX, e.clientY);
+    if (gp && Math.abs(gp.x) < PLOT.half && Math.abs(gp.z) < PLOT.half) { R.command('move', { x: gp.x, z: gp.z }); R.mark(gp.x, gp.z); return true; }
+    return false;
   }
   onWheel(e) {
     e.preventDefault();
