@@ -415,3 +415,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* market */
 .traderow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; }
 .traderow > span { flex: 1; min-width: 50px; }
+
+/* battle: squads, conditions, ranks */
+.squads { display: flex; gap: 4px; }
+.grp.squad { min-width: 64px; }
+.grp.squad b { font-size: 15px; }
+.bstat.cond { font-size: 13px; padding: 4px 8px; }
+.irow.rank b { color: var(--gold); }

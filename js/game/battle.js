@@ -1,7 +1,7 @@
 // Raids: a real-time battle against a rival base. You command every unit.
 import * as THREE from 'three';
 import { Grid } from './grid.js';
-import { UNITS, JOBS, SITES } from './data.js';
+import { UNITS, JOBS, SITES, rankOf } from './data.js';
 import { buildModel } from '../render/buildings.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
@@ -122,6 +122,18 @@ function ramModel() {
   m.frustum(2.0, 3.4, 0.2, 3.3, 0.9, '#8b6a44', [0, 2.1, 0]);
   const g = new THREE.Group(); g.add(m.mesh(MAT.flat)); return g;
 }
+// a counterweight catapult on wheels
+function catapultModel() {
+  const m = new Mesher(5, 0.06);
+  m.box(1.8, 0.25, 2.6, '#7a5438', [0, 0.55, 0]);
+  for (const x of [-1.0, 1.0]) for (const z of [-0.9, 0.9]) m.cyl(0.42, 0.42, 0.16, 10, '#4a3222', [x, 0.42, z], [0, 0, Math.PI / 2]);
+  for (const x of [-0.6, 0.6]) { m.box(0.14, 1.7, 0.14, '#5a3a28', [x, 1.45, 0.2]); m.box(0.12, 0.12, 1.5, '#5a3a28', [x, 1.05, -0.35], [0.7, 0, 0]); }
+  m.box(1.3, 0.14, 0.14, '#5a3a28', [0, 2.25, 0.2]);
+  m.box(0.16, 0.16, 3.0, '#6b4a2e', [0, 1.45, -0.3], [0.45, 0, 0]);
+  m.box(0.5, 0.18, 0.5, '#4a3222', [0, 0.9, -1.55]); m.ball(0.2, '#8a8478', [0, 1.08, -1.55]);
+  m.box(0.7, 0.7, 0.7, '#6f7378', [0, 2.0, 0.85]);
+  const g = new THREE.Group(); g.add(m.mesh(MAT.flat)); return g;
+}
 
 const HP_SCALE = 3.5;        // everyone is much tougher in battle: fights last longer
 const SIGHT = { ground: 13, high: 20, bush: 4, alert: 22 }; // after the alarm everyone looks everywhere, and further
@@ -164,13 +176,58 @@ export class Battle {
     this.t = 0; this.over = null; this.capture = 0; this.nextId = 1; this.alarm = false; this.phase = 'calm';
     this.rand = mulberry32(site.seed + Math.floor(this.game.state.clock));
     this.forge = this.game.life ? this.game.life.forgeBonus() : 0;   // fresh blades from the blacksmith
+    this.cond = this.conditions();
     this.buildTerrain();
     this.layout = makeLayout(site);
     this.buildStructures();
+    if (this.cond.river) this.buildRiver();
+    if (this.cond.fog) { const F = this.scene.fog; this.fogSave = [F.near, F.far]; F.near = 18; F.far = 120; }
     if (this.defend) { this.spawnGarrison(); this.spawnAttackers(); this.alarm = true; this.phase = 'siege'; }
     else { this.spawnDefenders(); this.spawnArmy(); this.assignRoles(); }
     this.initialEnemies = this.units.filter(u => u.team === 1).length;
     this.buildOverlays();
+    const C = this.cond, notes = [];
+    if (C.night) notes.push('Night: the guards see only half as far');
+    if (C.fog) notes.push('Fog: you can get close unseen');
+    if (C.rain) notes.push('Rain: wet bowstrings, archers are weaker');
+    if (C.snow) notes.push('Snow: slow going');
+    if (C.river) notes.push('A river crosses the field: use the bridges or the slow ford');
+    if (notes.length) this.fx.push({ kind: 'banner', text: notes.join(' · '), t: -3 });
+  }
+  // night, fog, rain, snow — and whether a river runs across this place (always the same for a place)
+  conditions() {
+    const g = this.game, L = g.life, time = g.state.time;
+    const night = time < 0.22 || time > 0.8, rain = !!L && L.weather === 'rain', snow = !!L && (L.weather === 'snow' || L.season === 3);
+    const fog = !rain && !night && this.rand() < 0.2, river = mulberry32(this.site.seed * 3 + 7)() < 0.4;
+    const sight = (night ? 0.55 : 1) * (fog ? 0.6 : 1) * (rain ? 0.85 : 1);
+    return { night, rain, snow, fog, river, sight };
+  }
+  // a river two cells wide south of the walls, with two wooden bridges and a shallow ford between them
+  buildRiver() {
+    const z0 = Math.max(this.box[3] + 5, 44);
+    if (z0 > 52) { this.cond.river = false; return; }
+    const G = this.grid, bridges = [12, 13, 50, 51], ford = [30, 31, 32, 33];
+    for (let cz = z0; cz < z0 + 2; cz++) for (let cx = 0; cx < N; cx++) {
+      if (G.get(cx, cz) > 0) continue;
+      if (bridges.includes(cx)) G.set(cx, cz, 0, true, 0.95);
+      else if (ford.includes(cx)) G.set(cx, cz, 0, true, 0.4);
+      else G.set(cx, cz, 0, false, 1);
+    }
+    const zc = G.center(0, z0).z + CELL / 2 - BATTLE_ORIGIN.z;
+    const wg = new THREE.PlaneGeometry(360, CELL * 2); wg.rotateX(-Math.PI / 2);
+    const water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: '#4f86a8', roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.9 }));
+    water.position.set(0, 0.07, zc); this.root.add(water);
+    const m = new Mesher(9, 0.05);
+    for (const s of [-1, 1]) m.box(360, 0.1, 0.5, '#6d5a3e', [0, 0.05, zc + s * (CELL + 0.1)]);            // muddy banks
+    for (const bx of [12.5, 50.5]) {
+      const x = G.center(0, 0).x - CELL / 2 + (bx + 0.5) * CELL - BATTLE_ORIGIN.x;
+      m.box(CELL * 2 - 0.3, 0.22, CELL * 2 + 1.6, '#8b6a44', [x, 0.3, zc]);
+      for (let i = -3; i <= 3; i++) m.box(CELL * 2 - 0.3, 0.05, 0.08, '#6b4a2e', [x, 0.43, zc + i * 0.6]);
+      for (const sx of [-1, 1]) { m.box(0.1, 0.6, CELL * 2 + 1.6, '#5a3a28', [x + sx * (CELL - 0.2), 0.7, zc]); for (const sz of [-1, 0, 1]) m.box(0.16, 0.9, 0.16, '#5a3a28', [x + sx * (CELL - 0.2), 0.5, zc + sz * CELL]); }
+    }
+    const fx = G.center(31, 0).x + CELL / 2 - BATTLE_ORIGIN.x, r = mulberry32(this.site.seed + 5);
+    for (let i = 0; i < 26; i++) m.ball(0.2 + r() * 0.25, '#9a968c', [fx + (r() - 0.5) * CELL * 4, 0.1, zc + (r() - 0.5) * CELL * 2], [1.3, 0.5, 1]);
+    this.root.add(m.mesh(MAT.flat, false, true));
   }
   W(cx, cz) { const c = this.grid.center(cx, cz); return { x: c.x, z: c.z }; }
   cellOf(x, z) { return this.grid.toCell(x, z); }
@@ -233,20 +290,24 @@ export class Battle {
       hp: U.hp * HP_SCALE * (1 + (mine ? (this.forge || 0) * 0.5 : 0) + (spear ? rb('spearHp') : 0) + (cmd ? rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
       dmg: U.dmg * (1 + (mine ? this.forge || 0 : 0) + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
       cd: U.cd / (1 + (spear ? rb('spearFast') : 0) + (archer ? rb('archFast') : 0)),
-      range: U.range * (1 + (archer ? rb('archRange') : 0)),
-      speed: U.speed * (1 + (spear ? rb('spearFast') : 0)),
+      range: U.range * (1 + (archer ? rb('archRange') : 0)) * (this.cond.rain && U.ranged && !U.siege ? 0.85 : 1),
+      speed: U.speed * (1 + (spear ? rb('spearFast') : 0)) * (this.cond.snow ? 0.88 : 1),
+      wet: this.cond.rain && U.ranged && !U.siege ? 0.8 : 1,
     };
   }
   makeUnit(team, type, x, z, extra = {}) {
-    const U = UNITS[type], S = this.stats(team, type);
+    const U = UNITS[type], v0 = extra.vid && this.game.villagers.get(extra.vid), rank = v0 ? rankOf(v0) : 0;
+    let S = this.stats(team, type);
+    if (rank) S = { ...S, hp: S.hp * (1 + 0.1 * rank), dmg: S.dmg * (1 + 0.1 * rank) };   // veterans fight better
+    S.dmg *= S.wet;
     let obj, person = null;
-    if (U.siege) obj = ramModel();
+    if (U.siege) obj = U.lob ? catapultModel() : ramModel();
     else { person = new Person(U.look, (extra.vid || this.nextId) * 13 + team); obj = person.group; }
     obj.position.set(x - BATTLE_ORIGIN.x, 0, z - BATTLE_ORIGIN.z);
     this.root.add(obj);
     const v = extra.vid && this.game.villagers.get(extra.vid), hurt = v && v.hpf != null ? Math.max(0.15, v.hpf) : 1;
     const u = { id: this.nextId++, team, type, U, S, x, z, y: 0, hp: S.hp * hurt, maxHp: S.hp, r: U.r, cd: this.rand(), obj, person, heading: team ? 0 : Math.PI, dead: false, deadT: 0,
-      order: { kind: 'idle' }, path: null, pathI: 0, target: null, thinkT: this.rand() * 0.5, buffs: {}, abilityCd: 0, spotted: -99, ...extra };
+      order: { kind: 'idle' }, path: null, pathI: 0, target: null, thinkT: this.rand() * 0.5, buffs: {}, abilityCd: 0, spotted: -99, rank, kills: 0, ...extra };
     this.units.push(u);
     return u;
   }
@@ -288,6 +349,12 @@ export class Battle {
       const east = i < ramsE, [cx, cz] = split ? [east ? 57 : 6, 30 + (i % 2) * 3] : [29 + i * 3, 62];
       const w = this.grid.nearestWalkable(cx, cz, 4) || [cx, cz], c = this.W(w[0], w[1]);
       this.makeUnit(0, 'ram', c.x, c.z, { ram: true, side: east ? 'e' : 'w' });
+    }
+    const cats = this.mission.catapults || 0, catsE = split ? Math.min(this.mission.catsE || 0, cats) : 0;
+    for (let i = 0; i < cats; i++) {
+      const east = i < catsE, [cx, cz] = split ? [east ? 60 : 3, 36 + (i % 2) * 3] : [20 - i * 3, 62];
+      const w = this.grid.nearestWalkable(cx, cz, 4) || [cx, cz], c = this.W(w[0], w[1]);
+      this.makeUnit(0, 'catapult', c.x, c.z, { side: east ? 'e' : 'w' });
     }
   }
   // Give every defender a job: sentry, spear line, reserve or guard.
@@ -333,6 +400,7 @@ export class Battle {
     const force = this.mission.force || 8, n = Math.round(force), r = this.rand;
     const types = []; for (let i = 0; i < n; i++) types.push(i % 10 < 4 ? 'enemy_ashigaru' : i % 10 < 6 ? 'enemy_shield' : i % 10 < 9 ? 'enemy_archer' : 'enemy_samurai');
     if (this.site.tier >= 4 && n >= 12) types.push('enemy_lord');
+    if (this.site.tier >= 3) for (let i = 0; i < Math.floor(n / 9); i++) types.push('enemy_cavalry');
     types.forEach((t, i) => { const c = this.W(20 + (i % 24), 0); this.makeUnit(1, t, c.x + (r() - 0.5), this.grid.center(0, 57 + Math.floor(i / 24) * 1.5).z, { attacker: true }); });
     if (this.gate) this.makeUnit(1, 'enemy_ram', this.W(32, 0).x, this.grid.center(0, 61).z, { attacker: true, ram: true });
   }
@@ -347,8 +415,9 @@ export class Battle {
   // can enemy `e` notice player unit `u` right now?
   notices(e, u) {
     const d = Math.hypot(u.x - e.x, u.z - e.z);
-    let sight = (e.y || 0) > 1.5 ? SIGHT.high : SIGHT.ground;
+    let sight = ((e.y || 0) > 1.5 ? SIGHT.high : SIGHT.ground) * this.cond.sight;
     if (u.sneak) sight *= 0.5;
+    if (u.U.stealth) sight *= 0.6;
     if (u.hidden) sight = Math.min(sight, SIGHT.bush);
     return d <= sight && this.lineOfSight(e, u);
   }
@@ -377,13 +446,16 @@ export class Battle {
   }
 
   /* ---------- orders from the player ---------- */
-  order(units, kind, point, target = null) {
+  order(units, kind, point, target = null, formation = 'box') {
     const list = units.filter(u => !u.dead && !u.fled && u.team === 0);
     if (kind === 'move' || kind === 'amove') {
-      const n = list.length, cols = Math.ceil(Math.sqrt(n)), sp = 1.7;
-      list.sort((a, b) => (a.U.ranged ? 1 : 0) - (b.U.ranged ? 1 : 0));
-      list.forEach((u, i) => {
-        const ox = (i % cols - (cols - 1) / 2) * sp, oz = (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * sp;
+      list.sort((a, b) => (a.U.ranged ? 1 : 0) - (b.U.ranged ? 1 : 0) || (a.U.siege ? 1 : 0) - (b.U.siege ? 1 : 0));
+      // the formation faces the way the troops are going
+      const cx = list.reduce((a, u) => a + u.x, 0) / Math.max(1, list.length), cz = list.reduce((a, u) => a + u.z, 0) / Math.max(1, list.length);
+      const ang = Math.atan2(point.x - cx, point.z - cz), fx = Math.sin(ang), fz = Math.cos(ang), rx = Math.cos(ang), rz = -Math.sin(ang);
+      const slots = new Map(formationSlots(formation, list).map(([u, side, back]) => [u, [side, back]]));
+      list.forEach(u => {
+        const [side, back] = slots.get(u), ox = rx * side - fx * back, oz = rz * side - fz * back;
         u.order = { kind, x: point.x + ox, z: point.z + oz }; u.target = null;
         if (u.post) { const s = this.structs[u.post - 1]; u.post = null; u.y = 0; const d = this.structAt(u.x, u.z); if (d) { const w = this.grid.nearestWalkable(...this.cellOf(u.x, u.z)); if (w) { const c = this.W(w[0], w[1]); u.x = c.x; u.z = c.z; } } void s; }
         this.pathTo(u, u.order.x, u.order.z);
@@ -411,6 +483,17 @@ export class Battle {
       u.buffs.taunt = 10; u.buffs.shield = 10; u.abilityCd = 35 * cdMult;
       this.shout(u, 'Scale the Wall!');
       if (!this.alarm) this.raiseAlarm(u);
+      return true;
+    }
+    if (u.type === 'ninja') {
+      if (!point) return false;
+      u.climbing = { x: point.x, z: point.z }; u.path = null; u.target = null; u.order = { kind: 'idle' }; u.post = null;
+      u.abilityCd = 25; this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: 2.6, text: '\u2197', t: 0 });
+      return true;
+    }
+    if (u.type === 'sohei') {
+      for (const o of this.units) if (o.team === 0 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < 10) o.buffs.shield = 6;
+      u.abilityCd = 40; this.shout(u, 'Prayer of Iron!');
       return true;
     }
     if (u.type === 'taisho') {
@@ -443,6 +526,7 @@ export class Battle {
       // pulled out of the fight, your soldiers bind their wounds: 6s without being hit and 4s without striking
       u.healing = u.team === 0 && !u.U.siege && u.hp < u.maxHp && this.t - (u.lastHurt ?? -99) > 6 && this.t - (u.lastStrike ?? -99) > 4;
       if (u.healing) u.hp = Math.min(u.maxHp, u.hp + u.maxHp * 0.015 * dt);
+      if (u.U.heal) for (const o of this.units) if (o.team === u.team && !o.dead && !o.fled && !o.U.siege && o.hp < o.maxHp && Math.abs(o.x - u.x) < u.U.heal && Math.hypot(o.x - u.x, o.z - u.z) < u.U.heal) o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.01 * dt);
       this.act(u, dt);
     }
     this.separate();
@@ -457,6 +541,10 @@ export class Battle {
           if (off < 1.7 && this.rand() < T.U.block) { this.fx.push({ kind: 'shout', x: T.x, z: T.z, y: 2.6, text: 'Blocked!', t: 0 }); if (!T.fleeing && !T.post) T.aggro = { u: a.from, until: this.t + 15 }; continue; }
         }
         this.damage(T, a.dmg, a.from);
+        if (a.boulder) {
+          this.fx.push({ kind: 'dust', x: T.x, z: T.z, t: 0 });
+          for (const o of this.units) if (o.team !== a.from.team && !o.dead && !o.fled && Math.hypot(o.x - T.x, o.z - T.z) < 3.2) this.damage(o, 45, a.from);
+        }
       }
     }
     this.arrows = this.arrows.filter(a => !a.done);
@@ -494,7 +582,7 @@ export class Battle {
       if (u.order.kind === 'move' && u.path) return;
       if (u.noReachT > this.t) return;
       // your troops only strike on their own when the enemy knows you're here, or when they're told to
-      const range = u.order.kind === 'hold' || u.post ? u.S.range + ((u.y || 0) > 1 ? 5 : 0) + 0.5 : u.U.siege ? 16 : u.U.ranged ? u.S.range + 2 : 12;
+      const range = u.order.kind === 'hold' || u.post ? u.S.range + ((u.y || 0) > 1 ? 5 : 0) + 0.5 : u.U.lob ? u.S.range : u.U.siege ? 16 : u.U.ranged ? u.S.range + 2 : 12;
       u.target = (this.alarm || this.defend) ? this.nearestTarget(u, range) : null;
       if (!u.target && u.order.kind === 'amove' && !u.path) this.pathTo(u, u.order.x, u.order.z);
       return;
@@ -551,7 +639,9 @@ export class Battle {
     let sight = high ? SIGHT.high : SIGHT.ground;
     if (this.alarm) sight = Math.max(sight, SIGHT.alert);
     if (e.st === 'suspicious' || e.st === 'investigate') sight *= 1.25; // eyes wide open
+    sight *= this.cond.sight;
     if (o.sneak) sight *= 0.5;
+    if (o.U.stealth) sight *= 0.6;
     if (o.hidden) sight = Math.min(sight, SIGHT.bush);
     if (d > sight || !this.lineOfSight(e, o)) return 0;
     if (!high && !this.alarm && d > (o.sneak ? HEAR / 2 : HEAR) && !this.inCone(e, o.x, o.z)) return 0;
@@ -559,7 +649,7 @@ export class Battle {
     return (o.sneak ? 0.16 : 0.3) * (1 + 6 * near * near) * (o.moving ? 1.25 : 0.8) * (e.st === 'suspicious' ? 1.6 : 1);
   }
   inCone(e, x, z) { const dir = Math.atan2(x - e.x, z - e.z); return Math.abs(Math.atan2(Math.sin(dir - e.heading), Math.cos(dir - e.heading))) <= FOV / 2; }
-  seesPoint(e, x, z) { const d = Math.hypot(x - e.x, z - e.z), high = (e.y || 0) > 1.5; return d <= (high ? SIGHT.high : SIGHT.ground) && (high || this.inCone(e, x, z)) && this.lineOfSight(e, { x, z }); }
+  seesPoint(e, x, z) { const d = Math.hypot(x - e.x, z - e.z), high = (e.y || 0) > 1.5; return d <= (high ? SIGHT.high : SIGHT.ground) * this.cond.sight && (high || this.inCone(e, x, z)) && this.lineOfSight(e, { x, z }); }
   watch(u, dt) {
     let seen = null, best = 0;
     for (const o of this.units) {
@@ -681,6 +771,14 @@ export class Battle {
   }
   nearestTarget(u, range) {
     let best = null, bd = Infinity;
+    if (u.U.lob) {
+      for (const s of this.structs) {
+        if (s.dead || !s.maxHp || s.def.keep || s.team === u.team) continue;
+        const d = Math.hypot(s.x - u.x, s.z - u.z) - (s.type === 'tower' ? 8 : s.def.gate ? 4 : 0);
+        if (d < range && d < bd) { bd = d; best = s; }
+      }
+      return best;
+    }
     if (u.U.siege) {
       // a ram goes for the nearest gate it can actually get to (through any gap already made); only failing that, the nearest wall
       const gates = this.structs.filter(s => !s.dead && s.def.gate && s.team !== u.team).sort((a, b) => Math.hypot(a.x - u.x, a.z - u.z) - Math.hypot(b.x - u.x, b.z - u.z));
@@ -710,7 +808,7 @@ export class Battle {
     return best;
   }
   act(u, dt) {
-    const sp = u.S.speed * (u.buffs.rally ? 1.4 : 1) * this.grid.speedAt(u.x, u.z) * (u.post ? 0 : 1) * (u.sneak ? 0.55 : 1) * (u.walkSlow ? 0.5 : 1);
+    const sp = u.S.speed * (u.buffs.rally ? 1.4 : 1) * this.grid.speedAt(u.x, u.z) * (u.post ? 0 : 1) * (u.sneak ? (u.U.stealth ? 0.85 : 0.55) : 1) * (u.walkSlow ? 0.5 : 1);
     if (u.climbing) {
       const c = u.climbing, dx = c.x - u.x, dz = c.z - u.z, d = Math.hypot(dx, dz);
       const on = this.structAt(u.x, u.z), up = on && on.def.blocks && !on.dead;
@@ -747,7 +845,7 @@ export class Battle {
       if (!p) { u.path = null; if (u.order.kind === 'move' || u.order.kind === 'amove') u.order = { kind: 'idle' }; if (u.order.kind === 'retreat') this.escape(u); return; }
       const dx = p.x - u.x, dz = p.z - u.z, d = Math.hypot(dx, dz);
       if (d < 0.25) { u.pathI++; if (u.pathI >= u.path.length) { u.path = null; if (u.order.kind === 'retreat') this.escape(u); else if (u.order.kind === 'move') u.order = { kind: 'idle' }; } return; }
-      const step = Math.min(d, sp * dt); u.x += dx / d * step; u.z += dz / d * step; this.face(u, dx, dz, dt); u.moving = true;
+      const step = Math.min(d, sp * dt); u.x += dx / d * step; u.z += dz / d * step; this.face(u, dx, dz, dt); u.moving = true; u.run = (u.run || 0) + step;
     }
   }
   escape(u) { if (u.team === 0 ? u.z > BATTLE_ORIGIN.z + HALF - 6 : u.z < BATTLE_ORIGIN.z - HALF + 6) { u.fled = true; u.obj.visible = false; } }
@@ -755,11 +853,20 @@ export class Battle {
   attack(u, t) {
     u.lastStrike = this.t;
     let dmg = u.S.dmg * (u.buffs.rally ? 1.2 : 1);
+    // a gallop ends in a charge
+    if (u.U.charge && (u.run || 0) > 6 && !t.isStruct) { dmg *= u.U.charge; if (this.rand() < 0.5) this.fx.push({ kind: 'shout', x: u.x, z: u.z, y: 3.2, text: 'Charge!', t: 0 }); }
+    u.run = 0;
+    if (u.U.lob) {
+      const d = Math.hypot(t.x - u.x, t.z - u.z);
+      this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: 2.5, dmg, t: 0, dur: 0.9 + d / 20, boulder: true });
+      if (u.team === 0 && !this.alarm && !this.defend) this.raiseAlarm(u, 'A boulder crashes into the walls — the alarm is raised!');
+      return;
+    }
     // a silent takedown: creeping up on a man who hasn't seen you, from behind
     if (u.team === 0 && t.team === 1 && !this.alarm && !this.defend && !t.isStruct && !u.U.ranged && !u.U.siege && (u.sneak || u.hidden) && t.st !== 'suspicious' && !this.inCone(t, u.x, u.z)) {
       const big = t.type === 'enemy_samurai' || t.type === 'enemy_lord';
       this.fx.push({ kind: 'shout', x: t.x, z: t.z, y: 2.6, text: big ? 'Ambush!' : 'Silent takedown', t: 0 });
-      this.damage(t, big ? t.maxHp * 0.5 : t.hp + 1, u); u.swing = 0.35;
+      this.damage(t, big && !u.U.stealth ? t.maxHp * 0.5 : t.hp + 1, u); u.swing = 0.35;
       if (!t.dead) { t.sus = 1.2; this.raiseAlarm(t); }
       return;
     }
@@ -810,6 +917,7 @@ export class Battle {
     }
     if (t.hp <= 0) {
       this.kill(t);
+      if (from && from.team === 0 && t.team === 1 && !from.isStruct) from.kills = (from.kills || 0) + 1;
       if (from && from.type === 'berserker' && from.team === 0 && this.rb('bloodlust')) from.hp = Math.min(from.maxHp, from.hp + from.maxHp * 0.12);
     }
   }
@@ -1000,7 +1108,7 @@ export class Battle {
       const x = a.x0 + (tx - a.x0) * f, z = a.z0 + (tz - a.z0) * f, y = a.y0 + (ty - a.y0) * f + Math.sin(f * Math.PI) * Math.hypot(tx - a.x0, tz - a.z0) * 0.12;
       const f2 = Math.min(1, f + 0.05), x2 = a.x0 + (tx - a.x0) * f2, z2 = a.z0 + (tz - a.z0) * f2, y2 = a.y0 + (ty - a.y0) * f2 + Math.sin(f2 * Math.PI) * Math.hypot(tx - a.x0, tz - a.z0) * 0.12;
       m4.lookAt(new THREE.Vector3(x2, y2, z2), new THREE.Vector3(x, y, z), new THREE.Vector3(0, 1, 0));
-      q.setFromRotationMatrix(m4); m4.compose(new THREE.Vector3(x - BATTLE_ORIGIN.x, y, z - BATTLE_ORIGIN.z), q, new THREE.Vector3(1, 1, 1));
+      q.setFromRotationMatrix(m4); m4.compose(new THREE.Vector3(x - BATTLE_ORIGIN.x, y, z - BATTLE_ORIGIN.z), q, a.boulder ? new THREE.Vector3(7, 7, 0.55) : new THREE.Vector3(1, 1, 1));
       this.arrowMesh.setMatrixAt(k++, m4);
     }
     this.arrowMesh.count = k; this.arrowMesh.instanceMatrix.needsUpdate = true;
@@ -1032,7 +1140,7 @@ export class Battle {
     // towers see all round; men on the ground see a wedge ahead of them and hear a little way behind
     const shapes = this.units.filter(u => u.team === 1 && !u.dead && !u.fled).map(u => {
       const x = (u.x - BATTLE_ORIGIN.x + S.size / 2) * S.px, z = (u.z - BATTLE_ORIGIN.z + S.size / 2) * S.px, high = (u.y || 0) > 1.5;
-      const r = (high ? SIGHT.high : SIGHT.ground) * (u.st === 'suspicious' || u.st === 'investigate' ? 1.25 : 1) * S.px;
+      const r = (high ? SIGHT.high : SIGHT.ground) * this.cond.sight * (u.st === 'suspicious' || u.st === 'investigate' ? 1.25 : 1) * S.px;
       return { x, z, r, cone: !high, a: Math.PI / 2 - u.heading };
     });
     const W = S.canvas.width, c = S.canvas.getContext('2d'), l = S.layer.getContext('2d');
@@ -1057,14 +1165,30 @@ export class Battle {
     S.tex.needsUpdate = true;
   }
   dispose() {
+    if (this.fogSave) { this.scene.fog.near = this.fogSave[0]; this.scene.fog.far = this.fogSave[1]; }
     if (this.sight) this.sight.tex.dispose();
     this.scene.remove(this.root);
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   }
   results() {
     const alive = this.units.filter(u => u.team === 0 && !u.dead);
-    return { survivors: alive.filter(u => u.vid).map(u => u.vid), rams: alive.filter(u => u.ram).length, dead: this.units.filter(u => u.team === 0 && u.dead && u.vid).map(u => u.name),
+    return { survivors: alive.filter(u => u.vid).map(u => u.vid), rams: alive.filter(u => u.ram).length, catapults: alive.filter(u => u.type === 'catapult').length,
+      kills: Object.fromEntries(this.units.filter(u => u.team === 0 && u.vid).map(u => [u.vid, u.kills || 0])), dead: this.units.filter(u => u.team === 0 && u.dead && u.vid).map(u => u.name),
       health: Object.fromEntries(alive.filter(u => u.vid).map(u => [u.vid, u.hp / u.maxHp])) };
   }
 }
 function structRadius(s) { return Math.max(s.w, s.d) * CELL / 2; }
+// where each soldier stands in a formation: [unit, sideways, behind the front]
+function formationSlots(kind, list) {
+  const n = list.length, out = [];
+  if (kind === 'line') {           // two ranks wide: fighters in front, bows and siege behind
+    const front = list.filter(u => !u.U.ranged), rear = list.filter(u => u.U.ranged);
+    const rank = (arr, back0) => { const per = Math.max(8, Math.ceil(arr.length / 2)); arr.forEach((u, i) => { const row = Math.floor(i / per), cnt = Math.min(per, arr.length - row * per); out.push([u, ((i % per) - (cnt - 1) / 2) * 1.6, back0 + row * 1.6]); }); return Math.ceil(arr.length / per); };
+    const rows = rank(front, 0); rank(rear, rows ? rows * 1.6 + 0.8 : 0);
+    return out;
+  }
+  if (kind === 'wedge') { let i = 0; for (let k = 0; i < n; k++) for (let j = 0; j <= k && i < n; j++, i++) out.push([list[i], (j - k / 2) * 1.5, k * 1.4]); return out; }
+  const sp = kind === 'loose' ? 3.2 : 1.7, cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+  list.forEach((u, i) => out.push([u, (i % cols - (cols - 1) / 2) * sp, (Math.floor(i / cols) - (rows - 1) / 2) * sp]));
+  return out;
+}

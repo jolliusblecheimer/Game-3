@@ -1,6 +1,6 @@
 // The story of your clan: the chronicle, statistics, tasks with rewards, the guide for new lords,
 // achievements — and the goal: unify the land (Tenka) by taking the Shogun's castle or breaking every rival clan.
-import { BUILDINGS, RESEARCH, CLANS } from './data.js';
+import { BUILDINGS, RESEARCH, CLANS, rankOf } from './data.js';
 
 const soldiers = g => g.soldiers(true).length;
 const count = (g, t) => g.countType(t);
@@ -33,6 +33,10 @@ const TASKS = [
 
 // Achievements: a name, what it takes, and a check
 export const ACHIEVEMENTS = [
+  { id: 'veteran', name: 'Blooded', desc: 'Raise a soldier to Veteran', check: g => [...g.villagers.values()].some(v => rankOf(v) >= 1) },
+  { id: 'hero', name: 'A Living Legend', desc: 'Raise a soldier to the rank of Hero', check: g => [...g.villagers.values()].some(v => rankOf(v) >= 3) },
+  { id: 'hooves', name: 'Thunder of Hooves', desc: 'Train your first cavalry', check: g => [...g.villagers.values()].some(v => v.job === 'cavalry') },
+  { id: 'shadows', name: 'From the Shadows', desc: 'Train a ninja', check: g => [...g.villagers.values()].some(v => v.job === 'ninja') },
   { id: 'firstBlood', name: 'First Blood', desc: 'Beat off your first raid', check: g => (g.state.stats.raidsBeaten || 0) >= 1 },
   { id: 'warband', name: 'War Band', desc: 'Have 10 soldiers', check: g => soldiers(g) >= 10 },
   { id: 'army', name: 'An Army', desc: 'Have 30 soldiers', check: g => soldiers(g) >= 30 },

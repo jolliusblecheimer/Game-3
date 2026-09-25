@@ -45,7 +45,7 @@ export function renderThumbs(size = 192) {
   for (const look of Object.keys(LOOKS)) {
     const p = new Person(look, 11);
     p.animate(0, 'idle');
-    THUMBS.person[look] = shoot(p.group, 0.45, 0.1, 1, { center: new THREE.Vector3(0, 1.55, 0), dist: 3.1 });
+    THUMBS.person[look] = shoot(p.group, 0.45, 0.1, 1, { center: new THREE.Vector3(0, 1.55 + (LOOKS[look].horse ? 0.62 : 0), 0), dist: 3.1 });
   }
   renderer.dispose();
   try { renderer.forceContextLoss(); } catch (_) { /* fine */ }

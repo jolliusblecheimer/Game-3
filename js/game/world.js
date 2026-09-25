@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS, RANKS, rankOf } from './data.js';
 import { Grid, FREE, TREE, ROCK } from './grid.js';
 import { PLOT } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
@@ -67,8 +67,18 @@ export class Game {
   jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
   // what a training building turns its trainees into, how long it takes and what it costs each
   trainInfo(b) {
-    if (b.type === 'dojo') { const k = DOJO_TRAINS[b.trainAs] && this.thLevel >= DOJO_TRAINS[b.trainAs].th ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
+    if (b.type === 'dojo') { const k = this.canTrain(b.trainAs) ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
     return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
+  }
+  // can the dojo train this class now? (Keep level, and some need a building: Stables for cavalry, a Shrine for monks)
+  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && this.thLevel >= T.th && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && b.done)); }
+  // veterans: kills and battles raise a soldier's rank
+  credit(v, kills = 0, battles = 0) {
+    if (!v) return;
+    const before = rankOf(v);
+    v.kills = (v.kills || 0) + kills; v.battles = (v.battles || 0) + battles;
+    const now = rankOf(v);
+    if (now > before) { const R = RANKS[now]; this.toast(`${v.name} is now ${now === 1 ? 'a' : 'an'} ${R.name} ${R.stars}!`); this.progress.log(`${v.name} rose to ${R.name}.`, 'war'); }
   }
   // a villager's job title; dojo trainees are named after what they train to become
   jobName(v) {
@@ -460,6 +470,7 @@ export class Game {
       R.progress += dt / R.time;
       if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.progress.log(`Your scholars mastered ${this.researchNode(R.id).node.name}.`, 'research'); this.emit('research'); }
     }
+    if (S.catBuild && S.clock >= S.catBuild.done) { S.catapults = (S.catapults || 0) + 1; S.catBuild = null; this.toast('A catapult is ready at the Siege Workshop'); this.emit('rams'); }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     // wounds heal slowly by themselves, four times faster with a Healer's House (resting inside: faster still)
     const healer = [...this.buildings.values()].some(b => b.def.heals && b.done);
@@ -520,8 +531,8 @@ export class Game {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
-      rams: S.rams || 0, ramBuild: S.ramBuild || null,
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
+      rams: S.rams || 0, ramBuild: S.ramBuild || null, catapults: S.catapults || 0, catBuild: S.catBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
       marks: [...this.clearMarks.values()].map(m => [m.kind, m.cx, m.cz]),
@@ -573,12 +584,13 @@ export class Game {
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
         if (v.aid) nv.aid = true;
         if (v.born) nv.born = v.born;
+        if (v.kills) nv.kills = +v.kills; if (v.battles) nv.battles = +v.battles;
         if (typeof v.hpf === 'number' && v.hpf < 1) nv.hpf = Math.max(0.05, v.hpf);
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
     for (const [kind, cx, cz] of s.marks || []) this.mark(kind, cx, cz);
     if (s.research && Array.isArray(s.research.done)) S.research = { done: s.research.done.filter(id => this.researchNode(id)), active: s.research.active && this.researchNode(s.research.active.id) ? s.research.active : null };
-    S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null;
+    S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null; S.catapults = +s.catapults || 0; S.catBuild = s.catBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
     try { this.life.load(s.life); this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }
     this.raids.load(s.raids);

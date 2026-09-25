@@ -26,6 +26,9 @@ export const LOOKS = {
   archer:      { robe: ['#34402e'], pants: '#23262d', hat: 'jingasa', tool: 'yumi', armor: '#3c4636', quiver: true },
   samurai:     { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#1c1c22', crest: '#e0b04a' },
   monk:        { robe: ['#c9772e'], pants: '#8f4f1f', hat: 'bald', tool: 'staff' },
+  ninja:       { robe: ['#1f2126'], pants: '#17181c', hat: 'hood', tool: 'katana', scale: 0.96 },
+  sohei:       { robe: ['#e8e2d4'], pants: '#3a3228', hat: 'cowl', tool: 'naginata', armor: '#4a4038' },
+  cavalry:     { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: CLAN, crest: '#e0b04a', horse: ['#6b4a33', '#3a3230', '#a07a52', '#8a5a3a'] },
   // commanders
   berserker:   { robe: ['#3a2320'], pants: '#1f1716', hat: 'oni', tool: 'kanabo', armor: '#4a2a24', scale: 1.22 },
   taisho:      { robe: ['#5a1f1c'], pants: '#2a1a18', hat: 'kabuto', tool: 'katana', armor: '#9e2a22', banner: '#f2ece0', crest: '#e8c25a', cloak: '#b8342a', scale: 1.1 },
@@ -34,6 +37,7 @@ export const LOOKS = {
   enemy_shield:   { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'katana', armor: '#2f3d5c', shield: '#5a4632' },
   enemy_archer:   { robe: ['#26324a'], pants: '#1c2230', hat: 'jingasa', tool: 'yumi', armor: '#34466a', quiver: true },
   enemy_samurai:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#e8e2d0', crest: '#c9ced4', scale: 1.08 },
+  enemy_cavalry:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#2f4a7a', crest: '#c9ced4', horse: ['#3a3230', '#5a4a3a', '#6b6660'] },
   enemy_lord:     { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#1f2b4d', crest: '#e8c25a', cloak: '#2f4a7a', scale: 1.15 },
   bandit:         { robe: ['#6b5a44', '#5a4a3a', '#4f5a3a'], pants: '#3a3228', hat: 'bandit', tool: 'katana' },
 };
@@ -48,10 +52,29 @@ function toolMesh(m, tool) {
     case 'bokken': m.box(0.05, 1.0, 0.07, '#c9a36f', [0, 0.25, 0.05], [0.2, 0, 0]); break;
     case 'yari': m.cyl(0.03, 0.03, 3.0, 5, '#4a3222', [0, 0.6, 0.05]); m.cone(0.06, 0.4, 4, '#c9ced4', [0, 2.3, 0.05]); break;
     case 'katana': m.box(0.04, 1.0, 0.07, '#d9dde2', [0, 0.35, 0.1], [0.3, 0, 0]); m.box(0.12, 0.04, 0.12, '#caa04a', [0, -0.12, 0.0]); break;
+    case 'naginata': m.cyl(0.03, 0.03, 2.3, 5, '#4a3222', [0, 0.45, 0.05]); m.box(0.04, 0.55, 0.1, '#d9dde2', [0, 1.85, 0.1], [0.15, 0, 0]); break;
     case 'staff': m.cyl(0.03, 0.03, 1.9, 5, '#6b4a2e', [0, 0.3, 0.05]); m.box(0.12, 0.12, 0.12, '#caa04a', [0, 1.25, 0.05]); break;
     case 'kanabo': m.cyl(0.05, 0.05, 0.5, 6, '#2a1c14', [0, -0.1, 0.05]); m.cyl(0.14, 0.07, 1.2, 7, '#3b2a20', [0, 0.72, 0.05]);
       for (let i = 0; i < 10; i++) { const a = i * 2.4, y = 0.4 + (i % 5) * 0.16; m.box(0.05, 0.05, 0.05, '#9aa0a6', [Math.cos(a) * 0.12, y + 0.1, 0.05 + Math.sin(a) * 0.12]); } break;
   }
+}
+
+// a horse: barrel, neck, head, mane and tail, and four legs that can move
+function horseModel(col, seed) {
+  const group = new THREE.Group(), m = new Mesher(seed + 40, 0.04);
+  m.box(0.55, 0.55, 1.5, col, [0, 1.15, 0]);
+  m.box(0.32, 0.72, 0.4, col, [0, 1.55, 0.78], [-0.6, 0, 0]);
+  m.box(0.26, 0.28, 0.6, col, [0, 1.86, 1.08], [0.4, 0, 0]);
+  m.box(0.06, 0.45, 0.45, '#1b1714', [0, 1.72, 0.66], [-0.6, 0, 0]);
+  m.box(0.1, 0.62, 0.12, '#1b1714', [0, 1.0, -0.8], [0.35, 0, 0]);
+  m.box(0.62, 0.12, 0.72, '#9e2a22', [0, 1.45, -0.05]); m.box(0.64, 0.3, 0.05, '#9e2a22', [0, 1.3, -0.05]);
+  const body = m.mesh(MAT.flat, true, false); group.add(body);
+  const legs = [[-0.18, 0.55], [0.18, 0.55], [-0.18, -0.55], [0.18, -0.55]].map(([x, z], i) => {
+    const p = new THREE.Group(); p.position.set(x, 0.95, z);
+    const lm = new Mesher(seed + 50 + i, 0.02); lm.box(0.14, 0.9, 0.16, col, [0, -0.45, 0]); lm.box(0.15, 0.1, 0.18, '#2a2320', [0, -0.9, 0]);
+    p.add(lm.mesh(MAT.flat, true, false)); group.add(p); return p;
+  });
+  return { group, legs, body };
 }
 
 export class Person {
@@ -66,7 +89,9 @@ export class Person {
     for (const c of [...this.group.children]) { this.group.remove(c); c.traverse(o => o.geometry && o.geometry.dispose()); }
     const L = LOOKS[lookName] || LOOKS.villager, r = mulberry32(seed * 7 + lookName.length);
     const skin = SKIN[Math.floor(r() * SKIN.length)], robe = L.robe[Math.floor(r() * L.robe.length)];
-    const g = this.group;
+    // a rider sits on a horse: everything below goes into a raised group
+    const root = this.group; let g = root; this.horse = null;
+    if (L.horse) { g = new THREE.Group(); g.position.y = 0.62; root.add(g); this.horse = horseModel(L.horse[Math.floor(r() * L.horse.length)], seed); root.add(this.horse.group); }
     // body (torso, hips, head, hat, back items)
     const b = new Mesher(seed, 0.04);
     b.frustum(0.72, 0.46, 0.52, 0.34, 0.55, robe, [0, 0.45, 0]);         // kimono skirt / hakama top
@@ -88,6 +113,8 @@ export class Person {
       case 'cloth': b.box(0.34, 0.16, 0.34, '#6e5b48', [0, 1.9, 0]); break;
       case 'jingasa': b.cone(0.46, 0.16, 12, '#1f2024', [0, 1.99, 0]); b.ball(0.05, '#c9a04a', [0, 2.08, 0]); break;
       case 'bald': b.box(0.31, 0.08, 0.31, skin, [0, 1.89, 0]); break;
+      case 'hood': b.box(0.35, 0.38, 0.35, '#1f2126', [0, 1.78, -0.01]); b.box(0.3, 0.06, 0.02, skin, [0, 1.77, 0.17]); break;      // shinobi mask: only the eyes show
+      case 'cowl': b.box(0.37, 0.3, 0.37, '#f2ece0', [0, 1.85, -0.01]); b.box(0.3, 0.14, 0.03, '#f2ece0', [0, 1.62, 0.16]); break;  // the monk's white headcloth
       case 'oni':
         b.ball(0.23, '#2a1c18', [0, 1.9, 0], [1, 0.75, 1], 1);
         b.cone(0.05, 0.34, 5, '#e8dcc0', [-0.16, 2.14, 0.02], [0, 0, 0.5]); b.cone(0.05, 0.34, 5, '#e8dcc0', [0.16, 2.14, 0.02], [0, 0, -0.5]);
@@ -151,7 +178,7 @@ export class Person {
     this.carry.stone = cm(m => { m.box(0.4, 0.3, 0.3, '#a9a397', [0, 1.72, -0.22]); });
     this.carry.gold = cm(m => { m.box(0.34, 0.24, 0.26, '#6b4a2e', [0, 1.68, -0.22]); m.ball(0.1, '#e0b04a', [0.05, 1.85, -0.2]); m.ball(0.08, '#e0b04a', [-0.08, 1.84, -0.24]); });
     this.pose = 'idle';
-    g.scale.setScalar(L.scale || 1);
+    root.scale.setScalar(L.scale || 1);
   }
   setCarry(res) { for (const k in this.carry) this.carry[k].visible = k === res; }
   // pose: idle | walk | work | chop | pray | sit | train | shoot | guard
@@ -198,6 +225,12 @@ export class Person {
         aR.rotation.set(-0.3, 0, 0);
         S.rotation.set(0.06, 0, 0); S.position.set(0.35, 0.91 + bodyY, 0.18);
       }
+    }
+    if (this.horse) {   // astride: legs apart; the horse's legs gallop when moving
+      lL.rotation.set(-0.5, 0, -0.55); lR.rotation.set(-0.5, 0, 0.55);
+      const H = this.horse, go = pose === 'walk' || pose === 'sneak', s = Math.sin(t * 11);
+      H.legs.forEach((l, i) => { l.rotation.x = go ? (i === 0 || i === 3 ? s : -s) * 0.7 : 0; });
+      H.body.position.y = go ? Math.abs(s) * 0.06 : 0; bodyY += go ? Math.abs(s) * 0.05 : 0;
     }
     body.position.y = bodyY; body.rotation.x = bodyRX;
     for (const a of this.arms) { a.position.y = 1.5 + bodyY; }

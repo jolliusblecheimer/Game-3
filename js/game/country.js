@@ -129,13 +129,13 @@ export class Country {
   }
   speedMult(kind) { return 1 + (kind === 'scout' ? this.game.rb('scoutSpeed') : this.game.rb('marchSpeed')) * 0.25; }
   marchTime(site) { return Math.max(10, Math.hypot(site.x, site.z) / (WAR.armySpeed * this.speedMult('army'))); }
-  sendArmy(site, vids, rams) {
+  sendArmy(site, vids, rams, cats = 0) {
     const g = this.game, cost = { wheat: Math.ceil(WAR.marchCost * vids.length * (g.rb('supply') ? 0.5 : 1)) };
     if (!vids.length) return g.toast('Choose at least one soldier', 'warn');
     if (!g.canAfford(cost)) return g.toast(`The march needs ${cost.wheat} wheat for supplies`, 'warn');
     g.pay(cost);
-    g.state.rams = (g.state.rams || 0) - rams;
-    const m = { id: this.nextId++, kind: 'army', vids: [...vids], rams, site: site.id, from: { x: 0, z: 0 }, to: { x: site.x, z: site.z }, t0: this.clock, dur: this.marchTime(site), phase: 'out', loot: null };
+    g.state.rams = (g.state.rams || 0) - rams; g.state.catapults = (g.state.catapults || 0) - cats;
+    const m = { id: this.nextId++, kind: 'army', vids: [...vids], rams, catapults: cats, site: site.id, from: { x: 0, z: 0 }, to: { x: site.x, z: site.z }, t0: this.clock, dur: this.marchTime(site), phase: 'out', loot: null };
     this.missions.push(m); this.away(vids, 'army');
     g.toast(`Your army marches on ${site.name} (${Math.round(m.dur)}s)`);
     g.emit('country'); return m;
@@ -144,7 +144,7 @@ export class Country {
   returnArmy(m, survivors, rams, loot) {
     for (const id of m.vids) if (!survivors.includes(id)) this.game.killVillager(id);
     m.vids = survivors; m.rams = rams; m.loot = loot; m.phase = 'back'; m.t0 = this.clock;
-    if (!survivors.length && !rams) this.missions = this.missions.filter(x => x !== m);
+    if (!survivors.length && !rams && !m.catapults) this.missions = this.missions.filter(x => x !== m);
     this.game.emit('country');
   }
 
@@ -182,6 +182,7 @@ export class Country {
       } else if (m.phase === 'back') {
         this.home(m.vids);
         if (m.rams) g.state.rams = (g.state.rams || 0) + m.rams;
+        if (m.catapults) g.state.catapults = (g.state.catapults || 0) + m.catapults;
         if (m.loot) { const got = []; for (const r in m.loot) { const n = g.add(r, m.loot[r]); if (n) got.push(`${n} ${RES[r].name.toLowerCase()}`); } g.toast(`The army is home${got.length ? ' with ' + got.join(', ') : ''}!`); }
         else if (m.kind === 'scout') g.toast('Your scout is back in the village');
         else g.toast('Your army has returned home');

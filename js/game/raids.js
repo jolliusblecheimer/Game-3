@@ -1,12 +1,12 @@
 // Bandit raids on your village. The band grows with your Town Hall; walls, towers and soldiers keep them out.
 import * as THREE from 'three';
-import { RAIDS, JOBS, UNITS, RES } from './data.js';
+import { RAIDS, JOBS, UNITS, RES, rankOf } from './data.js';
 import { PLOT } from '../render/nature.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
 
 const SIDES = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
-const SOLDIER_HP = { ashigaru: 120, shieldman: 135, samurai: 280, archer: 70, berserker: 560, taisho: 380 };
+const SOLDIER_HP = { ashigaru: 120, shieldman: 135, samurai: 280, archer: 70, berserker: 560, taisho: 380, ninja: 95, sohei: 210, cavalry: 230 };
 const TOUGH = 1.75; // everyone lasts longer in a fight
 const maxHp = v => (SOLDIER_HP[v.job] || 100) * TOUGH;
 
@@ -222,8 +222,8 @@ export class Raids {
         if (v.rcd <= 0) {
           v.rcd = ranged ? 1.5 / (1 + g.rb('archFast')) : 1.0 / (1 + (v.job === 'ashigaru' ? g.rb('spearFast') : 0));
           const dmg = ranged ? UNITS.archer.dmg * (tower ? 1.3 : 1) * (1 + g.rb('archDmg')) : v.job === 'ashigaru' ? UNITS.ashigaru.dmg * (1 + g.rb('spearDmg')) : (UNITS[v.job] || UNITS.ashigaru).dmg;
-          const forged = dmg * (1 + g.life.forgeBonus());
-          if (ranged) this.shoot(v, t[0], forged); else this.hurtBandit(t[0], forged);
+          const forged = dmg * (1 + g.life.forgeBonus()) * (1 + 0.1 * rankOf(v));
+          if (ranged) this.shoot(v, t[0], forged); else this.hurtBandit(t[0], forged, v);
         }
       } else if (!tower && !ranged && (!v.path || (v.chaseT || 0) < this.clock)) {
         v.chaseT = this.clock + 1.2;
@@ -263,11 +263,12 @@ export class Raids {
     v.rhp = (v.rhp || maxHp(v) * (v.hpf ?? 1)) - dmg;
     if (v.rhp <= 0) { g.toast(`${v.name} fell defending the village.`, 'bad'); g.killVillager(v.id); }
   }
-  hurtBandit(u, dmg) {
+  hurtBandit(u, dmg, by = null) {
     if (u.dead) return;
     u.hp -= dmg; u.hit = 0.2;
     if (u.hp <= 0) {
       u.dead = true; u.deadT = 0; this.killed++;
+      if (by && this.game.villagers.has(by.id)) this.game.credit(by, 1);
       if (u.carry) { for (const r in u.carry) { this.game.add(r, u.carry[r]); this.stolen[r] -= u.carry[r]; } u.carry = null; u.person.setCarry(null); }
     }
   }
@@ -275,7 +276,7 @@ export class Raids {
     const m = new THREE.Mesh(this.arrowGeo, MAT.flat);
     const from = { x: v.pos.x, y: (v.elev || 0) + 1.6, z: v.pos.z };
     this.game.scene.add(m);
-    this.arrows.push({ m, from, u, dmg, t: 0, dur: 0.2 + Math.hypot(u.x - from.x, u.z - from.z) / 35 });
+    this.arrows.push({ m, from, u, by: v, dmg, t: 0, dur: 0.2 + Math.hypot(u.x - from.x, u.z - from.z) / 35 });
   }
   // an enemy archer shoots at one of your people
   enemyShoot(u, v, dmg) {
@@ -293,7 +294,7 @@ export class Raids {
       a.m.position.set(x, y, z); a.m.lookAt(tx, ty, tz);
       if (f >= 1) {
         a.done = true; this.game.scene.remove(a.m);
-        if (!a.v) this.hurtBandit(a.u, a.dmg);
+        if (!a.v) this.hurtBandit(a.u, a.dmg, a.by);
         else if (g.villagers.has(a.v.id) && !a.v.hidden) { if (UNITS[a.v.job] && UNITS[a.v.job].block && g.rand() < UNITS[a.v.job].block) continue; if (JOBS[a.v.job].soldier) this.hurtSoldier(a.v, a.dmg); else this.hurtVillager(a.v, a.dmg); }
       }
     }

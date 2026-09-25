@@ -68,6 +68,9 @@ export const JOBS = {
   ashigaru:       { name: 'Spearman',        look: 'ashigaru', soldier: true, desc: 'Ashigaru spearman — the backbone of your army. Defends the village against bandits.' },
   shieldman:      { name: 'Shield-bearer',   look: 'shieldman', soldier: true, desc: 'Tate-ashigaru — a sword and a heavy wooden shield that turns most arrows aside from the front. Leads the charge on a castle.' },
   samurai:        { name: 'Samurai',         look: 'samurai',   soldier: true, desc: 'A sworn warrior in lacquered armour: twice as tough as a spearman and deadly with the katana.' },
+  ninja:          { name: 'Ninja',           look: 'ninja',    soldier: true, desc: 'Shinobi — hard to see and quick even when creeping. Kills any unaware guard in one blow, and can climb walls with a grappling hook.' },
+  sohei:          { name: 'Warrior monk',    look: 'sohei',    soldier: true, desc: 'S\u014dhei — a temple warrior with a naginata that sweeps several foes at once. Tends the wounds of the soldiers around him.' },
+  cavalry:        { name: 'Cavalry',         look: 'cavalry',  soldier: true, desc: 'Mounted samurai — the fastest troops you have. A charge after a gallop hits two and a half times as hard.' },
   archer:         { name: 'Archer',          look: 'archer',   soldier: true, desc: 'Yumi archer — climbs your watchtowers and shoots from cover.' },
   berserker:      { name: 'Berserker',       look: 'berserker', soldier: true, commander: true, desc: 'Commander. Climbs enemy walls and draws their fire. Huge damage.' },
   taisho:         { name: 'Taishō',          look: 'taisho',    soldier: true, commander: true, desc: 'Commander. His banner makes nearby troops fight harder; can rally them mid-battle.' },
@@ -85,7 +88,20 @@ export const DOJO_TRAINS = {
   ashigaru:  { th: 1, time: 90,  cost: { wheat: 20, gold: 8 } },
   shieldman: { th: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
   samurai:   { th: 4, time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
+  ninja:     { th: 3, time: 150, cost: { wheat: 20, gold: 35 } },
+  sohei:     { th: 3, time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
+  cavalry:   { th: 3, time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
 };
+
+// Soldiers who survive battles and fell enemies rise in rank: each rank makes them 10% stronger.
+export const RANKS = [
+  { name: 'Recruit', xp: 0, stars: '' },
+  { name: 'Veteran', xp: 6, stars: '\u2605' },
+  { name: 'Elite', xp: 16, stars: '\u2605\u2605' },
+  { name: 'Hero', xp: 35, stars: '\u2605\u2605\u2605' },
+];
+export const xpOf = v => (v.kills || 0) + 2 * (v.battles || 0);
+export const rankOf = v => { const x = xpOf(v); let r = 0; RANKS.forEach((R, i) => { if (x >= R.xp) r = i; }); return r; };
 
 // Commanders are appointed at the Keep.
 export const COMMANDERS = {
@@ -99,6 +115,11 @@ export const UNITS = {
   archer:    { hp: 70, dmg: 11, cd: 1.5, range: 21, speed: 3.3, look: 'archer', ranged: true, r: 0.45 },
   shieldman: { hp: 135, dmg: 12, cd: 1.1, range: 1.8, speed: 3.1, look: 'shieldman', r: 0.55, block: 0.65 },
   samurai:   { hp: 280, dmg: 25, cd: 1.0, range: 2.0, speed: 3.5, look: 'samurai', r: 0.55 },
+  ninja:     { hp: 95, dmg: 30, cd: 0.8, range: 1.8, speed: 4.3, look: 'ninja', r: 0.45, stealth: true },
+  sohei:     { hp: 210, dmg: 17, cd: 1.1, range: 2.4, speed: 3.3, look: 'sohei', r: 0.55, cleave: 1.8, heal: 7 },
+  cavalry:   { hp: 230, dmg: 20, cd: 1.1, range: 2.2, speed: 6.2, look: 'cavalry', r: 0.8, charge: 2.5 },
+  catapult:  { hp: 500, dmg: 170, cd: 5.5, range: 30, speed: 1.2, siege: true, ranged: true, lob: true, r: 1.3, arrowResist: 0.3 },
+  enemy_cavalry: { hp: 220, dmg: 19, cd: 1.1, range: 2.2, speed: 6.0, look: 'enemy_cavalry', r: 0.8, charge: 2.2 },
   berserker: { hp: 560, dmg: 36, cd: 1.1, range: 2.2, speed: 3.9, look: 'berserker', cleave: 2.4, r: 0.6, climb: true },
   taisho:    { hp: 380, dmg: 22, cd: 1.0, range: 2.0, speed: 3.5, look: 'taisho', aura: 10, r: 0.55 },
   ram:       { hp: 800, dmg: 110, cd: 2.2, range: 2.2, speed: 1.7, siege: true, r: 1.2, arrowResist: 0.3 },
@@ -194,7 +215,9 @@ export const BUILDINGS = {
   strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true,
                 desc: 'Scholars of war study here. Research skill trees for every kind of soldier, your scouts, your sieges and your defenses.' },
   workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 220, stone: 90, gold: 40 }, time: 90, h: 4, th: 3, unique: true,
-                desc: 'Carpenters build battering rams here for breaking castle gates.' },
+                desc: 'Carpenters build battering rams here for breaking castle gates — and, with a Keep of level 4, catapults that smash walls and towers from afar.' },
+  stable:     { name: 'Stables', kanji: '厩', cat: 'military', size: [3, 3], cost: { wood: 180, stone: 60, gold: 40 }, time: 80, h: 4, th: 3, unique: true,
+                desc: 'Horses for your warriors. With Stables, the Dojo can train Cavalry: mounted samurai, fast, and a charge hits very hard.' },
   palisade:   { name: 'Bamboo Palisade', kanji: '竹柵', cat: 'defense', size: [1, 1], cost: { wood: 18 }, time: 8, blocks: true, line: true, h: 2.5, th: 1, hp: 400, upgradeTo: 'wall',
                 desc: 'Sharpened bamboo fence — your first defense. Can be upgraded to a stone wall at Town Hall level 3.' },
   spikes:     { name: 'Spike Barricade', kanji: '逆茂木', cat: 'defense', size: [1, 1], cost: { wood: 12 }, time: 6, line: true, h: 1.6, th: 1,

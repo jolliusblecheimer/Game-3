@@ -3,7 +3,12 @@ import * as THREE from 'three';
 import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
 import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
 import { RTSCamera } from './camera.js';
-import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS } from '../game/data.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS, BUILDINGS, RANKS, rankOf } from '../game/data.js';
+
+// abilities you can trigger in battle (R)
+const ABIL = { ...COMMANDERS, ninja: { ability: 'Grappling Hook', abilityDesc: 'Climbs silently over a wall to a spot you choose.', point: true }, sohei: { ability: 'Prayer of Iron', abilityDesc: 'Everyone within 10 takes half damage for 6s.' } };
+ABIL.berserker = { ...ABIL.berserker, point: true };
+const FORMATIONS = { box: 'Block', line: 'Line', wedge: 'Wedge', loose: 'Loose' };
 import { h, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { art, costChips } from './hud.js';
@@ -205,10 +210,10 @@ export class Views {
   }
   armyPicker(site) {
     const g = this.game, C = g.country, soldiers = g.soldiers();
-    const types = ['ashigaru', 'shieldman', 'samurai', 'archer', 'berserker', 'taisho'];
+    const types = ['ashigaru', 'shieldman', 'samurai', 'cavalry', 'ninja', 'sohei', 'archer', 'berserker', 'taisho'];
     // two groups: the west group (everything, by default) and an east group for a pincer attack
     const pick = Object.fromEntries(types.map(t => [t, [soldiers.filter(v => v.job === t).length, 0]]));
-    const haveRams = g.state.rams || 0, rams = [Math.min(haveRams, 2), 0];
+    const haveRams = g.state.rams || 0, rams = [Math.min(haveRams, 2), 0], haveCats = g.state.catapults || 0, cats = [Math.min(haveCats, 2), 0];
     const body = h('div', { class: 'menu picker' });
     const counter = (arr, k, max) => h('span', { class: 'ctr' },
       h('button', { class: 'mini', onclick: () => { arr[k] = Math.max(0, arr[k] - 1); render(); } }, '−'), h('span', { class: 'count' }, String(arr[k])),
@@ -219,13 +224,15 @@ export class Views {
       body.append(h('div', { class: 'selrow head' }, h('span'), h('b', null, 'Troops'), h('span', { class: 'sub' }, 'West group'), h('span', { class: 'sub' }, 'East group')));
       for (const t of types) {
         const list = soldiers.filter(v => v.job === t), have = list.length; if (!have) continue;
-        const hurt = list.filter(v => v.hpf != null && v.hpf < 0.95).length;
+        const hurt = list.filter(v => v.hpf != null && v.hpf < 0.95).length, vets = list.filter(v => rankOf(v) > 0).length;
         body.append(h('div', { class: 'selrow' }, art('person', JOBS[t].look, null, 'face'),
-          h('span', null, h('b', null, `${JOBS[t].name} · ${have}`), h('small', { class: 'sub' }, hurt ? `${hurt} wounded` : JOBS[t].commander ? COMMANDERS[t].ability : '')),
+          h('span', null, h('b', null, `${JOBS[t].name} · ${have}`), h('small', { class: 'sub' }, [hurt ? `${hurt} wounded` : '', vets ? `${vets} veteran${vets > 1 ? 's' : ''} \u2605` : '', !hurt && JOBS[t].commander ? COMMANDERS[t].ability : ''].filter(Boolean).join(' · '))),
           counter(pick[t], 0, have), counter(pick[t], 1, have)));
       }
       body.append(h('div', { class: 'selrow' }, icon('ram', 30), h('span', null, h('b', null, `Battering ram · ${haveRams}`), h('small', { class: 'sub' }, haveRams ? '' : 'Build one at a Siege Workshop')),
         counter(rams, 0, haveRams), counter(rams, 1, haveRams)));
+      if (haveCats) body.append(h('div', { class: 'selrow' }, icon('ram', 30), h('span', null, h('b', null, `Catapult · ${haveCats}`), h('small', { class: 'sub' }, 'Smashes walls and towers from afar')),
+        counter(cats, 0, haveCats), counter(cats, 1, haveCats)));
       const n = types.reduce((a, t) => a + pick[t][0] + pick[t][1], 0), east = types.reduce((a, t) => a + pick[t][1], 0);
       body.append(h('p', { class: 'sub' }, east ? 'The west group attacks from the west flank, the east group from the east — close in from both sides at once.' : 'Put troops in the east group to attack from two sides at once.'),
         h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(C.marchTime(site))} — supplies: ${WAR.marchCost * n} wheat`)));
@@ -239,8 +246,8 @@ export class Views {
         list.slice(0, pick[t][0]).forEach(v => { vids.push(v.id); sides[v.id] = 'w'; });
         list.slice(pick[t][0], pick[t][0] + pick[t][1]).forEach(v => { vids.push(v.id); sides[v.id] = 'e'; });
       }
-      const m = C.sendArmy(site, vids, rams[0] + rams[1]);
-      if (m && typeof m === 'object') { m.sides = sides; m.ramsE = rams[1]; }
+      const m = C.sendArmy(site, vids, rams[0] + rams[1], cats[0] + cats[1]);
+      if (m && typeof m === 'object') { m.sides = sides; m.ramsE = rams[1]; m.catsE = cats[1]; }
       this.renderMapUI();
     } }], { wide: true });
   }
@@ -311,7 +318,7 @@ export class Views {
   }
   groups() {
     const mine = this.battle.units.filter(u => u.team === 0 && !u.dead && !u.fled);
-    return [['ashigaru', 'Spearmen', '1'], ['archer', 'Archers', '2'], ['cmd', 'Commanders', '3'], ['ram', 'Rams', '4'], ['shieldman', 'Shields', '6'], ['samurai', 'Samurai', '7']].map(([k, name, key]) => ({ k, name, key, units: mine.filter(u => k === 'cmd' ? (u.type === 'berserker' || u.type === 'taisho') : u.type === k) })).filter(g => g.units.length);
+    return [['ashigaru', 'Spearmen', '1'], ['archer', 'Archers', '2'], ['cmd', 'Commanders', '3'], ['ram', 'Siege', '4'], ['shieldman', 'Shields', '6'], ['samurai', 'Samurai', '7'], ['cavalry', 'Cavalry', '8'], ['ninja', 'Ninja', '9'], ['sohei', 'Monks', '0']].map(([k, name, key]) => ({ k, name, key, units: mine.filter(u => k === 'cmd' ? (u.type === 'berserker' || u.type === 'taisho') : k === 'ram' ? !!u.U.siege : u.type === k) })).filter(g => g.units.length);
   }
   renderBattleUI() {
     const b = this.battle, site = b.site; if (!this.bTop) return;
@@ -322,6 +329,7 @@ export class Views {
     this.bTop.append(h('div', { class: 'btitle' }, h('b', null, title), h('small', null, goal)),
       b.defend ? '' : h('div', { class: 'bstat ' + (b.alarm ? 'alarm' : 'unseen') }, icon(b.alarm ? 'camp' : 'eye', 18), b.alarm ? 'Alarm raised' : 'They haven’t seen you'),
       h('div', { class: 'bstat' }, icon('soldier', 18), `${foes} ${b.defend ? 'attackers' : 'enemies'} left`),
+      ...[['night', '\ud83c\udf19 Night'], ['fog', '\ud83c\udf2b Fog'], ['rain', '\ud83c\udf27 Rain'], ['snow', '\u2744 Snow'], ['river', '\ud83c\udf0a River']].filter(([k]) => b.cond[k]).map(([, t]) => h('div', { class: 'bstat cond' }, t)),
       keep ? h('div', { class: 'bstat cap' }, icon('flag', 18), h('div', { class: 'bar' }, h('i', { style: `width:${b.capture * 100}%` }))) : '',
       this.hud.paused && !b.over ? h('button', { class: 'btn danger', onclick: () => { this.hud.paused = false; this.renderBattleUI(); } }, b.t > 0 ? '▶ Resume' : '▶ Begin the attack') : h('button', { class: 'btn ghost small', onclick: () => { this.hud.paused = true; this.renderBattleUI(); } }, 'Pause'));
     if (this.hud.paused && b.t === 0) this.bTop.append(h('p', { class: 'plan' }, b.defend
@@ -336,24 +344,44 @@ export class Views {
         look ? art('person', UNITS[look].look, null, 'face') : icon('ram', 30), h('span', null, h('b', null, `${G.units.length}`), h('small', null, G.name)), h('kbd', null, G.key)));
     }
     const sel = this.selected.filter(u => !u.dead);
+    // squads: your own groups (J, K, L — Shift or a long press to save the selection)
+    this.squads = this.squads || [[], [], []];
+    const sq = h('div', { class: 'squads' });
+    ['J', 'K', 'L'].forEach((key, i) => {
+      const S = this.squads[i] = this.squads[i].filter(u => !u.dead && !u.fled);
+      sq.append(h('button', { class: 'grp squad' + (S.length && S.every(u => this.selected.includes(u)) ? ' on' : ''), title: S.length ? `Squad ${i + 1}: click to select (${key}); Shift+click to replace it with the selected troops` : `Empty squad: select troops, then click here (or Shift+${key}) to save them`,
+        onclick: e => this.squadClick(i, e.shiftKey) }, h('span', null, h('b', null, S.length ? String(S.length) : '+'), h('small', null, `Squad ${['I', 'II', 'III'][i]}`)), h('kbd', null, key)));
+    });
     const sneaking = sel.length && sel.every(u => u.sneak || u.U.siege);
     const cmds = h('div', { class: 'cmds' },
       h('button', { class: 'btn ghost small' + (this.boxMode ? ' armed' : ''), title: 'Box select (V): drag a box around your troops. Shift+drag also works.', onclick: () => { this.boxMode = !this.boxMode; this.renderBattleUI(); } }, icon('grid', 16), 'Box select', h('kbd', null, 'V')),
       b.defend ? null : h('button', { class: 'btn ghost small' + (sneaking ? ' armed' : ''), title: 'Stealth (C): creep slowly and stay unseen much longer', disabled: sel.length ? null : true, onclick: () => { this.battle.setSneak(sel, !sneaking); this.renderBattleUI(); } }, icon('eye', 16), 'Stealth', h('kbd', null, 'C')),
       h('button', { class: 'btn ghost small' + (this.armed === 'amove' ? ' armed' : ''), title: 'Attack-move (T): walk and fight anything on the way', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'amove' ? null : 'amove'; this.renderBattleUI(); } }, icon('sword', 16), 'Attack-move', h('kbd', null, 'T')),
+      h('button', { class: 'btn ghost small', title: 'Formation (Y): how the selected troops line up when you move them — Block, Line (fighters in front, bows behind), Wedge (to break a line) or Loose (spread out against arrows and boulders)', onclick: () => this.cycleFormation() }, icon('grid', 16), FORMATIONS[this.formation || 'box'], h('kbd', null, 'Y')),
       h('button', { class: 'btn ghost small', title: 'Hold (G): stay put and fight only what comes in range', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'hold') }, icon('stop', 16), 'Hold', h('kbd', null, 'G')),
       b.defend ? null : h('button', { class: 'btn ghost small' + (this.armed === 'distract' ? ' armed' : ''), title: 'Distract (F): throw a stone — guards nearby turn to look and one or two walk over to check', disabled: sel.length ? null : true, onclick: () => { this.armed = this.armed === 'distract' ? null : 'distract'; this.renderBattleUI(); } }, icon('scout', 16), 'Distract', h('kbd', null, 'F')),
       h('button', { class: 'btn ghost small', title: 'Stop (X)', disabled: sel.length ? null : true, onclick: () => this.battle.order(sel, 'stop') }, icon('close', 16), 'Stop', h('kbd', null, 'X')));
-    for (const u of sel.filter(u => u.type === 'berserker' || u.type === 'taisho')) {
-      const C = COMMANDERS[u.type];
-      cmds.append(h('button', { class: 'btn small ability' + (this.armed === 'climb' ? ' armed' : ''), title: C.abilityDesc, disabled: u.abilityCd > 0 ? true : null,
-        onclick: () => { if (u.type === 'taisho') { this.battle.ability(u); this.renderBattleUI(); } else { this.armed = this.armed === 'climb' ? null : 'climb'; this.abilityUnit = u; this.renderBattleUI(); } } },
+    // one ability button per kind of unit selected (the first one ready)
+    const abilUnits = []; for (const u of sel) if (ABIL[u.type] && !abilUnits.some(o => o.type === u.type)) abilUnits.push(sel.filter(o => o.type === u.type).sort((a, b) => a.abilityCd - b.abilityCd)[0]);
+    for (const u of abilUnits) {
+      const C = ABIL[u.type];
+      cmds.append(h('button', { class: 'btn small ability' + (this.armed === 'climb' && this.abilityUnit === u ? ' armed' : ''), title: C.abilityDesc, disabled: u.abilityCd > 0 ? true : null,
+        onclick: () => { if (!C.point) { this.battle.ability(u); this.renderBattleUI(); } else { this.armed = this.armed === 'climb' ? null : 'climb'; this.abilityUnit = u; this.renderBattleUI(); } } },
         art('person', UNITS[u.type].look, null, 'tiny'), u.abilityCd > 0 ? `${C.ability} (${Math.ceil(u.abilityCd)}s)` : C.ability, h('kbd', null, 'R')));
     }
-    this.bBottom.append(grp, cmds, h('button', { class: 'btn danger small retreat', title: 'Pull every unit back off the field', onclick: () => this.battle.retreat() }, 'Retreat'));
-    if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the Berserker should climb to — a wall, over a wall, or up onto an archer tower'));
+    this.bBottom.append(grp, sq, cmds, h('button', { class: 'btn danger small retreat', title: 'Pull every unit back off the field', onclick: () => this.battle.retreat() }, 'Retreat'));
+    if (this.armed === 'climb') this.bBottom.append(h('div', { class: 'armedhint' }, this.abilityUnit && this.abilityUnit.type === 'ninja' ? 'Click where the Ninja should climb to — over a wall, onto a wall or a tower' : 'Click where the Berserker should climb to — a wall, over a wall, or up onto an archer tower'));
     if (this.armed === 'amove') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where to attack-move'));
     if (this.armed === 'distract') this.bBottom.append(h('div', { class: 'armedhint' }, 'Click where the stone should land (within 26 of one of your selected soldiers)'));
+  }
+  squadClick(i, save) {
+    const S = this.squads[i].filter(u => !u.dead && !u.fled), sel = this.selected.filter(u => !u.dead);
+    if ((save || !S.length) && sel.length) { this.squads[i] = sel.slice(); this.hud.toast(`Squad ${['I', 'II', 'III'][i]}: ${sel.length} troops`); this.renderBattleUI(); return; }
+    if (S.length) this.selectUnits(S);
+  }
+  cycleFormation() {
+    const keys = Object.keys(FORMATIONS), i = keys.indexOf(this.formation || 'box');
+    this.formation = keys[(i + 1) % keys.length]; this.hud.toast(`Formation: ${FORMATIONS[this.formation]}`); this.renderBattleUI();
   }
   selectUnits(list, add = false) {
     if (!add) this.selected = [];
@@ -380,6 +408,8 @@ export class Views {
     const b = this.battle, g = this.game, C = g.country, m = b.mission, site = b.site, S = SITES[site.type];
     const r = b.results(), alive = r.survivors;
     for (const [id, f] of Object.entries(r.health || {})) { const v = g.villagers.get(+id); if (v) v.hpf = f >= 0.99 ? null : f; }
+    for (const id of alive) g.credit(g.villagers.get(id), r.kills[id] || 0, 1);
+    m.catapults = r.catapults;
     const P = g.progress; P.add('soldiersLost', r.dead.length);
     if (m.defend) {
       const won = result === 'victory';
@@ -512,7 +542,7 @@ export class Views {
     }
     if (!this.selected.length) return;
     if (hit) { b.order(this.selected, 'attack', null, hit); b.focusTarget = hit; this.hud.sound('click'); }
-    else if (g) { b.order(this.selected, this.armed === 'amove' ? 'amove' : 'move', { x: g.x, z: g.z }); b.focusTarget = null; this.moveMark(g); }
+    else if (g) { b.order(this.selected, this.armed === 'amove' ? 'amove' : 'move', { x: g.x, z: g.z }, null, this.formation || 'box'); b.focusTarget = null; this.moveMark(g); }
     this.armed = null; this.renderBattleUI();
   }
   moveMark(p) { this.battle.fx.push({ kind: 'shout', x: p.x, z: p.z, y: 0.5, text: '▼', t: 2.2 }); }
@@ -535,7 +565,7 @@ export class Views {
     const k = cam.dist * 0.0022, f = cam.forward(), r = cam.right();
     cam.pan((r.x * e.deltaX - f.x * e.deltaY) * k, (r.z * e.deltaX - f.z * e.deltaY) * k);
   }
-  onKey(k) {
+  onKey(k, e) {
     if (this.mode === 'village') return false;
     if (!this.hud.modal.hidden) return false;
     if (k === 'm' && this.mode === 'map') { this.toVillage(); return true; }
@@ -547,7 +577,9 @@ export class Views {
     if (this.mode !== 'battle') return ['b', 'r', 'delete', 'backspace', 'h'].includes(k);
     const b = this.battle, sel = this.selected.filter(u => !u.dead);
     const G = this.groups();
-    if (/^[1-4]$|^[67]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
+    if (/^[0-46-9]$/.test(k)) { const g = G.find(x => x.key === k); if (g) this.selectUnits(g.units); return true; }
+    const sqi = ['j', 'k', 'l'].indexOf(k); if (sqi >= 0) { this.squadClick(sqi, !!(e && e.shiftKey)); return true; }
+    if (k === 'y') { this.cycleFormation(); return true; }
     if (k === '5') { this.selectUnits(b.units.filter(u => u.team === 0 && !u.dead && !u.fled)); return true; }
     if (k === 't') { this.armed = 'amove'; this.renderBattleUI(); return true; }
     if (k === 'c') { const on = !sel.every(u => u.sneak || u.U.siege); b.setSneak(sel, on); this.renderBattleUI(); return true; }
@@ -555,7 +587,7 @@ export class Views {
     if (k === 'x') { b.order(sel, 'stop'); return true; }
     if (k === 'f' && !b.defend) { this.armed = this.armed === 'distract' ? null : 'distract'; this.renderBattleUI(); return true; }
     if (k === 'g') { b.order(sel, 'hold'); return true; }
-    if (k === 'r') { const c = sel.find(u => u.type === 'berserker' || u.type === 'taisho'); if (c) { if (c.type === 'taisho') b.ability(c); else { this.armed = 'climb'; this.abilityUnit = c; } this.renderBattleUI(); } return true; }
+    if (k === 'r') { const c = sel.filter(u => ABIL[u.type] && u.abilityCd <= 0)[0]; if (c) { if (!ABIL[c.type].point) b.ability(c); else { this.armed = 'climb'; this.abilityUnit = c; } this.renderBattleUI(); } return true; }
     if (k === ' ') { this.hud.paused = !this.hud.paused; this.renderBattleUI(); return true; }
     return ['b', 'delete', 'backspace', 'm', 'h'].includes(k);
   }
@@ -603,9 +635,9 @@ export class Views {
       // what the dojo trains: spearmen, shield-bearers (Keep 2) or samurai (Keep 4)
       const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));
       for (const [k, T] of Object.entries(DOJO_TRAINS)) {
-        const locked = g.thLevel < T.th;
-        box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, onclick: () => { if (b.trainAs !== k) { b.trainAs = k; g.toast(`The dojo now trains ${JOBS[k].name}s`); } this.hud.renderPanel(); } },
-          art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? `Keep level ${T.th}` : `${T.time}s · ${this.costText(T.cost)}`))));
+        const locked = !g.canTrain(k), why = g.thLevel < T.th ? `Keep level ${T.th}` : T.needs ? `Needs ${BUILDINGS[T.needs].name}` : '';
+        box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, title: JOBS[k].desc || '', onclick: () => { if (b.trainAs !== k) { b.trainAs = k; g.toast(`The dojo now trains ${JOBS[k].name}${k === 'cavalry' ? '' : 's'}`); } this.hud.renderPanel(); } },
+          art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? why : `${T.time}s · ${this.costText(T.cost)}`))));
       }
       box.append(h('p', { class: 'sub' }, 'Trainees already in the yard finish as whatever the dojo trains when they graduate.'));
       p.append(box);
@@ -623,6 +655,13 @@ export class Views {
           el.textContent = '';
           if (g.state.ramBuild) { const left = g.state.ramBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a ram… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / 45) * 100}%` }))); }
           else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cost)) return g.toast('Not enough resources', 'warn'); g.pay(cost); g.state.ramBuild = { done: g.state.clock + Math.round(45 * (1 - g.rb('ramBuild'))) }; this.hud.renderPanel(); } }, `Build a ram (${Math.round(45 * (1 - g.rb('ramBuild')))}s)`, costChips(g, cost)));
+        })));
+      const cc = { wood: 260, stone: 120, gold: 60 }, ct = Math.round(80 * (1 - g.rb('ramBuild')));
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('ram', 22), h('b', null, 'Catapults'), this.hud.live(h('span', { class: 'count' }), el => { el.textContent = `${g.state.catapults || 0} ready`; })),
+        g.thLevel < 4 ? h('p', { class: 'sub' }, 'Unlocks with a Keep of level 4. A catapult throws boulders at walls and towers from 30 paces — out of reach of most archers.') : this.hud.live(h('div', null), el => {
+          el.textContent = '';
+          if (g.state.catBuild) { const left = g.state.catBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a catapult… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / ct) * 100}%` }))); }
+          else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cc)) return g.toast('Not enough resources', 'warn'); g.pay(cc); g.state.catBuild = { done: g.state.clock + ct }; this.hud.renderPanel(); } }, `Build a catapult (${ct}s)`, costChips(g, cc)));
         })));
     }
   }

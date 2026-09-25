@@ -23,6 +23,12 @@ function lattice(m, x, y, z, w, h, side = 0, hex = '#3b2619') {
   }
   if (side) m.box(0.04, 0.04, w, hex, [x + side * 0.03, y, z]); else m.box(w, 0.04, 0.04, hex, [x, y, z + 0.03]);
 }
+function stableHorse(m, x, z, col) {
+  m.box(0.42, 0.5, 1.2, col, [x, 1.0, z]);
+  for (const dx of [-0.13, 0.13]) for (const dz of [-0.45, 0.45]) m.box(0.11, 0.78, 0.12, col, [x + dx, 0.39, z + dz]);
+  m.box(0.26, 0.55, 0.3, col, [x, 1.4, z + 0.55], [-0.5, 0, 0]); m.box(0.2, 0.22, 0.45, col, [x, 1.62, z + 0.82], [0.3, 0, 0]);
+  m.box(0.05, 0.4, 0.35, '#1b1714', [x, 1.55, z + 0.45], [-0.5, 0, 0]); m.box(0.08, 0.5, 0.1, '#1b1714', [x, 0.95, z - 0.62], [0.3, 0, 0]);
+}
 // the mine: rock outcrop, timbered entrance, rails and an ore cart — gold or iron
 function mineModel(b, w, d, ore) { const save = MODELS._mine; return save(b, w, d, ore); }
 // the iron mine's smelting furnace
@@ -398,6 +404,19 @@ const MODELS = {
     });
     m.cyl(0.05, 0.05, 3.2, 5, WOOD_D, [0, 1.6, 0]); m.box(0.05, 1.3, 0.5, VERM, [0, 2.6, 0.25]); m.box(0.06, 0.4, 0.4, '#f5efe0', [0, 2.7, 0.25]);
     hangingLantern(b, 0, 2.0, 0.05);
+  },
+  // Stables: open stalls under a long roof, three horses, hay
+  stable(b, w, d) {
+    const m = b.m;
+    m.box(w - 0.1, 0.12, d - 0.1, DIRT, [0, 0.06, 0]);
+    m.box(w - 0.3, 2.2, 0.14, WOOD, [0, 1.2, -d / 2 + 0.3]);
+    for (const x of [-w / 2 + 0.22, w / 2 - 0.22]) m.box(0.14, 2.2, d - 0.8, WOOD, [x, 1.2, -0.1]);
+    posts(m, w - 0.3, d - 0.5, 2.3, 0, WOOD_D, 0.12);
+    m.roof(w - 0.2, d - 0.3, 1.2, ROOF, 2.35, { over: 0.4, ridge: 0.5 });
+    for (let i = 1; i < 3; i++) m.box(0.08, 1.1, d - 1.4, WOOD_D, [-w / 2 + i * w / 3, 0.65, -0.35]);
+    ['#6b4a33', '#3a3230', '#a07a52'].forEach((col, i) => stableHorse(m, -w / 2 + (i + 0.5) * w / 3, -0.3, col));
+    m.box(w - 0.6, 0.1, 0.1, WOOD_D, [0, 1.0, d / 2 - 0.4]);
+    bales(m, w / 2 - 0.4, d / 2 - 0.15, 2);
   },
   dojo(b, w, d) {
     const m = b.m;

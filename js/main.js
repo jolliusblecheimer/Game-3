@@ -106,7 +106,7 @@ function boot() {
     // the year in the valley: leaves, ground, falling petals / leaves / snow / rain, and what the villagers say
     const inVillage = !(view && view.active), L = game.life;
     nature.setSeason(L.season);
-    weather.update(dt, cam.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage);
+    weather.update(dt, c.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage || views.mode === 'battle');
     bubbles.update(dt, inVillage && hud.settings.bubbles !== false);
     stage.update(dt, c.target, stage.camera.position);
     stage.render();

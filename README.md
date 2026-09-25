@@ -156,3 +156,18 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Blacksmith → uses iron to forge blades. While the forge burns, your soldiers hit harder and last longer.
   - Market → sell and buy goods, plus travelling merchants with special deals.
 - **Speech bubbles** show what villagers think. You can turn them off in the menu.
+
+## Veterans, new troops and battlefield conditions
+- **Ranks.** Every kill and every battle survived counts. The ranks are Recruit → Veteran ★ → Elite ★★ → Hero ★★★, and each rank makes a soldier 10% stronger (in battles and in raids on your village). A soldier's panel shows their rank and record.
+- **New troops from the Dojo:**
+  - **Ninja** (Keep 3): hard to see, quick even when creeping, and kills any unaware guard in one blow. Grappling Hook (R) climbs over walls.
+  - **Warrior monks** (Keep 3 + a Shrine): a sweeping naginata. They heal the soldiers around them, and Prayer of Iron (R) halves damage nearby.
+  - **Cavalry** (Keep 3 + Stables): very fast, and a charge after a gallop hits 2.5× as hard.
+- **Catapults** (Siege Workshop, Keep 4) throw boulders at walls and towers from 30 paces. The crash hurts the men standing nearby too.
+- **Squads.** J, K and L select your own groups. Shift+J/K/L, or Shift+click on the squad button, saves the current selection to it.
+- **Formations** (Y): Block, Line (fighters in front, bows behind), Wedge, or Loose (against arrows and boulders).
+- **Conditions:**
+  - Night and fog shorten how far the guards can see.
+  - Rain weakens archers.
+  - Snow slows everyone.
+  - Some places have a river across the field, with two bridges and a slow ford.

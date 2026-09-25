@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -316,6 +316,11 @@ export class Hud {
       p.append(close, h('div', { class: 'phead' }, art('person', J.look, null, 'big'), h('div', null, h('h2', null, v.name), h('p', { class: 'sub' }, g.jobName(v) + (work ? ` · ${work.def.name}` : '') + (v.aid ? ' · aiding construction' : '')))),
         this.live(h('p', { class: 'desc status' }), el => { el.textContent = v.status || '…'; }));
       if (J.desc) p.append(h('p', { class: 'sub' }, J.desc));
+      if (J.soldier) {
+        const r = rankOf(v), R = RANKS[r], N = RANKS[r + 1];
+        p.append(h('div', { class: 'irow rank' }, icon('katana', 16), h('span', null, h('b', null, `${R.name} ${R.stars}`), ` · ${v.kills || 0} kill${v.kills === 1 ? '' : 's'} · ${v.battles || 0} battle${v.battles === 1 ? '' : 's'}`),
+          h('small', { class: 'rt sub' }, N ? `${N.xp - xpOf(v)} to ${N.name}` : 'Highest rank')));
+      }
       if (v.hpf != null) p.append(h('div', { class: 'irow' }, icon('soldier', 16), h('span', null, 'Wounded'), this.bar2(() => v.hpf == null ? 1 : v.hpf, 'hp')));
       if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / g.trainInfo(work).time));
       const actions = h('div', { class: 'actions' });

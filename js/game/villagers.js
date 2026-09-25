@@ -278,7 +278,7 @@ export function thinkVillager(game, v) {
       }
       if (!(v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) && climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough
-    case 'ashigaru': case 'shieldman': case 'samurai': case 'berserker': case 'taisho': {
+    case 'ashigaru': case 'shieldman': case 'samurai': case 'berserker': case 'taisho': case 'ninja': case 'sohei': case 'cavalry': {
       // wounded soldiers rest at the Healer's House
       const healer = v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].find(b => b.def.heals && b.done);
       if (healer) {
