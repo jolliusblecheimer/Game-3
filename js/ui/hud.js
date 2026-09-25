@@ -158,6 +158,12 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('div', { class: 'crow', title: 'When the next raid is expected (your scouts only know roughly)' }, icon('camp', 20), h('span', null, 'Next raid'), h('b')), el => {
+        const R = g.raids, t = R.timeLeft();
+        el.hidden = !isFinite(t) && !R.active;
+        el.lastChild.textContent = R.active ? 'now!' : t < 60 ? 'under a minute' : `~${Math.max(1, Math.round(t / 60))} min`;
+        el.classList.toggle('attn', R.active || t < 60);
+      }),
       this.live(h('button', { class: 'crow link2', title: 'How your villagers feel', onclick: () => this.openMood() }, icon('people', 20), h('span', null, 'Mood'), h('b')), el => { const m = g.life.mood(); el.lastChild.textContent = `${m}%${g.life.festival ? ' 🏮' : ''}`; el.classList.toggle('attn', m < 30); }),
       this.live(h('button', { class: 'crow link2 tasks', title: 'Tasks and the guide', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Tasks'), h('b')), el => {
         const P = g.progress, guide = P.guide < GUIDE.length; el.lastChild.textContent = guide ? `Guide ${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length); el.classList.toggle('attn', guide);
@@ -452,6 +458,15 @@ export class Hud {
     }
     if (type === 'raid') this.sound('war');
     if (type === 'victory') setTimeout(() => this.showVictory(data), 600);
+    if (type === 'holdReport' && !document.getElementById('ui').classList.contains('mode-battle')) {
+      const r = data;
+      this.openModal(`Report from ${r.site.name}`, h('div', null,
+        h('p', null, r.won ? `An enemy force of about ${Math.round(r.force)} attacked ${r.site.name}. Your garrison of ${r.n0} held the walls and drove them off.` : `An enemy force of about ${Math.round(r.force)} attacked ${r.site.name}. Your garrison of ${r.n0} could not hold it.`),
+        h('p', { class: 'sub' }, r.lost ? `Fallen: ${r.names.join(', ')}.` : 'Not one of them fell.'),
+        !r.won && r.back ? h('p', { class: 'sub' }, `${r.back} survivor${r.back > 1 ? 's are' : ' is'} on the way home.`) : null,
+        h('p', { class: 'sub' }, r.won ? 'Tip: more men — and commanders — make a garrison much stronger. You can also lead the defence yourself when the warning comes.' : 'You can take it back with a new attack.')),
+        [{ label: 'Understood' }]);
+    }
     if (type === 'ronin') this.openModal('A wandering r\u014dnin', h('div', null, h('p', null, 'A masterless samurai stops at your gate. His clan is gone; for 60 gold and a roof, he will swear his sword to yours.'), h('p', { class: 'sub' }, 'He joins as a Samurai.')),
       [{ label: 'Send him away', cls: 'ghost' }, { label: 'Hire him (60 gold)', fn: () => g.life.hireRonin() }]);
     if (type === 'hungry' && this.game.state.clock - (this.hungryAt || -99) > 60) { this.hungryAt = this.game.state.clock; this.toast('Out of wheat! Villagers work slowly — add farmers.', 'bad'); }

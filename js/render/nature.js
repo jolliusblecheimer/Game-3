@@ -42,7 +42,7 @@ const LEAVES = {
   maple: [['#7fae4a', '#9cc25a', '#6a9a3e', '#a6c86a'], ['#4f7d3a', '#5f8a3e', '#46733a', '#6a9a44'], ['#c8452b', '#dc6a2f', '#b8392a', '#e0873a'], null],
   sakura: [['#f4b8c8', '#f7c9d6', '#eea3b9', '#fbd6e1'], ['#5f8a3e', '#6f9a4a', '#557f3a', '#7aa652'], ['#d9a23a', '#c8702e', '#e0b04a', '#b85a2a'], null],
 };
-function treeGeometry(type, season = -1) {
+export function treeGeometry(type, season = -1) {
   const m = new Mesher(type.length * 31, 0.07), snow = season === 3;
   if (type === 'pine') {
     m.cyl(0.18, 0.28, 2.4, 6, '#5a3d2a', [0, 1.2, 0]);
@@ -155,9 +155,11 @@ export class Nature {
       if (Math.hypot(x, z) < 22) return;
       const d = fbm(nA, x * 0.045 + 3, z * 0.045 - 7, 3);
       const edgeBoost = smoothstep(edge - 11, edge, Math.max(Math.abs(x), Math.abs(z))) * 0.35;
+      // (the same dice as always, so old saves line up; trees that only grew because the land used to end there are left out)
+      const keep = d + smoothstep(PLOT.half - 12, PLOT.half - 1, Math.max(Math.abs(x), Math.abs(z))) * 0.35 > 0.3;
       if (d + edgeBoost > 0.3 && r() < 0.42) {
         const type = d > 0.45 ? 'pine' : r() < 0.35 ? 'maple' : r() < 0.25 ? 'sakura' : 'pine';
-        trees.push({ i: trees.length, cx, cz, x: x + (r() - 0.5) * 0.7, z: z + (r() - 0.5) * 0.7, type, s: 0.8 + r() * 0.35, a: r() * 6.28, alive: true, removed: false, regrowAt: 0, grow: 1 });
+        if (keep) trees.push({ i: trees.length, cx, cz, x: x + (r() - 0.5) * 0.7, z: z + (r() - 0.5) * 0.7, type, s: 0.8 + r() * 0.35, a: r() * 6.28, alive: true, removed: false, regrowAt: 0, grow: 1 });
       }
     };
     const r = mulberry32(this.seed + 5), r2 = mulberry32(this.seed + 55);

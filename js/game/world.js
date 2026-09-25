@@ -216,7 +216,7 @@ export class Game {
     if (def.time === 0) done = true; // roads are laid instantly
     if (!def.road) for (let z = cz; z < cz + d; z++) for (let x = cx; x < cx + w; x++) { const o = this.grid.get(x, z); if (o > 0 && this.isRoad(o)) this.demolish(o, { silent: true }); }
     const b = { id: id || this.state.nextId++, type, def, cx, cz, rot, w, d, sw, sd, level, done, progress: done ? 1 : progress, workers: [], upg: null };
-    b.hp = hp != null ? hp : this.maxHp(b);
+    b.hp = hp ? hp : this.maxHp(b);          // (old saves: towers had no strength yet)
     if (id && id >= this.state.nextId) this.state.nextId = id + 1;
     this.clearCells(cx, cz, w, d);
     this.occupy(b, true);

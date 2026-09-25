@@ -244,7 +244,7 @@ export const BUILDINGS = {
                 desc: 'Thick bushes. Troops hiding inside are hard to spot.' },
   gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3, limit: [0, 1, 2, 3, 4],
                 desc: 'Lets your people through your walls. Bandits must break it down.' },
-  tower:      { name: 'Yagura Tower', kanji: '櫓', cat: 'defense', size: [2, 2], cost: { wood: 160, stone: 100 }, time: 60, garrison: 3, h: 7, th: 2, maxLevel: 3, limit: [0, 2, 3, 4, 6],
+  tower:      { name: 'Yagura Tower', kanji: '櫓', cat: 'defense', size: [2, 2], cost: { wood: 160, stone: 100 }, time: 60, garrison: 3, h: 7, th: 2, hp: 1800, maxLevel: 3, limit: [0, 2, 3, 4, 6],
                 desc: 'Your archers climb up here and shoot down at raiders. Upgrades make their arrows reach farther.' },
   wall:       { name: 'Stone Wall', kanji: '石垣', cat: 'defense', size: [1, 1], cost: { stone: 45, wood: 10 }, time: 16, blocks: true, line: true, h: 3.2, th: 3, hp: 1500, maxLevel: 3,
                 desc: 'A stone base with a plastered top — very strong, and priced like it. Bandits need a long time to break through.' },

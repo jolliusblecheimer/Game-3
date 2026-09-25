@@ -66,7 +66,13 @@ export class Raids {
         if (!this.firstDone && !this.game.soldiers(true).length) return; // waiting for your first soldier
         this.schedule(!this.firstDone);
       }
-      if (this.timeLeft() <= 0) this.start();
+      const left = this.timeLeft();
+      if (left < 50 && !this.warned && this.firstDone) {
+        this.warned = true; const g = this.game;
+        g.toast(g.thLevel >= 4 ? 'Scouts report an army on the march — it will reach the village in under a minute! Man the walls.' : 'Scouts spotted a band of raiders in the hills — they\u2019ll be here in under a minute.', 'warn');
+        g.sfx('bell');
+      }
+      if (left <= 0) { this.warned = false; this.start(); }
       return;
     }
     this.step(dt);
@@ -259,11 +265,76 @@ export class Raids {
       if (u.carry || u.state === 'flee' || u.state === 'enter') continue;
       if (u.ram) { u.role = 'ram'; continue; }
       if (u.ranged) { u.role = 'archer'; continue; }
+      if (u.role === 'ladder' && G.ladder) continue;
       if (u.role === 'sapper' && u.breach === G.target && sappers < sapN) { sappers++; continue; }
       u.role = 'wait';
     }
     for (const u of live.filter(u => u.role === 'wait' && !u.carry && u.type !== 'enemy_samurai').sort((a, b) => (b.type === 'enemy_shield') - (a.type === 'enemy_shield'))) { if (sappers >= sapN) break; u.role = 'sapper'; sappers++; }
     for (const u of live) if (u.breach !== G.target) { u.breach = G.target; u.path = null; u.repath = 0; }
+    // ladders: some go over a stretch of wall nobody is guarding
+    if (!G.ladder && this.clock - (G.assaultT || (G.assaultT = this.clock)) > 6) G.ladder = this.pickLadder(G);
+    const L = G.ladder;
+    if (L && !g.buildings.has(L.b.id)) { this.dropLadder(L); G.ladder = null; }
+    else if (L) {
+      const want = Math.min(6, 2 + 2 * (L.climbed || 0)), have = live.filter(u => u.role === 'ladder').length;
+      for (const u of live.filter(u => u.role === 'wait' && u.state === 'assault').sort((a, b) => (b.type === 'enemy_samurai') - (a.type === 'enemy_samurai')).slice(0, Math.max(0, want - have))) { u.role = 'ladder'; u.path = null; u.repath = 0; }
+    }
+  }
+  // a wall or palisade piece with nobody on or near it, away from the main attack
+  pickLadder(G) {
+    const g = this.game, T = G.target, tc = T && g.center(T), men = [...g.villagers.values()].filter(v => v.onWall || v.post);
+    let best = null, bs = Infinity;
+    for (const b of g.buildings.values()) {
+      if (!(b.type === 'wall' || b.type === 'palisade') || !b.done) continue;
+      const c = g.center(b); if (tc && Math.hypot(c.x - tc.x, c.z - tc.z) < 10) continue;
+      if (men.some(v => Math.hypot(v.pos.x - c.x, v.pos.z - c.z) < 7)) continue;
+      const out = this.besideCells(b, true), inn = this.besideCells(b, false); if (!out.length || !inn.length) continue;
+      const s = Math.hypot(c.x - G.entry.x, c.z - G.entry.z) + (b.type === 'palisade' ? -4 : 0) + g.rand() * 8;
+      if (s < bs) { bs = s; const o = out.sort((p, q) => Math.hypot(p.x - G.entry.x, p.z - G.entry.z) - Math.hypot(q.x - G.entry.x, q.z - G.entry.z))[0]; best = { b, out: o, in: inn.sort((p, q) => Math.hypot(p.x - o.x, p.z - o.z) - Math.hypot(q.x - o.x, q.z - o.z))[0] }; }
+    }
+    return best;
+  }
+  ladderMesh(L) {
+    const g = this.game, c = g.center(L.b), m = new Mesher(7, 0);
+    for (const s of [-0.28, 0.28]) m.box(0.07, 4.2, 0.07, '#8b6a44', [s, 2.1, 0]);
+    for (let i = 0; i < 9; i++) m.box(0.6, 0.05, 0.05, '#6b4a2e', [0, 0.3 + i * 0.45, 0]);
+    const mesh = m.mesh(MAT.flat, true, false), dx = c.x - L.out.x, dz = c.z - L.out.z;
+    mesh.position.set(L.out.x + dx * 0.35, 0, L.out.z + dz * 0.35); mesh.rotation.y = Math.atan2(dx, dz); mesh.rotateX(0.32);
+    g.scene.add(mesh); return mesh;
+  }
+  dropLadder(L) { if (L && L.mesh) { this.game.scene.remove(L.mesh); L.mesh.geometry.dispose(); L.mesh = null; } if (L) L.planted = false; }
+  // carry the ladder over, put it up, climb; a defender on the wall nearby throws it down
+  climb(u, G, dt) {
+    const g = this.game, L = G.ladder;
+    if (!L || !g.buildings.has(L.b.id)) { u.role = 'wait'; return this.pose(u, 'guard', dt); }
+    const d = Math.hypot(L.out.x - u.x, L.out.z - u.z), c = g.center(L.b);
+    if (d > 1.1) {
+      if (u.repath <= 0) { u.repath = 2; u.path = this.banditPath(u, L.out, true); u.pathI = 0; }
+      if (!this.follow(u, dt, u.speed)) this.walk(u, L.out, dt, u.speed);
+      return this.pose(u, 'walk', dt);
+    }
+    if (!L.planted && this.clock > (L.cool || 0)) { L.planted = true; L.mesh = this.ladderMesh(L); if (!L.warned) { L.warned = true; g.toast(`A ladder goes up against your ${L.b.def.name}! Get men onto the wall there.`, 'bad'); } }
+    this.face(u, c.x - u.x, c.z - u.z, dt);
+    if (!L.planted) return this.pose(u, 'guard', dt);
+    const guard = [...g.villagers.values()].some(v => v.onWall && Math.hypot(v.pos.x - c.x, v.pos.z - c.z) < 4.6);
+    if (guard) {
+      if (this.clock > (L.pushT || 0)) {
+        L.pushT = this.clock + 1.2;
+        if (g.rand() < 0.45) { this.dropLadder(L); L.cool = this.clock + 7; L.busy = null; this.hurtBandit(u, 40); if (u.climbT) { u.climbT = 0; } g.toast('A ladder is thrown down from the wall!'); g.sfx('boom'); }
+      }
+      if (L.busy === u.id) { u.climbT = Math.max(0, (u.climbT || 0) - dt); }
+      return this.pose(u, 'guard', dt);
+    }
+    if (L.busy && L.busy !== u.id && this.alive().some(o => o.id === L.busy)) return this.pose(u, 'guard', dt);
+    L.busy = u.id; u.climbT = (u.climbT || 0) + dt;
+    this.pose(u, 'walk', dt);
+    const f = Math.min(1, u.climbT / 3);
+    u.obj.position.set(L.out.x + (c.x - L.out.x) * 0.3 * f, u.y + f * 3.2, L.out.z + (c.z - L.out.z) * 0.3 * f);
+    if (u.climbT >= 3) {
+      u.x = L.in.x; u.z = L.in.z; u.climbT = 0; L.busy = null; u.state = 'approach'; u.role = null; u.path = null; u.repath = 0;
+      L.climbed = (L.climbed || 0) + 1;
+      if (L.climbed === 1) g.toast(`Enemies are over the wall by the ladder at your ${L.b.def.name}!`, 'bad');
+    }
   }
   flee(G, what) {
     if (G.phase === 'flee') return;
@@ -355,6 +426,7 @@ export class Raids {
     if (u.state === 'assault') {
       const T = u.breach;
       if (!T || !g.buildings.has(T.id)) { u.path = null; return this.pose(u, 'guard', dt); }
+      if (u.role === 'ladder') return this.climb(u, G, dt);
       if (u.role === 'sapper' || u.role === 'ram') return this.sap(u, T, dt);
       // archers stand off 12–15 paces out; the rest wait 6–8 paces back in a loose line, shields to the front
       const c = g.center(T), dx = G.muster.x - c.x, dz = G.muster.z - c.z, d = Math.hypot(dx, dz) || 1, lx = -dz / d, lz = dx / d;
@@ -428,6 +500,8 @@ export class Raids {
     this.planT = 0;
     // soldiers standing on it fall
     for (const v of g.villagers.values()) if (v.onWall && v.wallB === T.id) this.dropFromWall(v, 0.3);
+    for (const v of g.villagers.values()) if (v.post && v.post.b === T.id) { v.post = null; v.elev = 0; const c = g.center(T); v.pos.x = c.x; v.pos.z = c.z; this.dropFromWall(v, 0.35); }
+    for (const G of this.groups) if (G.ladder && G.ladder.b === T) { this.dropLadder(G.ladder); G.ladder = null; }
   }
   // straight-line walking (over the hills, and as a fallback); returns true once there
   walk(u, to, dt, sp) {
@@ -509,6 +583,7 @@ export class Raids {
     const weigh = (T, n) => { const c = g.center(T), d = Math.hypot(c.x - p.x, c.z - p.z) / (1 + n + (T.hp < g.maxHp(T) ? 8 : 0)); if (d < bd) { bd = d; best = T; } };
     for (const G of this.groups) { const T = G.target; if (!T || !g.buildings.has(T.id) || G.phase === 'flee' || G.phase === 'storm') continue; weigh(T, G.members.filter(u => !u.dead && !u.gone && u.breach === T).length); }
     for (const w of this.breachers) weigh(w, this.breachers.filter(o => o === w).length);
+    for (const G of this.groups) if (G.ladder && G.ladder.planted && g.buildings.has(G.ladder.b.id)) weigh(G.ladder.b, 4 + 3 * (G.ladder.climbed || 0));
     return best;
   }
   defend(dt, soldiers) {
@@ -694,7 +769,7 @@ export class Raids {
     };
     for (const u of this.bandits) if (!u.dead && !u.gone && u.hp < u.maxHp) bar(u.x, u.y + (u.ram ? 3.4 : 2.6), u.z, u.ram ? 2.2 : 1.1, u.hp / u.maxHp, '#e0584a');
     for (const G of this.groups) { const T = G.target; if (T && g.buildings.has(T.id) && T.hp < g.maxHp(T)) { const c0 = g.center(T); bar(c0.x, (T.def.h || 3) + 1.2, c0.z, 2.6, Math.max(0, T.hp / g.maxHp(T)), '#d9a441'); } }
-    for (const id of this.cmd) { const v = g.villagers.get(id); if (v && v.rhp != null) bar(v.pos.x, (v.elev || 0) + 2.6, v.pos.z, 1.1, Math.max(0, v.rhp / maxHp(v)), '#7fd36a'); }
+    if (this.alarm) for (const v of g.villagers.values()) { if (v.rhp == null || v.hidden || v.away) continue; const f = v.rhp / maxHp(v); if (f < 0.99 || this.cmd.has(v.id)) bar(v.pos.x, (v.elev || 0) + 2.6, v.pos.z, 1.1, Math.max(0, f), f > 0.5 ? '#7fd36a' : '#e6b84a'); }
     B.bg.count = B.fg.count = n; B.bg.instanceMatrix.needsUpdate = B.fg.instanceMatrix.needsUpdate = true; if (B.fg.instanceColor) B.fg.instanceColor.needsUpdate = true;
     let k = 0; const rq = new THREE.Quaternion();
     for (const id of this.cmd) { const v = g.villagers.get(id); if (!v || v.hidden || k >= 119) continue; m4.compose(new THREE.Vector3(v.pos.x, (v.elev || 0) + 0.07, v.pos.z), rq, new THREE.Vector3(1, 1, 1)); this.rings.setMatrixAt(k++, m4); }
@@ -711,6 +786,7 @@ export class Raids {
     if (bounty) g.add('gold', bounty);
     g.progress.add('raidersKilled', this.killed);
     g.progress.log(stolen.length ? `Raiders got away with plunder (${this.bandName(this.bandits.length)}).` : this.victims ? `A raid was beaten off, but ${this.victims} villager${this.victims === 1 ? '' : 's'} died.` : `A raid was beaten off: ${this.bandName(this.killed)} defeated${this.fled ? `, ${this.fled} fled` : ''}.`, 'raid');
+    for (const G of this.groups) this.dropLadder(G.ladder);
     for (const u of this.bandits) { g.scene.remove(u.obj); if (u.person) u.person.dispose(); else u.obj.traverse(o => o.geometry && o.geometry.dispose()); }
     for (const a of this.arrows) g.scene.remove(a.m);
     this.bandits = []; this.arrows = []; this.groups = []; this.active = false; this.alarm = false; this.firstDone = true; this.announced = false;

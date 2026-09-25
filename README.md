@@ -220,3 +220,20 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Many spearmen and shield-bearers climb onto the wall above the point under attack and stab down at the enemy.
   - The rest stand ready behind it, and anyone who gets inside is hunted down.
 - **Wall patrols:** soldiers walk the wall walks of upgraded (level 2+) stone walls in peacetime, from the moment you have them. It no longer waits for Keep level 4 and needs only 2 connected pieces. Archers join when the towers are full.
+
+## Sieges, part 2
+- **Castle battles on the map:**
+  - About 40 seconds after the alarm, a relief column marches in from behind the castle and falls on your army from the rear (Clan Forts and bigger).
+  - When they outnumber you 3 to 2, the defenders sally out of the gate in force.
+  - Cut down to 40%, the last of them make a last stand at the keep.
+- **Battlefields look better:**
+  - Seasonal grass with a trampled trail to the gate and a packed-earth courtyard.
+  - Woods of pine, cedar, maple and cherry. Boulders, grass tufts and flowers. Real mountains beyond.
+  - Clan banners on the keep, towers and gate. Torches and firelight at night.
+  - Sparks and splinters on every hit, dust and rubble when a wall falls, and smoke rising from the ruins.
+- **Ladders in village raids:** some attackers carry ladders to a stretch of wall that nobody is guarding. A soldier on the wall nearby throws the ladder down. If nobody does, they climb over, one after another.
+- **Towers can be broken now** (they have strength, like walls). The archers on a falling tower come down with it.
+- Health bars show over all your soldiers in a fight.
+- When one of your held places is attacked while you're away, you get a **report**: how many came, whether it held, and who fell.
+- **Next raid:** the clan panel shows roughly when the next raid is due, and scouts warn you about a minute before it arrives.
+- The thick ring of trees where your land used to end is much thinner.

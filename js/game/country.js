@@ -311,22 +311,29 @@ export class Country {
   garrison(site) { return [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id); }
   // the garrison fights on its own
   resolveAttack(s, hold) {
-    const g = this.game, guards = this.garrison(s), force = hold.attack.force;
+    const g = this.game, guards = this.garrison(s), force = hold.attack.force, n0 = guards.length;
     const strength = guards.reduce((a, v) => a + (JOBS[v.job].commander ? 4 : v.job === 'archer' ? 1.3 : 1), 0) * 1.6; // walls help the defenders
     hold.attack = null; hold.checkT = this.clock + WAR.holdCheckEvery;
+    const rep = { site: s, force, n0, names: [] };
     if (strength < force) {
       const lost = guards.filter((_, i) => i % 2 === 0);
-      for (const v of lost) g.killVillager(v.id);
+      for (const v of lost) { rep.names.push(v.name); g.killVillager(v.id); }
       this.home(guards.filter(v => !lost.includes(v)).map(v => v.id));
       delete this.holds[s.id]; this.setStatus(s, 'scouted');
+      Object.assign(rep, { won: false, lost: lost.length, back: n0 - lost.length });
       g.toast(`${s.name} was retaken by the enemy! ${lost.length} of your garrison fell.`, 'bad');
+      g.progress.log(`${s.name} fell to an attack of ${Math.round(force)}; ${lost.length} of the garrison died.`, 'war');
     } else {
       const lost = guards.filter((_, i) => i < Math.floor(guards.length * force / strength / 3));
-      for (const v of lost) g.killVillager(v.id);
+      for (const v of lost) { rep.names.push(v.name); g.killVillager(v.id); }
+      Object.assign(rep, { won: true, lost: lost.length, back: 0 });
       g.toast(`Your garrison at ${s.name} drove off the attack${lost.length ? `, losing ${lost.length}` : ''}.`);
+      g.progress.log(`${s.name} held against ${Math.round(force)} attackers${lost.length ? `; ${lost.length} fell` : ''}.`, 'war');
     }
+    g.emit('holdReport', rep);
     g.emit('country');
   }
+
   // after you led the defense yourself
   defenseResult(s, won, survivors) {
     const g = this.game, hold = this.holds[s.id], guards = this.garrison(s);

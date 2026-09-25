@@ -1,7 +1,9 @@
 // Raids: a real-time battle against a rival base. You command every unit.
 import * as THREE from 'three';
 import { Grid } from './grid.js';
-import { UNITS, JOBS, SITES, rankOf } from './data.js';
+import { UNITS, JOBS, SITES, CLANS, rankOf } from './data.js';
+import { treeGeometry } from '../render/nature.js';
+import { Smoke } from '../render/weather.js';
 import { buildModel } from '../render/buildings.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
@@ -122,9 +124,13 @@ export function makeLayout(site) {
   return { structs: S, defenders: D };
 }
 
+const BN = makeNoise2D(4242);
+// flat where you fight; rolling hills around; real mountains on the horizon
 function battleHeight(x, z) {
   const dx = Math.max(Math.abs(x) - HALF - 4, 0), dz = Math.max(Math.abs(z) - HALF - 4, 0), d = Math.hypot(dx, dz);
-  return d <= 0 ? 0 : smoothstep(0, 30, d) * (6 + d * 0.35);
+  if (d <= 0) return 0;
+  const hills = 6 + d * 0.3 + fbm(BN, x * 0.02, z * 0.02, 3) * 9, peaks = Math.max(0, fbm(BN, x * 0.006 + 5, z * 0.006, 3) + 0.2) * d * 0.7 * smoothstep(40, 150, d);
+  return smoothstep(0, 30, d) * (hills + peaks);
 }
 export function ramModel() {
   const m = new Mesher(3, 0.06);
@@ -190,11 +196,13 @@ export class Battle {
     this.rand = mulberry32(site.seed + Math.floor(this.game.state.clock));
     this.forge = this.game.life ? this.game.life.forgeBonus() : 0;   // fresh blades from the blacksmith
     this.cond = this.conditions();
-    this.buildTerrain();
     this.layout = makeLayout(site);
     this.buildStructures();
     if (this.layout.noRiver) this.cond.river = false;
     if (this.cond.river) this.buildRiver();
+    this.buildTerrain();
+    this.buildDecor();
+    this.smoke = new Smoke(this.scene); this.smokeSrc = [];
     if (this.cond.fog) { const F = this.scene.fog; this.fogSave = [F.near, F.far]; F.near = 18; F.far = 120; }
     if (this.defend) { this.spawnGarrison(); this.spawnAttackers(); this.alarm = true; this.phase = 'siege'; }
     else { this.spawnDefenders(); this.spawnArmy(); this.assignRoles(); }
@@ -250,24 +258,144 @@ export class Battle {
   get keep() { return this.structs.find(s => s.def.keep); }
   rb(k) { return this.game.rb(k); }
 
+  // the battlefield: seasonal grass, a trampled trail from where armies arrive to the gate, packed earth
+  // inside the walls, woods of pine, cedar, maple and cherry, boulders, grass tufts and flowers, mountains beyond
   buildTerrain() {
-    const size = 360, seg = 120, g = new THREE.PlaneGeometry(size, size, seg, seg); g.rotateX(-Math.PI / 2);
-    const P = g.attributes.position, col = new Float32Array(P.count * 3), c = new THREE.Color(), n = makeNoise2D(this.site.seed);
+    const size = 440, seg = 170, g = new THREE.PlaneGeometry(size, size, seg, seg); g.rotateX(-Math.PI / 2);
+    const P = g.attributes.position, col = new Float32Array(P.count * 3), c = new THREE.Color(), n = makeNoise2D(this.site.seed), n2 = makeNoise2D(this.site.seed + 9);
+    const season = this.game.life ? this.game.life.season : 1, O = BATTLE_ORIGIN, gate = this.gate;
+    const gx = gate ? gate.x - O.x : 0, gz = gate ? gate.z - O.z + 3 : 10, ax = 0, az = HALF + 20;
+    // the courtyard: inside the stone walls (or the palisade, where there are no stone walls)
+    const ring = this.structs.filter(t => t.type === 'wall').length ? this.structs.filter(t => t.type === 'wall') : this.structs.filter(t => t.type === 'palisade');
+    const b = ring.length ? [Math.min(...ring.map(t => t.cx)), Math.min(...ring.map(t => t.cz)), Math.max(...ring.map(t => t.cx)), Math.max(...ring.map(t => t.cz))] : [0, 0, -1, -1];
+    const c0 = this.W(b[0], b[1]), c1 = this.W(b[2], b[3]);
+    const inWalls = (x, z) => x > c0.x - O.x && x < c1.x - O.x && z > c0.z - O.z && z < c1.z - O.z;
+    const seg2 = (x, z) => { const vx = gx - ax, vz = gz - az, L = vx * vx + vz * vz || 1, t = clamp(((x - ax) * vx + (z - az) * vz) / L, 0, 1); return Math.hypot(x - ax - vx * t, z - az - vz * t); };
+    const GRASS = [['#8cb35a', '#7ba54e', '#6f9a46'], ['#6f9a44', '#5f8a3e', '#557f3a'], ['#93a150', '#9d9a4e', '#83904a'], ['#e9edf1', '#dde3e8', '#cdd6dc']][season];
     for (let i = 0; i < P.count; i++) {
       const x = P.getX(i), z = P.getZ(i), hgt = battleHeight(x, z); P.setY(i, hgt);
-      const v = fbm(n, x * 0.04, z * 0.04, 3), dirt = Math.hypot(x - 0, (z + 16) * 0.8) < 26 - v * 6;
-      c.set(dirt ? '#8f7a55' : hgt > 12 ? '#6f8f4f' : v > 0.2 ? '#7aa04c' : '#86ad57'); c.offsetHSL(0, 0, v * 0.03);
+      const v = fbm(n, x * 0.04, z * 0.04, 3), v2 = fbm(n2, x * 0.012, z * 0.012, 2);
+      if (hgt > 38) c.set('#eef2f6');
+      else if (hgt > 20 && v > -0.1) c.set(v > 0.3 ? '#8a857a' : '#7c766b');
+      else if (inWalls(x, z) && v2 > -0.25) c.set(season === 3 ? '#d6d0c6' : v > 0.25 ? GRASS[1] : v > 0.05 ? '#a8946c' : '#9c8862');
+      else if (seg2(x, z) < 3.2 + v * 2.2) c.set(season === 3 ? '#cfc6b6' : '#9a845c');
+      else c.set(GRASS[v > 0.22 ? 0 : v < -0.2 ? 2 : 1]);
+      c.offsetHSL(0, 0, v2 * 0.05 + v * 0.02);
       col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
     }
     g.computeVertexNormals(); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 })); m.receiveShadow = true;
     this.root.add(m);
-    const t = new Mesher(5, 0.08); t.cyl(0.2, 0.3, 2.4, 6, '#5a3d2a', [0, 1.2, 0]); t.cone(1.9, 2.6, 7, '#2f5a36', [0, 2.8, 0]); t.cone(1.4, 2.2, 7, '#35653c', [0, 4.0, 0]); t.cone(0.9, 1.8, 7, '#3b6f42', [0, 5.0, 0]);
-    const r = mulberry32(this.site.seed + 1), list = [];
-    while (list.length < 700) { const x = (r() - 0.5) * 340, z = (r() - 0.5) * 340; if (Math.abs(x) < HALF + 3 && Math.abs(z) < HALF + 3) continue; list.push([x, battleHeight(x, z), z, 0.8 + r() * 0.8]); }
-    const im = new THREE.InstancedMesh(t.geometry(), MAT.flat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
-    list.forEach(([x, y, z, s], i) => { m4.compose(new THREE.Vector3(x, y, z), q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), i), new THREE.Vector3(s, s, s)); im.setMatrixAt(i, m4); });
-    im.castShadow = true; im.receiveShadow = true; this.root.add(im);
+    const r = mulberry32(this.site.seed + 1), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), V = new THREE.Vector3(), S = new THREE.Vector3();
+    // woods: clustered, a mix that suits the place
+    const kinds = ['pine', 'cedar', 'maple', 'sakura'], lists = { pine: [], cedar: [], maple: [], sakura: [] };
+    let tries = 0;
+    while (tries++ < 6000 && Object.values(lists).reduce((a, l) => a + l.length, 0) < 1100) {
+      const x = (r() - 0.5) * 400, z = (r() - 0.5) * 400;
+      if (Math.abs(x) < HALF + 3 && Math.abs(z) < HALF + 3) continue;
+      const h = battleHeight(x, z); if (h > 30) continue;
+      const f = fbm(n2, x * 0.02 + 7, z * 0.02, 2); if (f < -0.05 && r() > 0.25) continue;
+      const k = h > 14 ? (r() < 0.6 ? 'cedar' : 'pine') : r() < 0.45 ? 'pine' : r() < 0.4 ? 'cedar' : r() < 0.6 ? 'maple' : 'sakura';
+      lists[k].push([x, h - 0.2, z, 0.8 + r() * 0.9, r() * 6.28]);
+    }
+    for (const k of kinds) {
+      const L = lists[k]; if (!L.length) continue;
+      const im = new THREE.InstancedMesh(treeGeometry(k, season), MAT.flat, L.length);
+      L.forEach(([x, y, z, sc, a], i) => { m4.compose(V.set(x, y, z), q.setFromAxisAngle(up, a), S.set(sc, sc, sc)); im.setMatrixAt(i, m4); });
+      im.castShadow = true; im.receiveShadow = true; this.root.add(im);
+    }
+    // boulders in the hills and along the edge of the field
+    const rm = new Mesher(5, 0.12); rm.add(new THREE.DodecahedronGeometry(1, 0), '#8d887e', [0, 0.4, 0], [0.3, 0, 0.2], [1.2, 0.75, 1]); rm.add(new THREE.DodecahedronGeometry(0.6, 0), '#7f7a71', [0.8, 0.25, 0.3], [0, 0.6, 0], [1, 0.8, 1]);
+    const rocks = []; tries = 0;
+    while (rocks.length < 170 && tries++ < 2000) { const x = (r() - 0.5) * 380, z = (r() - 0.5) * 380; if (Math.abs(x) < HALF + 2 && Math.abs(z) < HALF + 2) continue; rocks.push([x, battleHeight(x, z) - 0.2, z, 0.7 + r() * 2]); }
+    const ri = new THREE.InstancedMesh(rm.geometry(), MAT.flat, rocks.length);
+    rocks.forEach(([x, y, z, sc], i) => { m4.compose(V.set(x, y, z), q.setFromAxisAngle(up, i), S.set(sc, sc * 0.8, sc)); ri.setMatrixAt(i, m4); });
+    ri.castShadow = true; ri.receiveShadow = true; this.root.add(ri);
+    // grass tufts and flowers on the field (not in winter, not where something stands)
+    if (season !== 3) {
+      const gm = new Mesher(3, 0.12);
+      for (let k = 0; k < 4; k++) gm.cone(0.06, 0.55 + k * 0.08, 3, k % 2 ? '#6f9a44' : '#88b454', [Math.cos(k * 1.7) * 0.12, 0.28, Math.sin(k * 1.7) * 0.12], [Math.cos(k) * 0.25, 0, Math.sin(k) * 0.25]);
+      const tufts = [], flowers = [], FL = season === 0 ? ['#f6bccb', '#ffffff', '#f2d04a'] : season === 1 ? ['#f2d04a', '#e0584a', '#8a7ad0'] : ['#e07a2a', '#c8452b'];
+      for (let k = 0; k < 2600; k++) {
+        const x = (r() - 0.5) * (HALF * 2 + 60), z = (r() - 0.5) * (HALF * 2 + 60);
+        if (Math.abs(x) < HALF && Math.abs(z) < HALF) { const [cx, cz] = this.cellOf(x + O.x, z + O.z); if (this.grid.get(cx, cz) > 0 || !this.grid.walkable(cx, cz) || inWalls(x, z) || seg2(x, z) < 3) continue; }
+        const y = battleHeight(x, z);
+        if (r() < 0.12) flowers.push([x, y, z, FL[Math.floor(r() * FL.length)]]); else tufts.push([x, y, z, 0.6 + r() * 0.8]);
+      }
+      const ti = new THREE.InstancedMesh(gm.geometry(), MAT.flat, tufts.length);
+      tufts.forEach(([x, y, z, sc], i) => { m4.compose(V.set(x, y, z), q.setFromAxisAngle(up, i * 2.3), S.set(sc, sc, sc)); ti.setMatrixAt(i, m4); });
+      ti.receiveShadow = true; this.root.add(ti);
+      const fm = new Mesher(4, 0); fm.ball(0.13, '#ffffff', [0, 0.28, 0]); fm.cyl(0.02, 0.02, 0.28, 3, '#4f7d3a', [0, 0.14, 0]);
+      const fi = new THREE.InstancedMesh(fm.geometry(), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.8 }), flowers.length), cc = new THREE.Color();
+      flowers.forEach(([x, y, z, fc], i) => { m4.compose(V.set(x, y, z), q, S.set(1, 1, 1)); fi.setMatrixAt(i, m4); fi.setColorAt(i, cc.set(fc)); });
+      this.root.add(fi);
+    }
+  }
+  // clan banners (nobori) on the keep, the towers and beside the gate; torches at night
+  buildDecor() {
+    const K = this.game.clans, own = !this.defend && K && K.owner(this.site), color = this.defend ? '#b8342a' : own ? CLANS[own].color : '#2f4a7a';
+    const O = BATTLE_ORIGIN, spots = [];
+    const keep = this.keep; if (keep) for (const [dx, dz] of [[-4.6, 4.6], [4.6, 4.6], [-4.6, -4.6], [4.6, -4.6]]) spots.push([keep.x + dx, 0, keep.z + dz]);
+    for (const s of this.structs) if (s.type === 'tower') spots.push([s.x + 1.2, 3.6, s.z + 1.2]);
+    const gate = this.gate; if (gate) for (const d of [-3, 3]) spots.push([gate.x + d, 0, gate.z + 2.6]);
+    this.flags = [];
+    spots.forEach(([x, y, z], i) => {
+      const pole = new Mesher(20 + i, 0.02); pole.cyl(0.06, 0.06, 5.2, 5, '#2a2320', [0, 2.6, 0]); pole.box(0.9, 0.06, 0.06, '#2a2320', [0.45, 5.1, 0]);
+      const grp = new THREE.Group(); grp.position.set(x - O.x, y, z - O.z); grp.add(pole.mesh(MAT.flat, true, false));
+      const cl = new Mesher(40 + i, 0.02); cl.box(0.86, 2.6, 0.04, color, [0.45, 0, 0]); cl.box(0.5, 0.5, 0.05, '#f2ece0', [0.45, 0.7, 0]);
+      const cloth = cl.mesh(MAT.flat, true, false); cloth.position.set(0, 3.75, 0); grp.add(cloth); this.flags.push(cloth);
+      this.root.add(grp);
+    });
+    if (!this.cond.night) return;
+    const tm = new THREE.MeshBasicMaterial({ color: '#ffb347' }), torch = [];
+    if (gate) for (const d of [-2.4, 2.4]) torch.push([gate.x + d, 3.2, gate.z + 1.4]);
+    for (const s of this.structs) if (s.type === 'tower') torch.push([s.x, 5.2, s.z + 1.3]);
+    if (keep) torch.push([keep.x, 2.5, keep.z + 4.6]);
+    this.torches = [];
+    torch.forEach(([x, y, z], i) => {
+      const f = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 6), tm); f.position.set(x - O.x, y, z - O.z); this.root.add(f); this.torches.push(f);
+      const p = new Mesher(60 + i, 0); p.cyl(0.04, 0.04, 1.2, 4, '#3a2a1e', [0, -0.7, 0]); const pm = p.mesh(MAT.flat, false, false); pm.position.copy(f.position); this.root.add(pm);
+      if (i < 4) { const L = new THREE.PointLight('#ffae55', 3, 20, 1.6); L.position.set(x - O.x, y + 0.6, z - O.z); this.root.add(L); }
+    });
+  }
+  // sparks, splinters and dust: little cubes that fly and fall
+  burst(x, y, z, color, n, speed = 2.5, size = 1) {
+    if (!this.partMesh) {
+      this.partMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: '#ffffff' }), 700);
+      this.partMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(700 * 3), 3); this.partMesh.frustumCulled = false; this.partMesh.count = 0; this.root.add(this.partMesh);
+      this.parts = [];
+    }
+    for (let i = 0; i < n && this.parts.length < 700; i++) {
+      const a = Math.random() * Math.PI * 2, s = speed * (0.4 + Math.random() * 0.8);
+      this.parts.push({ x, y, z, vx: Math.cos(a) * s, vy: 1.5 + Math.random() * speed, vz: Math.sin(a) * s, age: 0, life: 0.5 + Math.random() * 0.7, color, size: size * (0.6 + Math.random() * 0.8) });
+    }
+  }
+  animateParts(dt) {
+    if (this.flags) { this.flagT = (this.flagT || 0) + dt; this.flags.forEach((f, i) => { f.rotation.y = Math.sin(this.flagT * 1.7 + i) * 0.35; }); }
+    if (this.torches) this.torches.forEach((f, i) => { f.scale.setScalar(0.85 + Math.sin((this.flagT || 0) * 13 + i * 3) * 0.15); });
+    for (const f of this.fx) if (f.kind === 'dust' && !f.burst) { f.burst = true; this.burst(f.x, 0.6, f.z, '#b8ad98', 14, 2.2, 1.6); }
+    if (this.smoke) this.smoke.update(dt, this.smokeSrc, true);
+    if (!this.parts) return;
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3(), c = new THREE.Color(), O = BATTLE_ORIGIN;
+    let k = 0;
+    for (const p of this.parts) {
+      p.age += dt; if (p.age >= p.life) continue;
+      p.vy -= 9 * dt; p.x += p.vx * dt; p.y = Math.max(0.05, p.y + p.vy * dt); p.z += p.vz * dt;
+      const sc = p.size * (1 - p.age / p.life * 0.6);
+      m4.compose(V.set(p.x - O.x, p.y, p.z - O.z), q, S.set(sc, sc, sc)); this.partMesh.setMatrixAt(k, m4); this.partMesh.setColorAt(k, c.set(p.color)); k++;
+    }
+    this.parts = this.parts.filter(p => p.age < p.life);
+    this.partMesh.count = k; this.partMesh.instanceMatrix.needsUpdate = true; if (this.partMesh.instanceColor) this.partMesh.instanceColor.needsUpdate = true;
+  }
+  // what's left of a wall, gate or tower
+  rubble(s) {
+    const m = new Mesher(s.id * 7, 0.1), r = mulberry32(s.id * 31 + 5), stone = s.type === 'wall' || s.type === 'tower' || s.type === 'gate', w = s.w * CELL, d = s.d * CELL;
+    for (let i = 0; i < 6 + s.w * s.d * 2; i++) {
+      const x = (r() - 0.5) * w, z = (r() - 0.5) * d;
+      if (stone && r() < 0.6) m.add(new THREE.DodecahedronGeometry(0.35 + r() * 0.4, 0), r() < 0.5 ? '#8e897e' : '#7d786e', [x, 0.25, z], [r(), r(), r()], [1, 0.7, 1]);
+      else m.box(0.18, 0.18, 1 + r() * 1.4, r() < 0.5 ? '#6b4a2e' : '#5a3a28', [x, 0.12 + r() * 0.3, z], [r() * 0.4, r() * 3, r() * 0.3]);
+    }
+    const mesh = m.mesh(MAT.flat, true, true); mesh.position.set(s.x - BATTLE_ORIGIN.x, 0, s.z - BATTLE_ORIGIN.z); this.root.add(mesh);
   }
   buildStructures() {
     const L = this.layout, key = (x, z) => x + ',' + z, typeAt = new Map();
@@ -571,6 +699,40 @@ export class Battle {
   // Keep the defence coherent: line breaks -> fall back to the keep.
   enemyTactics() {
     if (!this.alarm) return;
+    this.alarmT = this.alarmT ?? this.t;
+    const foes = this.units.filter(u => u.team === 1 && !u.dead && !u.fled && !u.fleeing), mine = this.units.filter(u => u.team === 0 && !u.dead && !u.fled);
+    // a relief column marches in from behind the castle and falls on your army from the rear
+    if (!this.reinforced && this.site.tier >= 2 && this.t - this.alarmT > 40 && !this.routed) {
+      this.reinforced = true;
+      const n = Math.round((this.site.tier * 2 + (this.site.tier >= 4 ? 4 : 0)) * (this.site.type === 'smallcastle' ? 0.6 : 1));
+      const kinds = ['enemy_ashigaru', 'enemy_shield', 'enemy_ashigaru', 'enemy_samurai', 'enemy_archer', 'enemy_ashigaru'];
+      const gate = this.gate, tgt = mine.length ? { x: mine.reduce((a, u) => a + u.x, 0) / mine.length, z: mine.reduce((a, u) => a + u.z, 0) / mine.length } : gate ? { x: gate.x, z: gate.z + 6 } : this.W(32, 50);
+      for (let i = 0; i < n; i++) {
+        const cx = 24 + (i % 16), w = this.grid.nearestWalkable(cx, 1 + Math.floor(i / 16), 4) || [cx, 1], c = this.W(w[0], w[1]);
+        const u = this.makeUnit(1, kinds[i % kinds.length], c.x, c.z, { home: { ...tgt }, reinf: true });
+        u.role = 'guard'; u.pos = { ...tgt }; u.holdR = 60; u.st = 'alert'; u.heading = Math.PI;
+      }
+      this.initialEnemies += n;
+      this.fx.push({ kind: 'banner', text: `Enemy reinforcements! ${n} men march in from behind the castle`, t: 0 });
+      this.game.sfx('horn');
+    }
+    // outnumbering you, they sally out of the gate in force
+    const gate = this.gate;
+    if (gate && !gate.dead && this.phase !== 'fallback' && this.phase !== 'laststand' && this.t > (this.sallyForceT || 30) && mine.length && foes.length >= mine.length * 1.5) {
+      this.sallyForceT = this.t + 50;
+      const out = foes.filter(u => (u.role === 'line' || u.role === 'guard') && !u.U.ranged && !u.post && !u.reinf).slice(0, Math.ceil(foes.length / 2));
+      for (const u of out) { let best = null, bd = Infinity; for (const o of mine) { if (o.U.siege && out.length > 3) continue; const d = Math.hypot(o.x - u.x, o.z - u.z); if (d < bd) { bd = d; best = o; } } if (best) { u.aggro = { u: best, until: this.t + 25 }; u.sally = true; } }
+      if (out.length >= 3) { this.fx.push({ kind: 'banner', text: 'The defenders sally out of the gate!', t: 0 }); this.game.sfx('horn'); }
+    }
+    // the last of them gather at the keep
+    const keep = this.keep;
+    if (keep && this.phase !== 'laststand' && !this.routed && foes.length >= 3 && foes.length <= Math.ceil(this.initialEnemies * 0.4)) {
+      this.phase = 'laststand';
+      this.fx.push({ kind: 'banner', text: 'Last stand at the keep!', t: 0 });
+      for (const u of foes) if (!u.post) { u.role = 'reserve'; u.aggro = null; u.pos = { x: keep.x + (this.rand() - 0.5) * 9, z: keep.z + 5 + this.rand() * 3 }; u.holdR = 9; u.path = null; u.target = null; u.buffs.rally = 30; }
+      return;
+    }
+    if (this.phase === 'laststand') return;
     const line = this.units.filter(u => u.role === 'line' && !u.dead && !u.fled);
     if (this.phase !== 'fallback' && this.lineStart >= 3 && line.length <= Math.floor(this.lineStart * 0.4)) {
       this.phase = 'fallback';
@@ -909,11 +1071,13 @@ export class Battle {
     if (t.isStruct) {
       if (t.dead || !t.maxHp) return;
       t.hp -= dmg; t.hitT = 0.3;
+      this.burst(t.x + (Math.random() - 0.5) * 2, 1 + Math.random() * 2, t.z + (Math.random() - 0.5) * 2, t.type === 'wall' || t.type === 'tower' ? '#8e897e' : '#8b6a44', from && from.U && from.U.siege ? 8 : 2, 2.5);
       if (t.hp <= 0) this.destroy(t);
       return;
     }
     if (t.dead) return;
     if (t.buffs.shield) dmg *= 0.5;
+    if (from && !from.U?.ranged) this.burst(t.x, (t.y || 0) + 1.3, t.z, Math.random() < 0.5 ? '#ffe2a8' : '#9e2a22', 3, 2);
     if (from && !from.isStruct && this.inside(t.x, t.z) && t.team === (this.defend ? 0 : 1) && !this.inside(from.x, from.z)) dmg *= FORTIFIED; // behind their own walls
     if (t.team === 0 && t.type === 'ashigaru' && t.order.kind === 'hold') dmg *= 1 - this.rb('spearWall');
     if (t.U.arrowResist && from && from.U.ranged) dmg *= t.U.arrowResist;
@@ -951,6 +1115,8 @@ export class Battle {
   }
   destroy(s) {
     s.dead = true; s.hp = 0; s.collapse = 0; this.game.sfx('boom');
+    this.burst(s.x, 1.5, s.z, '#b8ad98', 40, 4, 2.2); this.rubble(s);
+    if (this.smokeSrc.length < 10) this.smokeSrc.push({ x: s.x, y: 1.2, z: s.z, rate: 1.4 });
     if (!this.defend && s.team === 1 && ['wall', 'palisade', 'gate', 'pgate'].includes(s.type)) { if (!this.alarm) this.raiseAlarm(null, 'The crash of timber — the alarm is raised!'); this.plugBreach(s); }
     for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) this.grid.set(x, z, 0, true, 1);
     for (const u of this.units) if (u.path) u.repathT = 0;
@@ -1062,6 +1228,7 @@ export class Battle {
     this.sightMesh.position.y = 0.12; this.sightMesh.renderOrder = 2; this.root.add(this.sightMesh);
   }
   animate(dt) {
+    this.animateParts(dt);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), camQ = this.ctx.stage.camera.quaternion, c = new THREE.Color();
     let bars = 0, hidden = 0;
     for (const u of this.units) {
@@ -1180,6 +1347,7 @@ export class Battle {
     S.tex.needsUpdate = true;
   }
   dispose() {
+    if (this.smoke) this.scene.remove(this.smoke.mesh);
     if (this.fogSave) { this.scene.fog.near = this.fogSave[0]; this.scene.fog.far = this.fogSave[1]; }
     if (this.sight) this.sight.tex.dispose();
     this.scene.remove(this.root);
