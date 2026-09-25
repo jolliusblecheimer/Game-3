@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -41,7 +41,10 @@ export class Hud {
     this.lives = [];
     this.build();
     game.on((type, data) => this.onGame(type, data));
+    game.onSfx = kind => this.sfx(kind);
+    this.root.classList.toggle('lefty', !!this.settings.lefty);
   }
+  applyLayout() { this.root.classList.toggle('lefty', !!this.settings.lefty); this.layout(); }
   saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
 
@@ -428,6 +431,42 @@ export class Hud {
       notes.forEach((f, i) => { const t = this.ac.currentTime + i * 0.09, o = this.ac.createOscillator(), gn = this.ac.createGain(); o.type = 'sine'; o.frequency.value = f; gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(0.05, t + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); o.connect(gn).connect(this.ac.destination); o.start(t); o.stop(t + 0.32); });
     } catch (_) { /* sound optional */ }
   }
+  // sound effects, all made on the spot: steel, arrows, boulders, horns, bells, drums, coins
+  sfx(kind) {
+    if (!this.settings.sound || this.settings.muted) return;
+    const now = performance.now(), last = this.sfxT || (this.sfxT = {});
+    if (now - (last[kind] || 0) < ({ clash: 90, arrow: 110, boom: 160, throw: 200 }[kind] ?? 300)) return;
+    last[kind] = now;
+    try {
+      const ac = this.ac = (this.music && this.music.ctx) || this.ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state !== 'running') return;
+      const t = ac.currentTime, out = ac.createGain(); out.gain.value = 0.55; out.connect(ac.destination);
+      const noise = (dur, f, q, vol, type = 'bandpass', f2 = 0) => {
+        const len = Math.ceil(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), gn = ac.createGain(); s.buffer = buf; fl.type = type; fl.Q.value = q;
+        fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + dur);
+        gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        s.connect(fl).connect(gn).connect(out); s.start(t); s.stop(t + dur);
+      };
+      const tone = (f, dur, vol, type = 'sine', at = 0, f2 = 0) => {
+        const o = ac.createOscillator(), gn = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t + at); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + at + dur);
+        gn.gain.setValueAtTime(0.0001, t + at); gn.gain.exponentialRampToValueAtTime(vol, t + at + 0.01); gn.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+        o.connect(gn).connect(out); o.start(t + at); o.stop(t + at + dur + 0.02);
+      };
+      switch (kind) {
+        case 'clash': noise(0.12, 2600 + Math.random() * 1400, 3, 0.22); tone(1900 + Math.random() * 700, 0.14, 0.025, 'triangle'); break;
+        case 'arrow': noise(0.22, 3200, 1.2, 0.07, 'bandpass', 900); break;
+        case 'throw': noise(0.4, 420, 0.8, 0.12, 'lowpass', 150); tone(120, 0.3, 0.05, 'triangle', 0, 70); break;
+        case 'boom': noise(0.7, 320, 0.7, 0.35, 'lowpass', 60); tone(72, 0.55, 0.2, 'sine', 0, 38); break;
+        case 'horn': tone(147, 1.2, 0.06, 'sawtooth', 0, 150); tone(220, 1.2, 0.035, 'sawtooth', 0, 224); noise(1.1, 300, 0.5, 0.03, 'lowpass'); break;
+        case 'bell': [0, 0.5, 1.0].forEach(at => { tone(660, 1.1, 0.06, 'sine', at); tone(1072, 0.8, 0.02, 'sine', at); tone(1650, 0.5, 0.015, 'sine', at); }); break;
+        case 'drum': [0, 0.3, 0.6, 0.75].forEach(at => tone(95, 0.4, 0.28, 'sine', at, 48)); break;
+        case 'coin': tone(1320, 0.12, 0.05, 'square'); tone(1760, 0.22, 0.04, 'square', 0.08); break;
+        case 'fanfare': [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.32, 0.05, 'triangle', i * 0.1)); break;
+      }
+    } catch (_) { /* sound is optional */ }
+  }
   // keep the floating pieces of the screen out of each other's way, whatever the screen size
   layout() {
     const vis = e => e && !e.hidden && !e.closest('[hidden]') && e.getClientRects().length > 0 && getComputedStyle(e).display !== 'none';
@@ -444,8 +483,10 @@ export class Hud {
       this.bar.style.maxWidth = ''; this.bar.style.minWidth = '';
       const b = this.bar.getBoundingClientRect(), W = window.innerWidth;
       let left = 12, right = W - 12;
-      for (const e of [tools, this.mapBtn]) if (vis(e)) { const r = e.getBoundingClientRect(); if (r.top < b.bottom + 8 && r.bottom > b.top - 8) right = Math.min(right, r.left - 10); }
-      if (vis(this.clan)) { const r = this.clan.getBoundingClientRect(); if (r.top < b.bottom + 8 && r.bottom > b.top - 8) left = Math.max(left, r.right + 10); }
+      for (const e of [tools, this.mapBtn, this.clan]) if (vis(e)) {
+        const r = e.getBoundingClientRect(); if (!(r.top < b.bottom + 8 && r.bottom > b.top - 8)) continue;
+        if (r.left + r.width / 2 > W / 2) right = Math.min(right, r.left - 10); else left = Math.max(left, r.right + 10);
+      }
       const centred = getComputedStyle(this.bar).transform !== 'none';
       const room = centred ? 2 * Math.min(right - W / 2, W / 2 - left) : right - b.left;
       if (room < b.width) { this.bar.style.maxWidth = Math.max(160, room) + 'px'; this.bar.style.minWidth = '0'; }
@@ -462,7 +503,11 @@ export class Hud {
   toggleMute() { this.settings.muted = !this.settings.muted; this.saveSettings(); this.applySound(); this.renderMute(); this.toast(this.settings.muted ? 'Sound off' : 'Sound on'); }
   applySound() { if (this.music) { this.music.setOn(!this.settings.muted && this.settings.music !== false); if (!this.settings.muted && this.settings.music !== false) this.music.unlock(); } }
   renderMute() { if (!this.muteBtn) return; this.muteBtn.textContent = ''; this.muteBtn.append(icon(this.settings.muted ? 'muted' : 'sound', 20)); this.muteBtn.classList.toggle('off', !!this.settings.muted); }
-  cycleSpeed() { if (this.paused) { this.paused = false; } else this.speed = this.speed >= 3 ? 1 : this.speed + 1; this.tick(); }
+  cycleSpeed() {
+    if (this.paused) { this.paused = false; this.tick(); return; }
+    const steps = [1, 2, 3, 5, 10].filter(x => x <= (this.settings.maxSpeed || 3)), i = steps.indexOf(this.speed);
+    this.speed = steps[(i + 1) % steps.length]; this.tick();
+  }
 
   /* ---------- army overview ---------- */
   /* ---------- mood & festivals ---------- */
@@ -644,12 +689,16 @@ export class Hud {
       h('div', { class: 'row' }, h('span', null, 'Music style: '), [['mix', 'Mix'], ['piano', 'Ambient piano'], ['chip', 'Tenka theme (chiptune)'], ['calm', 'Calm koto']].map(([k, label]) => h('button', { class: 'btn small ' + ((this.settings.musicStyle || 'mix') === k ? '' : 'ghost'), onclick: e => { this.settings.musicStyle = k; this.saveSettings(); if (this.music) { this.music.setStyle(k); this.music.unlock(); } e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, label))),
       toggle('Speech bubbles over villagers', () => this.settings.bubbles !== false, v => { this.settings.bubbles = v; this.saveSettings(); }),
       toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
+      h('div', { class: 'row' }, h('span', null, 'Difficulty: '), Object.entries(DIFFICULTY).map(([k, D]) => h('button', { class: 'btn small ' + ((s.difficulty || 'normal') === k ? '' : 'ghost'), title: D.desc, onclick: e => { s.difficulty = k; this.toast(`Difficulty: ${D.name} — ${D.desc}`); e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, D.name))),
+      h('div', { class: 'row' }, h('span', null, 'Fastest game speed: '), [3, 5, 10].map(n => h('button', { class: 'btn small ' + ((this.settings.maxSpeed || 3) === n ? '' : 'ghost'), onclick: e => { this.settings.maxSpeed = n; if (this.speed > n) this.speed = n; this.saveSettings(); e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, n + '\u00d7'))),
+      toggle('Left-handed layout (Map, Turn and Move buttons on the left)', () => this.settings.lefty, v => { this.settings.lefty = v; this.saveSettings(); this.applyLayout(); }),
+      toggle('Keep it smooth: lower the resolution automatically when the game slows down', () => this.settings.autoRes !== false, v => { this.settings.autoRes = v; this.saveSettings(); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
-      h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.'),
+      h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept. There is no cloud save (the game has no server): to carry your village to another device, use a save file or a save code.'),
       h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' — it keeps its own save.')),
       [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
        { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
-       { label: 'Save code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
+       { label: 'Save file / code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
        { label: 'Close' }]);
   }
@@ -660,16 +709,32 @@ export class Hud {
     const out = h('textarea', { readonly: true, rows: 4 }); out.value = code;
     const inp = h('textarea', { rows: 4, placeholder: 'Paste a save code here…' });
     const msg = h('p', { class: 'sub' });
-    this.openModal('Save code', h('div', { class: 'menu' },
-      h('p', null, 'This code is your whole village. Keep it somewhere safe, or paste it on another device to continue there.'), out,
+    const loadJson = json => {
+      const obj = JSON.parse(json); if (!obj || !obj.v || !obj.buildings) throw new Error('bad');
+      localStorage.setItem('tenka.save.backup', localStorage.getItem('tenka.save.v1') || '');
+      localStorage.setItem('tenka.save.v1', json); this.saver.block(); location.reload();
+    };
+    const file = h('input', { type: 'file', accept: '.json,.tenka,application/json,text/plain', style: 'display:none', onchange: e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      f.text().then(txt => { try { loadJson(txt.trim()); } catch (_) { msg.textContent = 'That file isn\u2019t a Tenka save.'; } });
+    } });
+    const download = () => {
+      try {
+        const blob = new Blob([localStorage.getItem('tenka.save.v1') || ''], { type: 'application/json' }), a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = `tenka-day${this.game.state.day}.json`; document.body.append(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000); msg.textContent = 'Saved. On an iPad it goes to Files \u2192 Downloads.';
+      } catch (_) { msg.textContent = 'Your browser could not save the file — use the save code instead.'; }
+    };
+    this.openModal('Save file & save code', h('div', { class: 'menu' },
+      h('p', null, 'Your village lives in this browser. There is no cloud save, so to move it to another device (or keep it safe), save it as a file or copy the code, then load it there.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: download }, 'Download save file'), h('button', { class: 'btn small ghost', onclick: () => file.click() }, 'Load a save file'), file),
+      h('hr'),
+      h('p', { class: 'sub' }, 'Or use the save code: this text is your whole village.'), out,
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { out.select(); try { navigator.clipboard.writeText(code).then(() => { msg.textContent = 'Copied.'; }, () => { msg.textContent = 'Select the text and copy it.'; }); } catch (_) { msg.textContent = 'Select the text and copy it.'; } } }, icon('copy', 14), 'Copy')),
       h('hr'), inp,
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => {
         try {
-          const json = decodeURIComponent(escape(atob(inp.value.trim())));
-          const obj = JSON.parse(json); if (!obj || !obj.v || !obj.buildings) throw new Error('bad');
-          localStorage.setItem('tenka.save.backup', localStorage.getItem('tenka.save.v1') || '');
-          localStorage.setItem('tenka.save.v1', json); this.saver.block(); location.reload();
+          loadJson(decodeURIComponent(escape(atob(inp.value.trim()))));
         } catch (_) { msg.textContent = 'That doesn’t look like a Tenka save code. Check it was copied completely.'; }
       } }, 'Load this save')), msg), [{ label: 'Close' }]);
   }

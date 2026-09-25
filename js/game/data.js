@@ -93,6 +93,13 @@ export const DOJO_TRAINS = {
   cavalry:   { th: 3, time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
 };
 
+// Difficulty (per save): how big raids and counter-attacks get, and how hard enemy soldiers are.
+export const DIFFICULTY = {
+  easy:   { name: 'Easy',   raid: 0.65, foe: 0.8,  desc: 'Smaller raids, weaker enemies. For building in peace.' },
+  normal: { name: 'Normal', raid: 1,    foe: 1,    desc: 'The game as intended.' },
+  hard:   { name: 'Hard',   raid: 1.35, foe: 1.2,  desc: 'Bigger raids and tougher enemies.' },
+};
+
 // Soldiers who survive battles and fell enemies rise in rank: each rank makes them 10% stronger.
 export const RANKS = [
   { name: 'Recruit', xp: 0, stars: '' },

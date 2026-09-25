@@ -426,3 +426,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 /* neutral places on the map */
 .neutral .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 10px 26px; }
 .neutral .irow small { font-weight: normal; }
+
+/* left-handed layout: map, turn and move buttons on the left, the clan panel and details on the right */
+#ui.lefty .camtools { right: auto; left: 12px; }
+#ui.lefty .mapbig { right: auto; left: 12px; }
+#ui.lefty .clan { left: auto; right: 12px; }
+#ui.lefty .panel:not(.mappanel) { right: auto; left: 12px; }
+#ui.lefty .toasts { left: auto; right: 16px; align-items: flex-end; }

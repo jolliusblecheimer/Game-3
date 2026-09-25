@@ -342,7 +342,10 @@ export function updateVillager(game, v, dt) {
   g.visible = !v.hidden;
   g.position.set(v.pos.x, v.elev || 0, v.pos.z);
   g.rotation.y = v.heading;
-  v.person.animate(dt, pose, 1);
+  // big villages: people far from where you're looking move their limbs less often (nobody can see it)
+  const f = game.viewFocus;
+  if (!f || Math.abs(v.pos.x - f.x) + Math.abs(v.pos.z - f.z) < 110) { v.person.animate(dt + (v.animDt || 0), pose, 1); v.animDt = 0; }
+  else if ((v.animDt = (v.animDt || 0) + dt) > 0.25) { v.person.animate(v.animDt, pose, 1); v.animDt = 0; }
 }
 function turn(v, target, dt) {
   let diff = target - v.heading;

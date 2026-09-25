@@ -38,7 +38,7 @@ export class Raids {
   bandSize() {
     if (!this.firstDone) return 2;
     const soldiers = this.game.soldiers(true).length;
-    return Math.max(2, Math.min(this.popBand(), 2 + 4 * (this.count || 0), soldiers * 3 + 2));
+    return Math.max(2, Math.round(Math.min(this.popBand(), 2 + 4 * (this.count || 0), soldiers * 3 + 2) * this.game.diff.raid));
   }
   timeLeft() { return this.next == null ? Infinity : this.next - this.clock; }
 
@@ -86,7 +86,7 @@ export class Raids {
   raiseAlarm(by, why) {
     const g = this.game;
     if (!this.active || this.alarm) return;
-    this.alarm = true;
+    this.alarm = true; g.sfx('bell');
     const n = this.alive().length, band = this.bandName(n);
     const from = this.side2 ? `the ${this.side} and the ${this.side2}` : `the ${this.side}`;
     g.toast(why || (by ? `${by.name} spotted ${band} sneaking in from ${from}! Villagers run for cover.` : `You raise the alarm: ${band} from ${from}! Your soldiers move in, villagers run for cover.`), 'bad');
@@ -259,13 +259,14 @@ export class Raids {
     }
   }
   hurtSoldier(v, dmg) {
+    this.game.sfx('clash');
     const g = this.game;
     v.rhp = (v.rhp || maxHp(v) * (v.hpf ?? 1)) - dmg;
     if (v.rhp <= 0) { g.toast(`${v.name} fell defending the village.`, 'bad'); g.killVillager(v.id); }
   }
   hurtBandit(u, dmg, by = null) {
     if (u.dead) return;
-    u.hp -= dmg; u.hit = 0.2;
+    u.hp -= dmg; u.hit = 0.2; this.game.sfx('clash');
     if (u.hp <= 0) {
       u.dead = true; u.deadT = 0; this.killed++;
       if (by && this.game.villagers.has(by.id)) this.game.credit(by, 1);

@@ -10,7 +10,7 @@ import { Hud } from './ui/hud.js';
 import { Views } from './ui/views.js';
 import { h } from './util.js';
 import { Music } from './audio/music.js';
-import { Weather } from './render/weather.js';
+import { Weather, Smoke } from './render/weather.js';
 import { Bubbles } from './ui/bubbles.js';
 
 const BACKUP_KEY = 'tenka.save.backup';
@@ -87,7 +87,20 @@ function boot() {
   window.addEventListener('pagehide', () => saveNow());
   stage.resize();
 
-  const weather = new Weather(stage.scene), bubbles = new Bubbles(game, stage);
+  const weather = new Weather(stage.scene), bubbles = new Bubbles(game, stage), smoke = new Smoke(stage.scene);
+  let smokeSrc = [], smokeT = 0, slowT = 0, fastT = 0, avgDt = 1 / 60;
+  // chimneys: homes smoke more in the cold, the forge and the brewery always
+  const SMOKY = { house: 0.5, nagaya: 0.8, blacksmith: 1.6, sakebrewery: 1.1, teahouse: 0.5 };
+  const chimneys = () => {
+    const out = [], t = cam.target, winter = game.life.season === 3 ? 1.8 : game.life.season === 1 ? 0.5 : 1;
+    for (const b of game.buildings.values()) {
+      const k = SMOKY[b.type]; if (!k || !b.done || b.fire) continue;
+      const c = game.center(b); if (Math.hypot(c.x - t.x, c.z - t.z) > 70) continue;
+      if (b.type === 'house' && (b.id % 3) && game.life.season !== 3) continue;
+      out.push({ x: c.x + 0.4, y: (b.def.h || 4) * 0.95, z: c.z - 0.3, rate: k * (b.type === 'blacksmith' || b.type === 'sakebrewery' ? 1 : winter), d: Math.hypot(c.x - t.x, c.z - t.z) });
+    }
+    return out.sort((a, b) => a.d - b.d).slice(0, 24);
+  };
   const hooks = { frame: [] };
   let last = performance.now(), tickT = 0, saveT = 0;
   function frame(now) {
@@ -105,9 +118,20 @@ function boot() {
     const c = view && view.active ? view.cam : cam;
     // the year in the valley: leaves, ground, falling petals / leaves / snow / rain, and what the villagers say
     const inVillage = !(view && view.active), L = game.life;
+    game.viewFocus = cam.target;
     nature.setSeason(L.season);
     weather.update(dt, c.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage || views.mode === 'battle');
     bubbles.update(dt, inVillage && hud.settings.bubbles !== false);
+    smokeT -= dt; if (smokeT <= 0) { smokeT = 2; smokeSrc = inVillage ? chimneys() : []; }
+    smoke.update(dt, smokeSrc, inVillage);
+    // keep it smooth on slower devices: step the resolution down when frames get slow, back up when there's room
+    avgDt += (dt - avgDt) * 0.05;
+    if (hud.settings.autoRes !== false && document.visibilityState === 'visible') {
+      const R = stage.renderer, pr = R.getPixelRatio(), maxPr = Math.min(window.devicePixelRatio || 1, stage.quality === 'low' ? 1 : stage.quality === 'medium' ? 1.5 : 2);
+      if (avgDt > 1 / 26) { slowT += dt; fastT = 0; } else if (avgDt < 1 / 50) { fastT += dt; slowT = 0; } else { slowT = 0; fastT = 0; }
+      if (slowT > 4 && pr > 0.75) { R.setPixelRatio(Math.max(0.75, pr - 0.25)); stage.resize(); slowT = 0; }
+      if (fastT > 12 && pr < maxPr) { R.setPixelRatio(Math.min(maxPr, pr + 0.25)); stage.resize(); fastT = 0; }
+    }
     stage.update(dt, c.target, stage.camera.position);
     stage.render();
     tickT += dt; if (tickT > 0.25) { tickT = 0; hud.tick(); music.setMood(views.mode === 'battle' && view && view.active ? 'battle' : game.raids.alarmed ? 'raid' : (game.state.time < 0.22 || game.state.time > 0.8) ? 'night' : 'day'); }

@@ -307,7 +307,7 @@ export class Country {
   }
   // how big a force the enemy sends to take a place back: matched to the garrison you left there
   // (about 2 men plus 1.2 for each of yours), never more than the place is worth
-  attackCap(site) { return Math.min(SITES[site.type].threat || 3, 2 + 1.2 * this.garrison(site).length); }
+  attackCap(site) { return Math.min(SITES[site.type].threat || 3, 2 + 1.2 * this.garrison(site).length) * this.game.diff.raid; }
   garrison(site) { return [...this.game.villagers.values()].filter(v => v.away === 'hold:' + site.id); }
   // the garrison fights on its own
   resolveAttack(s, hold) {

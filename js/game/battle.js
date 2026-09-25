@@ -313,6 +313,7 @@ export class Battle {
     const U = UNITS[type], v0 = extra.vid && this.game.villagers.get(extra.vid), rank = v0 ? rankOf(v0) : 0;
     let S = this.stats(team, type);
     if (rank) S = { ...S, hp: S.hp * (1 + 0.1 * rank), dmg: S.dmg * (1 + 0.1 * rank) };   // veterans fight better
+    if (team === 1) { const F = this.game.diff.foe; S = { ...S, hp: S.hp * F, dmg: S.dmg * F }; }
     S.dmg *= S.wet;
     let obj, person = null;
     if (U.siege) obj = U.lob ? catapultModel() : ramModel();
@@ -439,7 +440,7 @@ export class Battle {
   known(u) { return this.defend || this.t - u.spotted < 3; }
   raiseAlarm(by, msg) {
     if (this.alarm) return;
-    this.alarm = true; this.phase = 'alarm'; this.lastHitT = this.t;
+    this.alarm = true; this.phase = 'alarm'; this.lastHitT = this.t; this.game.sfx('horn');
     this.fx.push({ kind: 'banner', text: msg || 'Spotted! The war horn sounds — defenders to your posts!', t: 0 });
     if (by) this.fx.push({ kind: 'shout', x: by.x, z: by.z, y: (by.y || 0) + 2.9, text: '!', t: 0, cls: 'x' });
     for (const u of this.units) if (u.team === 1 && u.role !== 'post') { u.path = null; u.target = null; u.inv = null; u.st = 'alert'; }
@@ -556,7 +557,7 @@ export class Battle {
         }
         this.damage(T, a.dmg, a.from);
         if (a.boulder) {
-          this.fx.push({ kind: 'dust', x: T.x, z: T.z, t: 0 });
+          this.fx.push({ kind: 'dust', x: T.x, z: T.z, t: 0 }); this.game.sfx('boom');
           for (const o of this.units) if (o.team !== a.from.team && !o.dead && !o.fled && Math.hypot(o.x - T.x, o.z - T.z) < 3.2) this.damage(o, 45, a.from);
         }
       }
@@ -872,7 +873,7 @@ export class Battle {
     u.run = 0;
     if (u.U.lob) {
       const d = Math.hypot(t.x - u.x, t.z - u.z);
-      this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: 2.5, dmg, t: 0, dur: 0.9 + d / 20, boulder: true });
+      this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: 2.5, dmg, t: 0, dur: 0.9 + d / 20, boulder: true }); this.game.sfx('throw');
       if (u.team === 0 && !this.alarm && !this.defend) this.raiseAlarm(u, 'A boulder crashes into the walls — the alarm is raised!');
       return;
     }
@@ -898,10 +899,10 @@ export class Battle {
       if ((t.y || 0) > 1 && (u.y || 0) < 1) dmg *= 0.8;
       if ((u.y || 0) > 1) dmg *= 1.5;   // shooting down from a wall or tower
       const d = Math.hypot(t.x - u.x, t.z - u.z);
-      this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: (u.y || 0) + 1.5, dmg, t: 0, dur: 0.15 + d / 38 });
+      this.arrows.push({ from: u, target: t, x0: u.x, z0: u.z, y0: (u.y || 0) + 1.5, dmg, t: 0, dur: 0.15 + d / 38 }); this.game.sfx('arrow');
       u.swing = 0.5; return;
     }
-    this.damage(t, dmg, u); u.swing = 0.35;
+    this.damage(t, dmg, u); u.swing = 0.35; this.game.sfx('clash');
     if (u.U.cleave) for (const o of this.units) if (o.team !== u.team && !o.dead && o !== t && Math.hypot(o.x - t.x, o.z - t.z) < u.U.cleave && this.canHit(u, o)) this.damage(o, dmg * 0.6, u);
   }
   damage(t, dmg, from) {
@@ -949,7 +950,7 @@ export class Battle {
     for (const o of this.units) if (o.team === 1 && !o.dead) { o.fleeing = true; o.post = null; o.y = 0; o.target = null; o.aggro = null; this.pathTo(o, o.x, this.defend ? BATTLE_ORIGIN.z + HALF - 2 : BATTLE_ORIGIN.z - HALF + 2); o.order = { kind: 'retreat' }; }
   }
   destroy(s) {
-    s.dead = true; s.hp = 0; s.collapse = 0;
+    s.dead = true; s.hp = 0; s.collapse = 0; this.game.sfx('boom');
     if (!this.defend && s.team === 1 && ['wall', 'palisade', 'gate', 'pgate'].includes(s.type)) { if (!this.alarm) this.raiseAlarm(null, 'The crash of timber — the alarm is raised!'); this.plugBreach(s); }
     for (let z = s.cz; z < s.cz + s.d; z++) for (let x = s.cx; x < s.cx + s.w; x++) this.grid.set(x, z, 0, true, 1);
     for (const u of this.units) if (u.path) u.repathT = 0;

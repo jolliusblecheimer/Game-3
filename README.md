@@ -183,3 +183,15 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - You can also hire rōnin here.
 - **Mountain Passes:** bandits hold a narrow gap between cliffs behind a palisade and two towers. Every pass you hold makes all your armies march 15% faster.
 - The map of an existing save keeps all its old places; the new ones are simply added.
+
+## Sound, looks, settings and offline play
+- **Sound effects** (Menu → Sound effects), all synthesised: clashing steel, arrows, catapult boulders, falling walls, the war horn, the village alarm bell, festival drums, coins at the market, and a fanfare when a soldier rises in rank.
+- **Chimney smoke** rises from homes (more in winter), the forge and the brewery.
+- **Settings** (Menu):
+  - Difficulty: Easy, Normal or Hard, stored with each save.
+  - The fastest game speed: 3×, 5× or 10×.
+  - A left-handed layout: Map, Turn and Move on the left.
+  - "Keep it smooth": the resolution drops automatically on a slow device and comes back when there is room.
+- **Big villages:** people far from where you're looking animate less often.
+- **Save file / save code** (Menu): there is no cloud save, because the game has no server. Download your village as a file (on iPad it goes to Files → Downloads) or copy the save code. Then load it on any other device.
+- **Offline / app:** open the game once online, then use Share → *Add to Home Screen*. It gets its own icon, starts full screen and works without internet. Updates still arrive whenever you're online.

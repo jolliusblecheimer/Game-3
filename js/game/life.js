@@ -63,6 +63,7 @@ export class Life {
   holdFestival() {
     const why = this.festivalBlock(); if (why) { this.g.toast(why, 'warn'); return false; }
     this.g.pay(this.festivalCost());
+    this.g.sfx('drum');
     this.festivalUntil = this.S.clock + DAY * 0.35; this.lastFestival = this.S.clock; this.moodBoost = Math.max(this.moodBoost, 15);
     this.g.toast('The festival begins! Lanterns rise, drums play and the sake flows.');
     this.g.progress.log('A festival was held in the village.', 'life'); this.g.progress.add('festivals');
@@ -78,7 +79,7 @@ export class Life {
     const g = this.g, P = this.prices(r);
     if (n > 0) { if ((g.state.res[r] || 0) < n) return g.toast(`Not enough ${RES[r].name.toLowerCase()}`, 'warn'); g.pay({ [r]: n }); g.add('gold', Math.floor(n * P.sell)); }
     else { const cost = Math.ceil(-n * P.buy); if (g.state.res.gold < cost) return g.toast('Not enough gold', 'warn'); g.pay({ gold: cost }); g.add(r, -n); }
-    g.emit('res'); return true;
+    g.sfx('coin'); g.emit('res'); return true;
   }
   takeOffer(i) {
     const g = this.g, o = this.merchant && this.merchant.offers[i]; if (!o || o.done) return false;
@@ -101,7 +102,7 @@ export class Life {
   /* ---------- fires ---------- */
   startFire(b) {
     if (!b || b.fire || !b.done) return;
-    b.fire = { left: 1, burn: 80 };  // left: how much fire is left to put out; burn: seconds until it's lost
+    b.fire = { left: 1, burn: 80 }; this.g.sfx('bell');  // left: how much fire is left to put out; burn: seconds until it's lost
     this.g.toast(`Fire! The ${b.def.name} is burning — free villagers rush to put it out.`, 'bad');
     this.g.progress.log(`A fire broke out in the ${b.def.name}.`, 'life');
     this.fireFx(b, true);

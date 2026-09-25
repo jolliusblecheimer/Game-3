@@ -7,6 +7,10 @@
 <meta name="theme-color" content="#1c1a17">
 <title>Tenka — Rise of the Clan</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Tenka">
 <script type="importmap">{ "imports": { "three": "./lib/three.module.min.js" } }</script>
 </head>
 <body>
@@ -37,6 +41,8 @@
   } catch (_) { /* offline: just start */ }
   import('./js/main.js');
 })();
+// offline play (and "Add to Home Screen"): a service worker keeps a copy of every file
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => null);
 </script>
 </body>
 </html>

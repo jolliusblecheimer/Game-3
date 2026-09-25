@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS, RANKS, rankOf } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
 import { Grid, FREE, TREE, ROCK } from './grid.js';
 import { PLOT } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
@@ -49,6 +49,9 @@ export class Game {
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit(type, data) { this.version++; for (const fn of this.listeners) fn(type, data); }
   toast(text, kind = '') { this.emit('toast', { text, kind }); }
+  // sound effects go straight to the interface (not through emit: battles make a lot of noise)
+  sfx(kind) { if (this.onSfx) this.onSfx(kind); }
+  get diff() { return DIFFICULTY[this.state.settings.difficulty] || DIFFICULTY.normal; }
 
   /* ---------- derived numbers ---------- */
   get pop() { return this.villagers.size; }
@@ -78,7 +81,7 @@ export class Game {
     const before = rankOf(v);
     v.kills = (v.kills || 0) + kills; v.battles = (v.battles || 0) + battles;
     const now = rankOf(v);
-    if (now > before) { const R = RANKS[now]; this.toast(`${v.name} is now ${now === 1 ? 'a' : 'an'} ${R.name} ${R.stars}!`); this.progress.log(`${v.name} rose to ${R.name}.`, 'war'); }
+    if (now > before) { const R = RANKS[now]; this.sfx('fanfare'); this.toast(`${v.name} is now ${now === 1 ? 'a' : 'an'} ${R.name} ${R.stars}!`); this.progress.log(`${v.name} rose to ${R.name}.`, 'war'); }
   }
   // a villager's job title; dojo trainees are named after what they train to become
   jobName(v) {
