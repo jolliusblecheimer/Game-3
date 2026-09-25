@@ -1,5 +1,6 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS } from '../game/data.js';
+import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { h, fmt, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { THUMBS } from '../render/thumbs.js';
@@ -113,6 +114,10 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('button', { class: 'crow link2 tasks', title: 'Tasks and the guide', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Tasks'), h('b')), el => {
+        const P = g.progress, guide = P.guide < GUIDE.length; el.lastChild.textContent = guide ? `Guide ${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length); el.classList.toggle('attn', guide);
+        el.title = guide ? 'Guide: ' + GUIDE[P.guide].text : 'Tasks with rewards';
+      }),
       this.live(h('button', { class: 'crow link2', title: 'Harmony: see where it comes from', onclick: () => this.openHarmony() }, icon('sakura', 20), h('span', null, 'Harmony'), h('b')), el => { el.lastChild.textContent = `+${g.harmony()}%`; }),
     );
   }
@@ -394,6 +399,7 @@ export class Hud {
       clearTimeout(this.rt); this.rt = setTimeout(() => this.renderPanel(), 30);
     }
     if (type === 'raid') this.sound('war');
+    if (type === 'victory') setTimeout(() => this.showVictory(data), 600);
     if (type === 'hungry' && this.game.state.clock - (this.hungryAt || -99) > 60) { this.hungryAt = this.game.state.clock; this.toast('Out of wheat! Villagers work slowly — add farmers.', 'bad'); }
   }
   toast(text, kind = '') {
@@ -446,6 +452,50 @@ export class Hud {
   cycleSpeed() { if (this.paused) { this.paused = false; } else this.speed = this.speed >= 3 ? 1 : this.speed + 1; this.tick(); }
 
   /* ---------- army overview ---------- */
+  /* ---------- tasks, guide, chronicle ---------- */
+  openTasks() {
+    const g = this.game, P = g.progress, body = h('div', { class: 'tasks' });
+    if (P.guide < GUIDE.length) body.append(h('div', { class: 'upgrade' }, h('b', null, `Guide — step ${P.guide + 1} of ${GUIDE.length}`), h('p', null, GUIDE[P.guide].text),
+      h('div', { class: 'bar' }, h('i', { style: `width:${P.guide / GUIDE.length * 100}%` }))));
+    body.append(h('h3', null, 'Tasks'));
+    if (!P.tasks.length) body.append(h('p', { class: 'sub' }, 'New tasks will come soon.'));
+    for (const t of P.tasks) body.append(h('div', { class: 'irow task' }, icon('flag', 18), h('span', null, t.text), h('span', { class: 'rt' }, costChips(g, t.reward))));
+    body.append(h('p', { class: 'sub' }, P.won ? `The land is unified (day ${P.stats.wonDay}). Rule on as long as you like.` : 'The goal: unify the land (Tenka) — take the Shogun\u2019s castle, or break every rival clan.'));
+    this.openModal('Tasks', body, [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) }, { label: 'Close' }]);
+  }
+  openChronicle(tab = 'log') {
+    const g = this.game, P = g.progress, S = P.stats, body = h('div', { class: 'chron' });
+    const render = () => {
+      body.textContent = '';
+      body.append(h('div', { class: 'rtabs' }, [['log', 'Chronicle'], ['stats', 'Statistics'], ['ach', `Achievements ${Object.keys(P.ach).length}/${ACHIEVEMENTS.length}`]].map(([k, l]) => h('button', { class: 'rtab' + (k === tab ? ' on' : ''), onclick: () => { tab = k; render(); } }, h('span', null, h('b', null, l))))));
+      if (tab === 'log') {
+        const list = h('div', { class: 'chronlist' });
+        if (!P.chronicle.length) list.append(h('p', { class: 'sub' }, 'Nothing has been written yet.'));
+        for (const e of P.chronicle.slice().reverse()) list.append(h('div', { class: 'chronrow ' + e.kind }, h('small', null, `Day ${e.day}`), h('span', null, e.text)));
+        body.append(list);
+      } else if (tab === 'stats') {
+        const rows = [['Days ruled', g.state.day], ['Villagers (most ever)', `${g.pop} (${S.maxPop || g.pop})`], ['Soldiers', g.soldiers(true).length], ['Buildings', g.buildings.size], ['Keep level', g.thLevel],
+          ['Battles won / lost', `${S.battlesWon || 0} / ${S.battlesLost || 0}`], ['Castles and forts taken', S.castlesTaken || 0], ['Places plundered', S.plundered || 0], ['Places held now', Object.keys(g.country.holds).length],
+          ['Raids beaten off', g.state.stats.raidsBeaten || 0], ['Raiders defeated', S.raidersKilled || 0], ['Soldiers fallen', S.soldiersLost || 0], ['Scouts sent', S.scouts || 0], ['Newcomers welcomed', g.state.stats.arrived || 0], ['Soldiers trained', g.state.stats.trained || 0],
+          ['Studies completed', g.state.research.done.length], ['Rival clans left', Object.keys(CLANS).filter(k => g.clans.status[k] !== 'fallen').length]];
+        body.append(h('div', { class: 'irows' }, rows.map(([k, v]) => h('div', { class: 'irow' }, h('span', null, k), h('b', { class: 'rt' }, String(v))))));
+      } else {
+        body.append(h('div', { class: 'achgrid' }, ACHIEVEMENTS.map(a => h('div', { class: 'ach' + (P.ach[a.id] ? ' got' : '') }, h('b', null, a.name), h('small', null, a.desc), P.ach[a.id] ? h('small', { class: 'when' }, `Day ${P.ach[a.id]}`) : null))));
+      }
+    };
+    render();
+    this.openModal('Chronicle of your clan', body, [{ label: 'Close' }], { wide: true });
+  }
+  showVictory(how) {
+    const g = this.game, S = g.progress.stats;
+    this.sound('done');
+    this.openModal('Tenka — the land is yours!', h('div', { class: 'victory' },
+      h('div', { class: 'vseal' }, '天下'),
+      h('p', null, how === 'shogun' ? 'The Shogun\u2019s castle has fallen. From the mountains to the sea, every lord bows to your clan.' : 'The last rival clan is broken. From the mountains to the sea, every lord bows to your clan.'),
+      h('div', { class: 'irows' }, [['Days', g.state.day], ['Villagers', g.pop], ['Battles won', S.battlesWon || 0], ['Castles taken', S.castlesTaken || 0], ['Soldiers fallen', S.soldiersLost || 0]].map(([k, v]) => h('div', { class: 'irow' }, h('span', null, k), h('b', { class: 'rt' }, String(v))))),
+      h('p', { class: 'sub' }, 'You can keep ruling as long as you like.')),
+      [{ label: 'Read the chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) }, { label: 'Rule on' }], { wide: true });
+  }
   /* ---------- harmony breakdown ---------- */
   openHarmony() {
     const g = this.game, groups = {};
@@ -565,7 +615,8 @@ export class Hud {
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.'),
       h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' — it keeps its own save.')),
-      [{ label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
+      [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
+       { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
        { label: 'Save code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
        { label: 'Close' }]);

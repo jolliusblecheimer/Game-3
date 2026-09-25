@@ -57,6 +57,13 @@ export const JOBS = {
   taisho:         { name: 'Taishō',          look: 'taisho',    soldier: true, commander: true, desc: 'Commander. His banner makes nearby troops fight harder; can rally them mid-battle.' },
 };
 
+// The rival clans. Each holds a castle as its seat and the lands around it.
+export const CLANS = {
+  uesugi: { name: 'Uesugi', color: '#2f5aa0', power: 20, desc: 'Proud mountain lords, famous for their cavalry.' },
+  mori:   { name: 'Mōri',   color: '#3f7a3a', power: 18, desc: 'Masters of the coast and the rivers.' },
+  hojo:   { name: 'Hōjō',   color: '#7a3f8a', power: 22, desc: 'Rich and patient; their castles are the strongest.' },
+};
+
 // What a Dojo can train (chosen in its panel). Better troops need a bigger Keep, more time and more gold.
 export const DOJO_TRAINS = {
   ashigaru:  { th: 1, time: 90,  cost: { wheat: 20, gold: 8 } },
@@ -104,6 +111,8 @@ export const SITES = {
   warlord: { name: 'Warlord Castle', tier: 4, count: 2, dist: [115, 170], icon: 'castle', known: true, loot: { wheat: 700, wood: 600, stone: 500, gold: 400 }, tribute: { wheat: 8, stone: 6, gold: 10 }, threat: 18 },
   // a small stone castle: walls, towers, a gate and a keep, defended just as cleverly as the big ones by fewer men
   smallcastle: { name: 'Small Castle', tier: 3, count: 3, dist: [80, 145], gap: 30, icon: 'castle', loot: { wheat: 320, wood: 260, stone: 260, gold: 160 }, tribute: { wheat: 4, stone: 4, gold: 4 }, threat: 9 },
+  // the Shogun's castle: the greatest fortress in the land. Take it and Tenka is yours. (Kept last so older maps keep their places.)
+  shogun: { name: 'Shogun\u2019s Castle', tier: 5, count: 1, dist: [225, 262], gap: 40, icon: 'castle', known: true, loot: { wheat: 1500, wood: 1200, stone: 1200, gold: 1200 }, tribute: { wheat: 20, stone: 15, gold: 25 }, threat: 30 },
 };
 export const PLACE_NAMES = ['Kiyosu', 'Nagashino', 'Okehazama', 'Inabayama', 'Kanegasaki', 'Odawara', 'Takatenjin', 'Mikatagahara', 'Anegawa', 'Sekigahara', 'Kawanakajima',
   'Itami', 'Takamatsu', 'Nanao', 'Hachigata', 'Shizugatake', 'Yamazaki', 'Toriimoto', 'Kurosawa', 'Hanamaki', 'Shirakawa', 'Aizu', 'Yoshino', 'Matsumoto'];

@@ -93,6 +93,7 @@ export function makeLayout(site) {
     defenders('enemy_shield', castle ? 5 : 3, [x0 + 2, z0 + 8, x1 - 2, z1 - 2]);
     defenders('enemy_samurai', castle ? 4 : 2, [x0 + 3, z0 + 7, x1 - 3, z0 + 9]);
     if (castle) D.push({ type: 'enemy_lord', cx: Math.floor((x0 + x1) / 2), cz: z0 + 8 });
+    if (T >= 5) { defenders('enemy_samurai', 4, [x0 + 3, z0 + 7, x1 - 3, z0 + 10]); defenders('enemy_shield', 4, [x0 + 2, z0 + 8, x1 - 2, z1 - 2]); defenders('enemy_ashigaru', 4, [x0 + 2, z0 + 8, x1 - 2, z1 - 2]); }
     // spike barricades in front of the gate
     const gz = castle ? 43 : z1 + 3;
     for (let x = x0 + 3; x <= x1 - 3; x++) if (Math.abs(x - (x0 + x1) / 2) > 1.6 && r() < 0.8) mark(add('spikes', x, gz));

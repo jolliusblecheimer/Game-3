@@ -131,3 +131,15 @@ The soundtrack is generated live in the browser — nothing to download. By defa
 - **Calm koto** — koto phrases over a drone, shakuhachi, wind chimes at night; made up as it plays.
 
 Raids and battles break in with an up-tempo version of the Tenka theme. It all starts with your first tap; pick a style, switch music off or set the volume in the menu.
+
+## The goal: Tenka
+
+Unify the land. Storm the **Shogun's Castle** (marked on the map from the start: about 50 defenders, a lord and a keep to capture), or break every rival clan. Either way you win — and can rule on.
+
+## Rival clans and diplomacy
+
+Three clans — the **Uesugi**, **Mōri** and **Hōjō** — each hold a castle and the lands around it (their colours fly over their places on the map). They grow, take places from bandits and from each other, and — while they are your rivals or at war with you — raid your village from Keep level 4 and attack the places you hold. On the map, **Clans & diplomacy** lets you send gifts, spy on them, offer a truce, form an alliance (allies never raid you and send gifts), arrange a marriage, demand tribute if they fear you, or declare war. Taking or burning their places makes them declare war; lose every place and a clan falls.
+
+## Tasks, the guide, the chronicle
+
+New lords get a **guide** (the Tasks row, bottom-left) through the first steps. After that, **tasks** with rewards keep coming — three at a time. The **Chronicle** (menu, or from Tasks) records your clan's story, keeps statistics, and lists 22 **achievements**.

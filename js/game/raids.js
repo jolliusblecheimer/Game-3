@@ -63,7 +63,7 @@ export class Raids {
     this.side2 = n > 15 ? turn[this.side] : null;
     const weak = !this.firstDone;
     // from Keep level 4 the warlords send real soldiers instead of bandits
-    const src = this.firstDone && g.thLevel >= 4 ? g.country.warlordSource() : null;
+    const src = this.firstDone && g.thLevel >= 4 ? g.clans.raidSource() : null;
     this.source = src ? src.id : null;
     const kind = i => !src ? (weak || (this.count <= 1 && i % 2) ? 'outlaw' : 'bandit') : ['enemy_ashigaru', 'enemy_shield', 'enemy_ashigaru', 'enemy_archer', 'enemy_shield', 'enemy_archer', 'enemy_ashigaru', 'enemy_samurai'][i % 8];
     this.count = (this.count || 0) + 1;
@@ -94,7 +94,7 @@ export class Raids {
     g.emit('raid');
   }
   // "3 bandits" or "5 soldiers of Odawara Castle"
-  bandName(n) { const s = this.source && this.game.country.site(this.source); return s ? `${n} soldier${n === 1 ? '' : 's'} of ${s.name} Castle` : `${n} bandit${n === 1 ? '' : 's'}`; }
+  bandName(n) { const g = this.game, s = this.source && g.country.site(this.source), k = s && g.clans.owner(s); return s ? `${n} soldier${n === 1 ? '' : 's'} of ${k ? 'the ' + g.clans.name(k) : s.name + ' Castle'}` : `${n} bandit${n === 1 ? '' : 's'}`; }
   alive() { return this.bandits.filter(b => !b.dead && !b.gone); }
 
   // bandits can't walk through gates (your people can)
@@ -304,6 +304,8 @@ export class Raids {
     const g = this.game, stolen = Object.entries(this.stolen || {}).filter(([, v]) => v > 0);
     const bounty = this.killed * RAIDS.bounty * (1 + g.rb('bounty'));
     if (bounty) g.add('gold', bounty);
+    g.progress.add('raidersKilled', this.killed);
+    g.progress.log(stolen.length ? `Raiders got away with plunder (${this.bandName(this.bandits.length)}).` : this.victims ? `A raid was beaten off, but ${this.victims} villager${this.victims === 1 ? '' : 's'} died.` : `A raid was beaten off: ${this.bandName(this.killed)} defeated.`, 'raid');
     for (const u of this.bandits) { g.scene.remove(u.person.group); u.person.dispose(); }
     for (const a of this.arrows) g.scene.remove(a.m);
     this.bandits = []; this.arrows = []; this.active = false; this.alarm = false; this.firstDone = true;

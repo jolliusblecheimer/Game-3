@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
 import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
 import { RTSCamera } from './camera.js';
-import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS } from '../game/data.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS } from '../game/data.js';
 import { h, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { art, costChips } from './hud.js';
@@ -69,7 +69,8 @@ export class Views {
     const items = [{ key: 'home', x: 0, z: 0, text: 'Your village', cls: 'home', ic: 'castle' }];
     for (const s of C.sites) {
       const st = C.status(s); if (st === 'hidden') continue;
-      const sub = st === 'held' ? `Yours · ${C.garrison(s).length} on guard` : SITES[s.type].name + (st === 'ruined' ? (s.type === 'ruins' ? ' · searched' : ' · plundered') : '');
+      const own = this.game.clans.owner(s);
+      const sub = st === 'held' ? `Yours · ${C.garrison(s).length} on guard` : SITES[s.type].name + (st === 'ruined' ? (s.type === 'ruins' ? ' · searched' : ' · plundered') : own ? ` · ${CLANS[own].name}` : '');
       items.push({ key: 's' + s.id, site: s, x: s.x, z: s.z, text: s.name, sub, cls: st, ic: st === 'held' ? 'flag' : SITES[s.type].icon });
     }
     for (const m of C.missions) if (m.kind === 'army' && m.phase === 'ready') { const s = C.site(m.site); items.push({ key: 'm' + m.id, x: s.x, z: s.z + 14, text: 'Your army is waiting', cls: 'army', ic: 'flag', mission: m }); }
@@ -85,6 +86,7 @@ export class Views {
         this.labels.append(el);
       }
       el.className = 'maplabel ' + it.cls + (this.sel && this.sel.site === it.site && it.site ? ' on' : '');
+      const owner = it.site && it.cls !== 'held' && it.cls !== 'ruined' && this.game.clans.owner(it.site); el.style.borderLeft = owner ? `5px solid ${CLANS[owner].color}` : '';
       if (it.sub && el.dataset.sub !== it.sub) { el.dataset.sub = it.sub; const sm = el.querySelector('small'); if (sm) sm.textContent = it.sub; }
       const p = this.map.worldPos(it.x, it.z, 12).project(cam);
       const vis = p.z < 1 && Math.abs(p.x) < 1.1 && Math.abs(p.y) < 1.1;
@@ -105,6 +107,7 @@ export class Views {
   renderMissions() {
     const C = this.game.country, box = this.missionBox; if (!box) return;
     box.textContent = '';
+    box.append(h('button', { class: 'btn small', onclick: () => this.openClans() }, icon('flag', 16), 'Clans & diplomacy'));
     box.append(h('h3', null, 'Your people abroad'));
     if (!C.missions.length && !Object.keys(C.holds).length) box.append(h('p', { class: 'sub' }, 'No one is out. Send scouts to uncover the country — the clouds hide everything you haven’t seen.'));
     for (const m of C.missions) {
@@ -176,6 +179,30 @@ export class Views {
     if (st !== 'ruined' || s.type !== 'ruins') actions.append(h('button', { class: 'btn ghost', onclick: () => { C.sendScout({ x: s.x, z: s.z }); this.renderMapUI(); } }, icon('scout', 16), 'Send a scout'));
     P.append(actions);
   }
+  /* ---------- the rival clans ---------- */
+  openClans() {
+    const g = this.game, K = g.clans, body = h('div', { class: 'clans' });
+    const statusName = { rivals: 'Rivals', war: 'At war', truce: 'Truce', allied: 'Allied', married: 'Bound by marriage', fallen: 'Destroyed' };
+    const render = () => {
+      body.textContent = '';
+      body.append(h('p', { class: 'sub' }, 'Three clans hold the land around you. Rivals and clans at war raid you (from Keep level 4) and attack the places you hold; allies never do, and send gifts. Take or break every clan — or storm the Shogun\u2019s castle — to unify the land.'));
+      for (const [k, c] of Object.entries(CLANS)) {
+        const st = K.status[k], rel = Math.round(K.rel[k]), places = K.sitesOf(k).length;
+        const card = h('div', { class: 'clancard' + (st === 'fallen' ? ' fallen' : '') },
+          h('div', { class: 'clanhead' }, h('span', { class: 'mon', style: `background:${c.color}` }, c.name[0]), h('div', null, h('b', null, `${c.name} clan`), h('small', null, c.desc)), h('span', { class: 'pill ' + st }, statusName[st])),
+          st === 'fallen' ? null : h('div', { class: 'relrow' }, h('small', null, 'Feelings'), h('div', { class: 'relbar' }, h('i', { style: `left:50%;width:${Math.abs(rel) / 2}%;${rel < 0 ? `transform:translateX(-100%);background:#c2412d` : 'background:#5f8a3e'}` })), h('small', null, String(rel))),
+          st === 'fallen' ? null : h('small', { class: 'sub' }, `${places} place${places === 1 ? '' : 's'}${K.spied[k] || K.friendly(k) ? ` · about ${Math.round(K.power[k])} soldiers` : ' · strength unknown (send a spy)'}`));
+        if (st !== 'fallen') {
+          const acts = h('div', { class: 'clanacts' });
+          for (const o of K.options(k)) acts.append(h('button', { class: 'btn small ' + (o.id === 'war' || o.id === 'demand' ? 'danger' : 'ghost'), disabled: o.why ? true : null, title: o.why || o.desc, onclick: () => { if (K.act(k, o.id)) render(); } }, o.label, Object.keys(o.cost).length ? costChips(g, o.cost) : null));
+          card.append(acts);
+        }
+        body.append(card);
+      }
+    };
+    render();
+    this.hud.openModal('Clans & diplomacy', body, [{ label: 'Close' }], { wide: true });
+  }
   armyPicker(site) {
     const g = this.game, C = g.country, soldiers = g.soldiers();
     const types = ['ashigaru', 'shieldman', 'samurai', 'archer', 'berserker', 'taisho'];
@@ -225,7 +252,7 @@ export class Views {
     const guards = C.garrison(site), home = g.soldiers();
     this.hud.sound('war');
     this.hud.openModal(`${site.name} is under attack!`, h('div', null,
-      h('p', null, `Scouts report a force of about ${hold.attack.force} enemy soldiers marching on ${site.name}. They will storm it in ${fmtTime(hold.attack.at - C.clock)}.`),
+      h('p', null, `Scouts report a force of about ${hold.attack.force} ${hold.by ? `soldiers of the ${g.clans.name(hold.by)}` : 'enemy soldiers'} marching on ${site.name}. They will storm it in ${fmtTime(hold.attack.at - C.clock)}.`),
       h('p', { class: 'sub' }, `Your garrison: ${guards.length} soldier${guards.length === 1 ? '' : 's'}. The walls, towers and gate are yours now — use them.`)),
       [{ label: 'Lead the defense', cls: 'danger', fn: () => this.openDefense(site) },
        { label: `Send reinforcements (${home.length} at home)`, cls: 'ghost', keep: true, fn: () => this.reinforcePicker(site) },
@@ -353,8 +380,10 @@ export class Views {
     const b = this.battle, g = this.game, C = g.country, m = b.mission, site = b.site, S = SITES[site.type];
     const r = b.results(), alive = r.survivors;
     for (const [id, f] of Object.entries(r.health || {})) { const v = g.villagers.get(+id); if (v) v.hpf = f >= 0.99 ? null : f; }
+    const P = g.progress; P.add('soldiersLost', r.dead.length);
     if (m.defend) {
       const won = result === 'victory';
+      P.add(won ? 'defencesWon' : 'defencesLost'); P.log(won ? `${site.name} held against an attack.` : `${site.name} was lost to an attack.`, 'war');
       C.defenseResult(site, won, alive);
       this.hud.paused = false;
       this.hud.openModal(won ? `${site.name} holds!` : `${site.name} has fallen`, h('div', null,
@@ -373,6 +402,10 @@ export class Views {
       this.closeBattle();
     };
     if (result === 'victory') {
+      P.add('battlesWon'); if (!r.dead.length) P.stats.flawless = true;
+      if (['castle', 'warlord', 'shogun', 'smallcastle', 'fort'].includes(site.type)) P.add('castlesTaken');
+      P.log(`Victory at ${site.name}${r.dead.length ? ` — fallen: ${r.dead.join(', ')}` : ', without a single loss'}.`, 'war');
+      if (site.type === 'shogun') setTimeout(() => P.win('shogun'), 400);
       if (C.status(site) !== 'held') C.setStatus(site, 'scouted');
       const plunder = {}, take = {}; for (const k in S.loot) { plunder[k] = Math.round(S.loot[k] * 1.5); take[k] = Math.round(S.loot[k] * 0.6); }
       const canHold = alive.length >= WAR.garrisonMin + 0;
@@ -382,9 +415,10 @@ export class Views {
         h('div', { class: 'choice' },
           h('div', null, h('h3', null, 'Plunder and burn'), h('p', { class: 'sub' }, 'Carry off everything of value and leave it in ruins.'), costChips(g, plunder)),
           h('div', null, h('h3', null, 'Hold it'), h('p', { class: 'sub' }, canHold ? `Leave ${gSize} soldiers as a garrison. It pays ${this.costText(S.tribute)} every minute, but the enemy may try to take it back.` : `You need at least ${WAR.garrisonMin} survivors to hold it.`), costChips(g, take)))),
-        [{ label: 'Plunder', cls: 'danger', fn: () => { C.setStatus(site, 'ruined'); finish(plunder); } },
-         ...(canHold ? [{ label: `Hold with ${gSize}`, fn: () => { const garrison = alive.slice(0, gSize); finish(take, garrison); } }] : [])], { locked: true, wide: true });
+        [{ label: 'Plunder', cls: 'danger', fn: () => { g.clans.onTaken(site, 'plundered'); P.add('plundered'); C.setStatus(site, 'ruined'); finish(plunder); } },
+         ...(canHold ? [{ label: `Hold with ${gSize}`, fn: () => { g.clans.onTaken(site, 'held'); const garrison = alive.slice(0, gSize); finish(take, garrison); } }] : [])], { locked: true, wide: true });
     } else {
+      P.add('battlesLost'); P.log(`${result === 'retreat' ? 'Retreat from' : 'Defeat at'} ${site.name}.`, 'war');
       if (C.status(site) === 'known') C.setStatus(site, 'scouted');
       this.hud.openModal(result === 'retreat' ? 'Your army retreats' : 'Defeat', h('div', null,
         h('p', null, alive.length ? `${alive.length} survivor${alive.length > 1 ? 's' : ''} march home.` : 'None of your soldiers survived.'), fallen,

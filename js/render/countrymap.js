@@ -4,7 +4,7 @@ import { Mesher, MAT } from './geo.js';
 import { buildModel } from './buildings.js';
 import { Person } from './people.js';
 import { MAP } from '../game/country.js';
-import { SITES } from '../game/data.js';
+import { SITES, CLANS } from '../game/data.js';
 import { makeNoise2D, fbm, mulberry32 } from '../util.js';
 
 export const MAP_ORIGIN = new THREE.Vector3(-4000, 0, 0);
@@ -37,12 +37,12 @@ function cloudCanvas(size) {
 }
 
 // your clan's war banner (nobori): planted on your village and every place you hold
-function clanBanner(seed) {
+function clanBanner(seed, color = '#b8342a') {
   const g = new THREE.Group(), m = new Mesher(seed, 0.02), cloth = new Mesher(seed + 1, 0.02);
   m.cyl(0.18, 0.22, 11, 6, '#3b2619', [0, 5.5, 0]); m.cone(0.3, 0.8, 6, '#d9b24a', [0, 11.3, 0]);
   m.box(2.4, 0.16, 0.16, '#3b2619', [1.1, 10.6, 0]);
-  cloth.box(2.2, 6.2, 0.1, '#b8342a', [1.2, 7.4, 0]); cloth.box(2.2, 0.35, 0.12, '#1c1a17', [1.2, 10.35, 0]);
-  cloth.cyl(0.75, 0.75, 0.14, 16, '#f5efe0', [1.2, 8.6, 0], [Math.PI / 2, 0, 0]); cloth.cyl(0.42, 0.42, 0.16, 16, '#b8342a', [1.2, 8.6, 0], [Math.PI / 2, 0, 0]);
+  cloth.box(2.2, 6.2, 0.1, color, [1.2, 7.4, 0]); cloth.box(2.2, 0.35, 0.12, '#1c1a17', [1.2, 10.35, 0]);
+  cloth.cyl(0.75, 0.75, 0.14, 16, '#f5efe0', [1.2, 8.6, 0], [Math.PI / 2, 0, 0]); cloth.cyl(0.42, 0.42, 0.16, 16, color, [1.2, 8.6, 0], [Math.PI / 2, 0, 0]);
   g.add(m.mesh(MAT.flat)); const c = cloth.mesh(MAT.flat); g.add(c); g.userData.cloth = c;
   return g;
 }
@@ -70,7 +70,7 @@ function siteModel(type, seed) {
     const w = new Mesher(seed, 0.05);
     for (const [x, z, a] of [[0, -6, 0], [0, 6, 0], [-6, 0, 1], [6, 0, 1]]) { w.box(a ? 1.2 : 11, 2.2, a ? 11 : 1.2, '#8e897e', [x, 1.1, z]); w.box(a ? 1.0 : 11, 0.9, a ? 11 : 1.0, '#efe7d6', [x, 2.6, z]); }
     g.add(w.mesh(MAT.flat)); add(buildModel('house', 4, 4, seed), 3, -2, 0.6);
-  } else if (type === 'castle' || type === 'warlord') {
+  } else if (type === 'castle' || type === 'warlord' || type === 'shogun') {
     add(buildModel('townhall', 8, 8, seed), 0, -1, 0.95);
     const w = new Mesher(seed, 0.05);
     for (const [x, z, a] of [[0, -9, 0], [0, 9, 0], [-9, 0, 1], [9, 0, 1]]) { w.frustum(a ? 2.4 : 18, a ? 18 : 2.4, a ? 1.6 : 18, a ? 18 : 1.6, 2.6, '#8e897e', [x, 0, z]); w.box(a ? 1.2 : 17, 1.1, a ? 17 : 1.2, '#efe7d6', [x, 3.1, z]); }
@@ -150,6 +150,9 @@ export class CountryMap {
       const b = clanBanner(s.seed); b.position.set(s.x + 6, this.h(s.x + 6, s.z - 4), s.z - 4); b.visible = false;
       b.traverse(o => { if (o.isMesh) o.userData.mapPick = { kind: 'site', id: s.id }; });
       this.root.add(b); s._banner = b; this.banners.push(b);
+      // a banner in the colours of the clan that owns it
+      s._clanBanners = {};
+      for (const [k, c] of Object.entries(CLANS)) { const cb = clanBanner(s.seed + 3, c.color); cb.scale.setScalar(0.8); cb.position.set(s.x - 6, this.h(s.x - 6, s.z - 4), s.z - 4); cb.visible = false; this.root.add(cb); s._clanBanners[k] = cb; this.banners.push(cb); }
     }
   }
   buildFog() {
@@ -192,6 +195,7 @@ export class CountryMap {
       const st = C.status(s), obj = this.siteObjs.get(s.id);
       obj.visible = st !== 'hidden';
       s._banner.visible = st === 'held';
+      const own = C.game.clans.owner(s); for (const [k, cb] of Object.entries(s._clanBanners)) cb.visible = own === k && st !== 'hidden' && st !== 'held' && st !== 'ruined';
       obj.traverse(o => { if (o.isMesh && o.material === MAT.flat && st === 'ruined' && s.type !== 'ruins') o.scale.y = 0.35; });
     }
     // missions on the move

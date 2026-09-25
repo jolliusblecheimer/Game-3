@@ -377,3 +377,33 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .top .mute.off { color: var(--verm); border-color: var(--verm); }
 /* the open/close button of the build menu stays visible even when the tabs have to scroll */
 .tab.toggle { position: sticky; right: 0; background: var(--paper-2); z-index: 1; }
+
+/* clans & diplomacy */
+.clans { display: flex; flex-direction: column; gap: 12px; }
+.clancard { border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: #fbf6ea; display: flex; flex-direction: column; gap: 8px; }
+.clancard.fallen { opacity: .55; }
+.clanhead { display: flex; align-items: center; gap: 10px; }
+.clanhead > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.clanhead small { color: var(--ink-2); }
+.mon { width: 38px; height: 38px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font: 700 18px var(--mincho); flex: 0 0 auto; box-shadow: inset 0 0 0 3px rgba(255,255,255,.5); }
+.pill.war { background: #f3d2cc; color: #8a2518; } .pill.allied, .pill.married { background: #dcebd0; color: #2f5a1f; } .pill.truce { background: #efe3c2; }
+.relrow { display: flex; align-items: center; gap: 8px; }
+.relbar { position: relative; flex: 1; height: 8px; border-radius: 4px; background: #e7d9c2; overflow: hidden; }
+.relbar::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--ink-2); }
+.relbar i { position: absolute; top: 0; bottom: 0; }
+.clanacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.clanacts .btn { display: inline-flex; gap: 6px; align-items: center; }
+.mapside > .btn { margin-bottom: 8px; }
+/* tasks & chronicle */
+.task .rt, .irow .rt { margin-left: auto; }
+.crow.tasks.attn { background: #fff3d6; }
+.chronlist { max-height: 55vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.chronrow { display: flex; gap: 10px; padding: 5px 8px; border-radius: 8px; background: #fbf6ea; }
+.chronrow small { color: var(--ink-2); flex: 0 0 52px; }
+.chronrow.war { border-left: 3px solid var(--verm); } .chronrow.ach { border-left: 3px solid var(--gold); } .chronrow.clans { border-left: 3px solid #2f5aa0; } .chronrow.win { border-left: 3px solid var(--leaf); font-weight: 700; }
+.achgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.ach { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; opacity: .5; display: flex; flex-direction: column; gap: 2px; }
+.ach.got { opacity: 1; border-color: var(--gold); background: #fff8e4; }
+.ach small { color: var(--ink-2); } .ach .when { color: var(--gold); font-weight: 700; }
+.victory { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.vseal { align-self: center; background: var(--verm); color: #fdf1e2; font: 700 42px var(--mincho); padding: 8px 18px; border-radius: 14px; box-shadow: var(--shade); }

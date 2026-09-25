@@ -117,6 +117,7 @@ export class Country {
   sendScout(to) {
     const rank = v => (v.job === 'idle' ? 0 : 1) + (v.post ? 1 : 0);
     const g = this.game, c = this.scoutCandidates().sort((a, b) => rank(a) - rank(b))[0];
+    if (c) g.progress.add('scouts');
     if (!c) return g.toast('Nobody free to scout — workers stay at their jobs. Make someone unemployed, or train a soldier.', 'warn');
     if (!g.canAfford(WAR.scoutCost)) return g.toast('Scouts need 10 wheat for the journey', 'warn');
     g.pay(WAR.scoutCost);
@@ -257,6 +258,7 @@ export class Country {
   plunderLoot(site) { const L = SITES[site.type].loot || {}, out = {}; for (const r in L) out[r] = Math.round(L[r] * 1.5); return out; }
   plunderHeld(site) {
     const vids = this.garrison(site).map(v => v.id); if (!this.holds[site.id]) return;
+    this.game.progress.add('plundered'); this.game.progress.log(`${site.name} was stripped and burned by its garrison.`, 'war');
     delete this.holds[site.id]; this.setStatus(site, 'ruined');
     const loot = this.plunderLoot(site);
     if (!vids.length) { for (const r in loot) this.game.add(r, loot[r]); this.game.emit('country'); return; }

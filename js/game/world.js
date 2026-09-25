@@ -9,6 +9,8 @@ import { Mesher, MAT } from '../render/geo.js';
 import { thinkVillager, updateVillager } from './villagers.js';
 import { Country } from './country.js';
 import { Raids } from './raids.js';
+import { Clans } from './clans.js';
+import { Progress } from './progress.js';
 import { NAMES, mulberry32, clamp } from '../util.js';
 
 export const SAVE_KEY = 'tenka.save.v1';
@@ -37,6 +39,8 @@ export class Game {
     for (const r of nature.rocks) this.grid.set(r.cx, r.cz, ROCK, false);
     this.country = new Country(this);
     this.raids = new Raids(this);
+    this.clans = new Clans(this);
+    this.progress = new Progress(this);
   }
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit(type, data) { this.version++; for (const fn of this.listeners) fn(type, data); }
@@ -338,6 +342,7 @@ export class Game {
     if (!u.convert) b.level = u.level;
     b.hp = this.maxHp(b);
     this.makeVisual(b); this.refreshNeighbours(b);
+    if (b.type === 'townhall') this.progress.log(`The Keep was raised to level ${b.level}.`, 'keep');
     this.toast(b.type === 'townhall' ? `The Keep is now level ${b.level}! New buildings are unlocked.` : u.convert ? `The ${b.def.name} is finished` : `${b.def.name} is now level ${b.level}`);
     this.emit('built', b);
   }
@@ -444,10 +449,11 @@ export class Game {
     this.countryT = (this.countryT || 0) + dt;
     if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
     this.raids.update(dt);
+    this.clans.update(); this.progress.update(dt);
     const R = S.research.active;
     if (R) {
       R.progress += dt / R.time;
-      if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.emit('research'); }
+      if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.progress.log(`Your scholars mastered ${this.researchNode(R.id).node.name}.`, 'research'); this.emit('research'); }
     }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     // wounds heal slowly by themselves, four times faster with a Healer's House (resting inside: faster still)
@@ -491,6 +497,7 @@ export class Game {
 
   /* ---------- new game / save / load ---------- */
   newGame() {
+    this.clans.init(); this.progress.load(null, true);
     const c = PLOT.n / 2 - 2;
     this.place('townhall', c, c, 0, { done: true, free: true });
     this.place('house', c - 4, c + 3, 1, { done: true, free: true });
@@ -515,6 +522,7 @@ export class Game {
       raids: this.raids.serialize(),
       research: S.research,
       country: this.country.serialize(),
+      clans: this.clans.serialize(), progress: this.progress.serialize(),
     };
   }
   load(s) {
@@ -565,6 +573,7 @@ export class Game {
     if (s.research && Array.isArray(s.research.done)) S.research = { done: s.research.done.filter(id => this.researchNode(id)), active: s.research.active && this.researchNode(s.research.active.id) ? s.research.active : null };
     S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
+    try { this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }
     this.raids.load(s.raids);
     for (const v of this.villagers.values()) { v.person.setLook(JOBS[v.job].look); v.person.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'villager', id: v.id }; }); }
     if (!this.keep) this.place('townhall', PLOT.n / 2 - 2, PLOT.n / 2 - 2, 0, { done: true, free: true });
