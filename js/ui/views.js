@@ -578,6 +578,27 @@ export class Views {
       }
       p.append(box);
     }
+    if (b.type === 'market' && b.done) {
+      const L = g.life, box = h('div', { class: 'jobs market' }, h('div', { class: 'jrow' }, icon('gold', 20), h('b', null, 'Trade')));
+      for (const r of ['wheat', 'wood', 'stone', 'iron', 'sake']) {
+        const P = L.prices(r);
+        box.append(h('div', { class: 'traderow' }, icon(RES[r].icon, 18), h('span', null, RES[r].name),
+          h('button', { class: 'btn small ghost', title: `Sell 10 ${RES[r].name.toLowerCase()} for ${Math.floor(10 * P.sell)} gold`, onclick: () => { L.trade(r, 10); this.hud.renderPanel(); } }, `Sell 10 → ${Math.floor(10 * P.sell)}`),
+          h('button', { class: 'btn small ghost', title: `Buy 10 ${RES[r].name.toLowerCase()} for ${Math.ceil(10 * P.buy)} gold`, onclick: () => { L.trade(r, -10); this.hud.renderPanel(); } }, `Buy 10 ← ${Math.ceil(10 * P.buy)}`)));
+      }
+      if (L.merchant) {
+        box.append(h('h3', null, 'Travelling merchants'), h('p', { class: 'sub' }, 'Special offers — until they move on.'));
+        L.merchant.offers.forEach((o, i) => box.append(h('div', { class: 'traderow' }, costChips(g, o.give), h('span', null, '→'), costChips(g, o.get),
+          h('button', { class: 'btn small', disabled: o.done ? true : null, onclick: () => { L.takeOffer(i); this.hud.renderPanel(); } }, o.done ? 'Done' : 'Deal'))));
+      } else box.append(h('p', { class: 'sub' }, 'No merchants in town. Caravans come by every few days.'));
+      p.append(box);
+    }
+    if (b.type === 'townhall' && b.done) {
+      const L = g.life, why = L.festivalBlock();
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('sakura', 18), h('b', null, `Village mood ${L.mood()}%`)),
+        h('div', { class: 'row' }, costChips(g, L.festivalCost()), h('button', { class: 'btn small', disabled: why ? true : null, title: why || 'Hold a festival', onclick: () => { if (L.holdFestival()) this.hud.renderPanel(); } }, 'Hold a festival')),
+        why ? h('p', { class: 'why' }, why) : null));
+    }
     if (b.type === 'dojo' && b.done) {
       // what the dojo trains: spearmen, shield-bearers (Keep 2) or samurai (Keep 4)
       const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));

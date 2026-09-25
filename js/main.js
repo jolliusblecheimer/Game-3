@@ -10,6 +10,8 @@ import { Hud } from './ui/hud.js';
 import { Views } from './ui/views.js';
 import { h } from './util.js';
 import { Music } from './audio/music.js';
+import { Weather } from './render/weather.js';
+import { Bubbles } from './ui/bubbles.js';
 
 const BACKUP_KEY = 'tenka.save.backup';
 
@@ -85,6 +87,7 @@ function boot() {
   window.addEventListener('pagehide', () => saveNow());
   stage.resize();
 
+  const weather = new Weather(stage.scene), bubbles = new Bubbles(game, stage);
   const hooks = { frame: [] };
   let last = performance.now(), tickT = 0, saveT = 0;
   function frame(now) {
@@ -100,6 +103,11 @@ function boot() {
     if (view && view.active) view.update(dt, input.keys);
     else { cam.update(dt, input.keys); input.updateSelectionVisual(); }
     const c = view && view.active ? view.cam : cam;
+    // the year in the valley: leaves, ground, falling petals / leaves / snow / rain, and what the villagers say
+    const inVillage = !(view && view.active), L = game.life;
+    nature.setSeason(L.season);
+    weather.update(dt, cam.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage);
+    bubbles.update(dt, inVillage && hud.settings.bubbles !== false);
     stage.update(dt, c.target, stage.camera.position);
     stage.render();
     tickT += dt; if (tickT > 0.25) { tickT = 0; hud.tick(); music.setMood(views.mode === 'battle' && view && view.active ? 'battle' : game.raids.alarmed ? 'raid' : (game.state.time < 0.22 || game.state.time > 0.8) ? 'night' : 'day'); }

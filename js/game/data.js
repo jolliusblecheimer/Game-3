@@ -6,10 +6,21 @@ export const RES = {
   wood: { name: 'Wood', icon: 'wood' },
   stone: { name: 'Stone', icon: 'stone' },
   gold: { name: 'Gold', icon: 'gold' },
+  iron: { name: 'Iron', icon: 'iron', extra: true },   // extra: only shown once you have some (or the building for it)
+  sake: { name: 'Sake', icon: 'sake', extra: true },
 };
 
+// The year: each season lasts a few days and changes the fields, the forest and the mood
+export const DAYS_PER_SEASON = 3;
+export const SEASONS = [
+  { name: 'Spring', kanji: '春', farm: 1.0, wood: 1.0, march: 1.0, mood: 5, arrive: 1.3 },
+  { name: 'Summer', kanji: '夏', farm: 1.25, wood: 1.1, march: 1.0, mood: 3, arrive: 1.0 },
+  { name: 'Autumn', kanji: '秋', farm: 1.6, wood: 1.0, march: 1.0, mood: 2, arrive: 1.0 },
+  { name: 'Winter', kanji: '冬', farm: 0, wood: 0.8, march: 0.75, mood: -6, arrive: 0.5 },
+];
+
 export const START = {
-  res: { wheat: 300, wood: 260, stone: 140, gold: 60 },
+  res: { wheat: 300, wood: 260, stone: 140, gold: 60, iron: 0, sake: 0 },
   villagers: 10,
 };
 
@@ -47,6 +58,11 @@ export const JOBS = {
   woodcutter:     { name: 'Woodcutter',      look: 'woodcutter',  res: 'wood',  work: 10, amount: 7 },
   stonecutter:    { name: 'Stonecutter',     look: 'stonecutter', res: 'stone', work: 13, amount: 6 },
   miner:          { name: 'Miner',           look: 'miner',       res: 'gold',  work: 16, amount: 4 },
+  ironminer:      { name: 'Iron miner',      look: 'miner',       res: 'iron',  work: 16, amount: 3 },
+  brewer:         { name: 'Brewer',          look: 'brewer', desc: 'turns 6 wheat into 3 sake' },
+  smith:          { name: 'Blacksmith',      look: 'smith', desc: 'forges iron into blades: while the forge burns, your soldiers hit harder and last longer' },
+  merchant:       { name: 'Merchant',        look: 'merchant', desc: 'runs the trading counter and brings gold' },
+  child:          { name: 'Child',           look: 'child', desc: 'Too young to work. Children play around the village and grow up in two days.' },
   trainee:        { name: 'Spearman trainee', look: 'trainee' },
   trainee_archer: { name: 'Archer trainee',  look: 'trainee_archer' },
   ashigaru:       { name: 'Spearman',        look: 'ashigaru', soldier: true, desc: 'Ashigaru spearman — the backbone of your army. Defends the village against bandits.' },
@@ -67,8 +83,8 @@ export const CLANS = {
 // What a Dojo can train (chosen in its panel). Better troops need a bigger Keep, more time and more gold.
 export const DOJO_TRAINS = {
   ashigaru:  { th: 1, time: 90,  cost: { wheat: 20, gold: 8 } },
-  shieldman: { th: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12 } },
-  samurai:   { th: 4, time: 200, cost: { wheat: 40, gold: 45 } },
+  shieldman: { th: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
+  samurai:   { th: 4, time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
 };
 
 // Commanders are appointed at the Keep.
@@ -163,6 +179,14 @@ export const BUILDINGS = {
                 desc: 'Miners go deep into the hill for gold ore. Slow but precious.' },
   infirmary:  { name: 'Healer’s House', kanji: '薬師', cat: 'military', size: [2, 2], cost: { wood: 90, stone: 40, gold: 15 }, time: 55, h: 4, th: 1, unique: true, heals: true,
                 desc: 'Wounded soldiers rest here and heal four times faster. Herbs dry on racks by the door.' },
+  ironmine:   { name: 'Iron Mine', kanji: '鉄山', cat: 'resources', size: [3, 3], cost: { wood: 120, stone: 80, gold: 20 }, time: 70, jobs: 2, job: 'ironminer', h: 4, th: 2, maxLevel: 4, limit: [0, 1, 1, 2, 3], grow: { 3: [4, 4] },
+                desc: 'Miners dig iron ore. The blacksmith forges it, and shield-bearers and samurai need it for their gear.' },
+  sakebrewery: { name: 'Sake Brewery', kanji: '酒蔵', cat: 'village', size: [3, 2], cost: { wood: 110, stone: 50 }, time: 60, jobs: 2, job: 'brewer', h: 4.5, th: 2, maxLevel: 3, limit: [0, 1, 1, 2, 2],
+                desc: 'Brewers turn wheat into sake. Sake makes villagers happier, pays for festivals and sells well to merchants.' },
+  blacksmith: { name: 'Blacksmith', kanji: '鍛冶屋', cat: 'military', size: [2, 2], cost: { wood: 90, stone: 90, gold: 25 }, time: 60, jobs: 2, job: 'smith', h: 4, th: 2, maxLevel: 3, unique: true,
+                desc: 'While smiths work the forge (using iron), all your soldiers fight better: +8% damage and health for each level.' },
+  market:     { name: 'Market', kanji: '市場', cat: 'village', size: [3, 3], cost: { wood: 140, stone: 60, gold: 30 }, time: 70, jobs: 1, job: 'merchant', h: 3.5, th: 2, maxLevel: 3, unique: true,
+                desc: 'Trade goods for gold and back. Travelling merchants stop here with special offers. Better prices at higher levels.' },
   dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 1, maxLevel: 4, limit: [1, 1, 2, 2, 3], grow: { 3: [4, 3] },
                 desc: 'Unemployed villagers train here and graduate as Spearmen — or, with a bigger Keep, as Shield-bearers or Samurai.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },

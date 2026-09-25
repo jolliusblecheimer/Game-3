@@ -1,6 +1,7 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
 import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
+import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
 import { icon } from './icons.js';
 import { THUMBS } from '../render/thumbs.js';
@@ -59,12 +60,14 @@ export class Hud {
     for (const r in RES) res.append(this.live(h('div', { class: 'res', title: RES[r].name }), el => {
       const v = g.state.res[r], cap = g.storageCap(); el.textContent = '';
       el.append(icon(RES[r].icon, 20), h('b', null, fmt(v)), h('small', null, '/' + fmt(cap)));
+      if (RES[r].extra) el.hidden = !(v > 0 || g.countType(r === 'iron' ? 'ironmine' : 'sakebrewery') > 0);
       el.classList.toggle('full', v >= cap * 0.95); el.classList.toggle('empty', v <= 0);
     }));
     const night = () => g.state.time < 0.22 || g.state.time > 0.8;
     const clock = this.live(h('button', { class: 'res clock', title: 'Pause (Space) · speed (F)', onclick: () => this.cycleSpeed() }), el => {
       const hr = Math.floor(g.state.time * 24); el.textContent = '';
-      el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
+      const L = g.life, sea = SEASONS[L.season];
+      el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${sea.kanji} ${sea.name}${L.weather !== 'clear' ? ' · ' + L.weather : ''} · ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
     R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
@@ -114,6 +117,7 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('button', { class: 'crow link2', title: 'How your villagers feel', onclick: () => this.openMood() }, icon('people', 20), h('span', null, 'Mood'), h('b')), el => { const m = g.life.mood(); el.lastChild.textContent = `${m}%${g.life.festival ? ' 🏮' : ''}`; el.classList.toggle('attn', m < 30); }),
       this.live(h('button', { class: 'crow link2 tasks', title: 'Tasks and the guide', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Tasks'), h('b')), el => {
         const P = g.progress, guide = P.guide < GUIDE.length; el.lastChild.textContent = guide ? `Guide ${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length); el.classList.toggle('attn', guide);
         el.title = guide ? 'Guide: ' + GUIDE[P.guide].text : 'Tasks with rewards';
@@ -167,6 +171,7 @@ export class Hud {
     if (d.jobs) {
       const J = JOBS[d.job], n = d.jobs + (L - 1);
       if (d.trains) { const T = b ? g.trainInfo(b) : { to: d.trains, time: d.trainTime, cost: d.trainCost }; row('katana', `${n} trainees at a time → ${JOBS[T.to].name} after ${T.time}s (each costs ${this.costText(T.cost)})`); }
+      else if (!J.res || !J.amount) row('worker', `Up to ${n} ${J.name.toLowerCase()}${n > 1 ? 's' : ''}${J.desc ? ' — ' + J.desc : ''}`);
       else row(J.res ? RES[J.res].icon : 'worker', `Up to ${n} ${J.name.toLowerCase()}s, each bringing ${J.amount} ${RES[J.res].name.toLowerCase()} per trip${L > 1 ? ` — ${Math.round((g.levelMult(b) - 1) * 100)}% faster` : ''}`);
     }
     if (d.dropoff === 'wood') row('wood', 'Woodcutters drop logs here — build it near trees');
@@ -393,6 +398,7 @@ export class Hud {
 
   /* ---------- game events ---------- */
   onGame(type, data) {
+    const g = this.game;
     if (type === 'toast') this.toast(data.text, data.kind);
     if (['build', 'built', 'demolish', 'move', 'job', 'villager'].includes(type)) {
       if (type === 'built') { this.sound('done'); if (data && data.type === 'townhall') this.renderBar(); }
@@ -400,6 +406,8 @@ export class Hud {
     }
     if (type === 'raid') this.sound('war');
     if (type === 'victory') setTimeout(() => this.showVictory(data), 600);
+    if (type === 'ronin') this.openModal('A wandering r\u014dnin', h('div', null, h('p', null, 'A masterless samurai stops at your gate. His clan is gone; for 60 gold and a roof, he will swear his sword to yours.'), h('p', { class: 'sub' }, 'He joins as a Samurai.')),
+      [{ label: 'Send him away', cls: 'ghost' }, { label: 'Hire him (60 gold)', fn: () => g.life.hireRonin() }]);
     if (type === 'hungry' && this.game.state.clock - (this.hungryAt || -99) > 60) { this.hungryAt = this.game.state.clock; this.toast('Out of wheat! Villagers work slowly — add farmers.', 'bad'); }
   }
   toast(text, kind = '') {
@@ -452,6 +460,24 @@ export class Hud {
   cycleSpeed() { if (this.paused) { this.paused = false; } else this.speed = this.speed >= 3 ? 1 : this.speed + 1; this.tick(); }
 
   /* ---------- army overview ---------- */
+  /* ---------- mood & festivals ---------- */
+  openMood() {
+    const g = this.game, L = g.life, body = h('div', { class: 'harmony' });
+    const render = () => {
+      body.textContent = '';
+      const m = L.mood();
+      body.append(h('div', { class: 'hbig' }, h('b', { style: `color:${m >= 60 ? 'var(--leaf)' : m < 30 ? 'var(--verm)' : 'var(--gold)'}` }, `${m}%`),
+        h('span', null, m >= 60 ? 'Your people are content: they work faster, families move in and children are born.' : m < 25 ? 'Your people are miserable — some will leave!' : 'Your people get by.')),
+        h('div', { class: 'irows' }, L.moodParts().map(([k, v]) => h('div', { class: 'irow' }, h('span', null, k), h('b', { class: 'rt', style: `color:${v > 0 ? 'var(--leaf)' : v < 0 ? 'var(--verm)' : 'inherit'}` }, (v > 0 ? '+' : '') + v)))),
+        h('p', { class: 'sub' }, `Work speed ${Math.round((L.moodMult() - 1) * 100) >= 0 ? '+' : ''}${Math.round((L.moodMult() - 1) * 100)}% from mood. Above 60%, children are born; below 25%, people leave.`));
+      const why = L.festivalBlock();
+      body.append(h('div', { class: 'upgrade' }, h('div', { class: 'jrow' }, icon('sakura', 18), h('b', null, 'Hold a festival')),
+        h('p', { class: 'sub' }, 'Lanterns, drums, dancing and sake: a big lift in mood for a while. Once every three days.'),
+        h('div', { class: 'row' }, costChips(g, L.festivalCost(), this.live), h('button', { class: 'btn small', disabled: why ? true : null, onclick: () => { if (L.holdFestival()) render(); } }, 'Hold it')), why ? h('p', { class: 'why' }, why) : null));
+    };
+    render();
+    this.openModal('Mood of the village', body, [{ label: 'Close' }]);
+  }
   /* ---------- tasks, guide, chronicle ---------- */
   openTasks() {
     const g = this.game, P = g.progress, body = h('div', { class: 'tasks' });
@@ -611,6 +637,7 @@ export class Hud {
       toggle('Music', () => this.settings.music, v => { this.settings.music = v; this.saveSettings(); this.applySound(); }),
       h('label', { class: 'toggle vol' }, h('span', null, 'Music volume'), h('input', { type: 'range', min: '0', max: '1', step: '0.05', value: String(this.settings.musicVol ?? 0.6), oninput: e => { this.settings.musicVol = +e.target.value; if (this.music) this.music.setVolume(this.settings.musicVol); }, onchange: () => this.saveSettings() })),
       h('div', { class: 'row' }, h('span', null, 'Music style: '), [['mix', 'Mix'], ['piano', 'Ambient piano'], ['chip', 'Tenka theme (chiptune)'], ['calm', 'Calm koto']].map(([k, label]) => h('button', { class: 'btn small ' + ((this.settings.musicStyle || 'mix') === k ? '' : 'ghost'), onclick: e => { this.settings.musicStyle = k; this.saveSettings(); if (this.music) { this.music.setStyle(k); this.music.unlock(); } e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, label))),
+      toggle('Speech bubbles over villagers', () => this.settings.bubbles !== false, v => { this.settings.bubbles = v; this.saveSettings(); }),
       toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept.'),

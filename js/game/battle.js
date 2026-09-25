@@ -163,6 +163,7 @@ export class Battle {
     this.units = []; this.structs = []; this.arrows = []; this.fx = [];
     this.t = 0; this.over = null; this.capture = 0; this.nextId = 1; this.alarm = false; this.phase = 'calm';
     this.rand = mulberry32(site.seed + Math.floor(this.game.state.clock));
+    this.forge = this.game.life ? this.game.life.forgeBonus() : 0;   // fresh blades from the blacksmith
     this.buildTerrain();
     this.layout = makeLayout(site);
     this.buildStructures();
@@ -229,8 +230,8 @@ export class Battle {
     const U = UNITS[type], mine = team === 0, rb = k => (mine ? this.rb(k) : 0);
     const spear = type === 'ashigaru', archer = type === 'archer', cmd = type === 'berserker' || type === 'taisho', ram = type === 'ram' || type === 'enemy_ram';
     return {
-      hp: U.hp * HP_SCALE * (1 + (spear ? rb('spearHp') : 0) + (cmd ? rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
-      dmg: U.dmg * (1 + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
+      hp: U.hp * HP_SCALE * (1 + (mine ? (this.forge || 0) * 0.5 : 0) + (spear ? rb('spearHp') : 0) + (cmd ? rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
+      dmg: U.dmg * (1 + (mine ? this.forge || 0 : 0) + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
       cd: U.cd / (1 + (spear ? rb('spearFast') : 0) + (archer ? rb('archFast') : 0)),
       range: U.range * (1 + (archer ? rb('archRange') : 0)),
       speed: U.speed * (1 + (spear ? rb('spearFast') : 0)),

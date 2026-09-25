@@ -143,3 +143,16 @@ Three clans — the **Uesugi**, **Mōri** and **Hōjō** — each hold a castle 
 ## Tasks, the guide, the chronicle
 
 New lords get a **guide** (the Tasks row, bottom-left) through the first steps. After that, **tasks** with rewards keep coming — three at a time. The **Chronicle** (menu, or from Tasks) records your clan's story, keeps statistics, and lists 22 **achievements**.
+
+## The year and village life
+- **Seasons** change every 3 days. In spring the sakura bloom. Summer grows the most. In autumn the maples turn red. Winter brings snow and bare trees, and the fields stop growing. Rain and snow fall, and the clock shows the season and the weather.
+- **Mood.** Food, sake, harmony, festivals, grief after raids and the season all move it. Happy villagers work faster, have children and draw families in. Miserable ones leave. Tap the Mood row to see why.
+- **Festivals** (from the Keep or the Mood window) cost food and sake, or gold. They bring lanterns, dancing and a big lift in mood.
+- **Children** play around the village and grow up after 2 days.
+- **Events:** fires (villagers run to put them out), crop blight, a wandering monk, a rōnin for hire, refugees, storms and good harvests.
+- **New buildings:**
+  - Iron Mine → iron.
+  - Sake Brewery → sake from wheat.
+  - Blacksmith → uses iron to forge blades. While the forge burns, your soldiers hit harder and last longer.
+  - Market → sell and buy goods, plus travelling merchants with special deals.
+- **Speech bubbles** show what villagers think. You can turn them off in the menu.

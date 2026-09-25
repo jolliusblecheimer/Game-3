@@ -34,22 +34,33 @@ function terrainColor(c, x, z, h, slope) {
 }
 
 const TREE_TYPES = ['pine', 'maple', 'sakura', 'cedar'];
-function treeGeometry(type) {
-  const m = new Mesher(type.length * 31, 0.07);
+// leaf colours through the year (season -1 = the classic look: red maples, pink sakura)
+const LEAVES = {
+  maple: [['#7fae4a', '#9cc25a', '#6a9a3e', '#a6c86a'], ['#4f7d3a', '#5f8a3e', '#46733a', '#6a9a44'], ['#c8452b', '#dc6a2f', '#b8392a', '#e0873a'], null],
+  sakura: [['#f4b8c8', '#f7c9d6', '#eea3b9', '#fbd6e1'], ['#5f8a3e', '#6f9a4a', '#557f3a', '#7aa652'], ['#d9a23a', '#c8702e', '#e0b04a', '#b85a2a'], null],
+};
+function treeGeometry(type, season = -1) {
+  const m = new Mesher(type.length * 31, 0.07), snow = season === 3;
   if (type === 'pine') {
     m.cyl(0.18, 0.28, 2.4, 6, '#5a3d2a', [0, 1.2, 0]);
     m.cone(1.9, 2.6, 7, '#2f5a36', [0, 2.8, 0]); m.cone(1.5, 2.3, 7, '#35653c', [0.1, 4.0, 0], [0, 0.5, 0]); m.cone(1.0, 1.9, 7, '#3b6f42', [0, 5.1, 0.05], [0, 1, 0]);
+    if (snow) { m.cone(1.25, 0.9, 7, '#eef2f6', [0, 3.75, 0]); m.cone(1.0, 0.8, 7, '#eef2f6', [0.1, 4.85, 0], [0, 0.5, 0]); m.cone(0.62, 0.9, 7, '#f6f8fa', [0, 5.7, 0.05], [0, 1, 0]); }
   } else if (type === 'cedar') {
     m.cyl(0.2, 0.3, 3, 6, '#5b3b28', [0, 1.5, 0]);
     m.cone(1.4, 6.5, 7, '#2c4f33', [0, 5.2, 0]);
-  } else if (type === 'maple') {
-    m.cyl(0.16, 0.26, 2.6, 6, '#4b3326', [0, 1.3, 0]);
-    m.cyl(0.08, 0.12, 1.4, 5, '#4b3326', [0.45, 2.5, 0], [0, 0, -0.7]);
-    m.ball(1.25, '#c8452b', [0, 3.5, 0], [1.2, 0.85, 1.2]); m.ball(0.95, '#dc6a2f', [0.9, 3.1, 0.3], [1, 0.8, 1]); m.ball(0.9, '#b8392a', [-0.7, 3.0, -0.5], [1, 0.8, 1]); m.ball(0.8, '#e0873a', [0.1, 4.2, 0.4]);
+    if (snow) m.cone(0.75, 2.6, 7, '#eef2f6', [0, 7.25, 0]);
   } else {
-    m.cyl(0.18, 0.3, 2.2, 6, '#4a3530', [0, 1.1, 0], [0, 0, 0.08]);
-    m.cyl(0.09, 0.13, 1.6, 5, '#4a3530', [-0.55, 2.4, 0], [0, 0, 0.8]);
-    m.ball(1.3, '#f4b8c8', [0, 3.2, 0], [1.3, 0.8, 1.2]); m.ball(1.0, '#f7c9d6', [-1.0, 2.9, 0.3], [1.1, 0.75, 1]); m.ball(0.9, '#eea3b9', [0.9, 2.8, -0.4], [1, 0.8, 1]); m.ball(0.8, '#fbd6e1', [0.2, 3.9, 0.3]);
+    const maple = type === 'maple', L = season < 0 ? LEAVES[type][maple ? 2 : 0] : LEAVES[type][season];
+    if (maple) { m.cyl(0.16, 0.26, 2.6, 6, '#4b3326', [0, 1.3, 0]); m.cyl(0.08, 0.12, 1.4, 5, '#4b3326', [0.45, 2.5, 0], [0, 0, -0.7]); }
+    else { m.cyl(0.18, 0.3, 2.2, 6, '#4a3530', [0, 1.1, 0], [0, 0, 0.08]); m.cyl(0.09, 0.13, 1.6, 5, '#4a3530', [-0.55, 2.4, 0], [0, 0, 0.8]); }
+    if (L) {
+      if (maple) { m.ball(1.25, L[0], [0, 3.5, 0], [1.2, 0.85, 1.2]); m.ball(0.95, L[1], [0.9, 3.1, 0.3], [1, 0.8, 1]); m.ball(0.9, L[2], [-0.7, 3.0, -0.5], [1, 0.8, 1]); m.ball(0.8, L[3], [0.1, 4.2, 0.4]); }
+      else { m.ball(1.3, L[0], [0, 3.2, 0], [1.3, 0.8, 1.2]); m.ball(1.0, L[1], [-1.0, 2.9, 0.3], [1.1, 0.75, 1]); m.ball(0.9, L[2], [0.9, 2.8, -0.4], [1, 0.8, 1]); m.ball(0.8, L[3], [0.2, 3.9, 0.3]); }
+    } else {   // winter: bare branches with a little snow
+      const tr = maple ? '#4b3326' : '#4a3530';
+      for (let i = 0; i < 5; i++) { const a = i * 1.26; m.cyl(0.05, 0.08, 1.5, 4, tr, [Math.cos(a) * 0.5, 3.1 + (i % 2) * 0.4, Math.sin(a) * 0.5], [Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7]); }
+      m.ball(0.35, '#eef2f6', [0, 2.75, 0], [1.4, 0.4, 1.4]);
+    }
   }
   return m.geometry();
 }
@@ -108,7 +119,28 @@ export class Nature {
         im.setMatrixAt(i, m4); im.setColorAt(i, c.setHSL(0, 0, 0.85 + ((i * 37) % 30) / 100));
       });
       im.castShadow = true; im.receiveShadow = true;
-      this.scene.add(im);
+      this.scene.add(im); (this.forestMesh = this.forestMesh || {})[t] = im;
+    }
+  }
+  // the year turns: trees change their leaves, the ground and grass their colour
+  setSeason(season) {
+    if (season === this.seasonNow) return; this.seasonNow = season;
+    this.geoCache = this.geoCache || {};
+    const geo = t => this.geoCache[t + season] || (this.geoCache[t + season] = treeGeometry(t, season));
+    for (const [t, im] of Object.entries(this.forestMesh || {})) im.geometry = geo(t);
+    for (const [t, im] of Object.entries(this.treeMesh || {})) im.geometry = geo(t);
+    // ground: snow in winter, ochre in autumn
+    const col = this.terrain.geometry.attributes.color;
+    if (!this.baseCols) this.baseCols = col.array.slice();
+    const [tint, amt] = season === 3 ? [[0.92, 0.94, 0.97], 0.72] : season === 2 ? [[0.66, 0.56, 0.3], 0.3] : season === 1 ? [[0.35, 0.5, 0.2], 0.12] : [[0, 0, 0], 0];
+    for (let i = 0; i < col.array.length; i += 3) for (let k = 0; k < 3; k++) col.array[i + k] = this.baseCols[i + k] * (1 - amt) + tint[k] * amt;
+    col.needsUpdate = true;
+    // grass hides under the snow and turns golden in autumn
+    if (this.grassMesh) {
+      this.grassMesh.visible = season !== 3;
+      const c = new THREE.Color();
+      for (let i = 0; i < this.grassMesh.count; i++) this.grassMesh.setColorAt(i, c.setHSL(season === 2 ? 0.12 : 0.25, season === 2 ? 0.45 : 0.3, 0.75 + ((i * 7) % 30) / 100));
+      this.grassMesh.instanceColor.needsUpdate = true;
     }
   }
 

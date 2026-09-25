@@ -23,6 +23,14 @@ function lattice(m, x, y, z, w, h, side = 0, hex = '#3b2619') {
   }
   if (side) m.box(0.04, 0.04, w, hex, [x + side * 0.03, y, z]); else m.box(w, 0.04, 0.04, hex, [x, y, z + 0.03]);
 }
+// the mine: rock outcrop, timbered entrance, rails and an ore cart — gold or iron
+function mineModel(b, w, d, ore) { const save = MODELS._mine; return save(b, w, d, ore); }
+// the iron mine's smelting furnace
+function ironWorks(b, w, d) {
+  const m = b.m;
+  m.frustum(1.0, 1.0, 0.6, 0.6, 1.8, STONE_D, [w / 2 - 0.9, 0, d / 2 - 0.9]); b.g.box(0.3, 0.3, 0.1, '#ff7a2a', [w / 2 - 0.9, 0.5, d / 2 - 0.42]);
+  for (let i = 0; i < 4; i++) m.box(0.5, 0.12, 0.3, '#6a7078', [-w / 2 + 0.7, 0.1 + i * 0.12, d / 2 - 0.5]);   // stacked iron bars
+}
 // latticed window with a glowing pane on a wall facing -z
 function backWindow(b, x, y, z, w, h, glow = '#ffcf7a') {
   b.g.box(w, h, 0.06, glow, [x, y, z]);
@@ -290,7 +298,9 @@ const MODELS = {
     for (const x of [0.9, 1.3]) m.box(0.04, 2.4, 0.04, '#c9b58a', [x, 1.25, -d / 2 + 0.22]); for (let i = 0; i < 6; i++) m.box(0.44, 0.05, 0.05, WOOD, [1.1, 0.25 + i * 0.4, -d / 2 + 0.2]);
     if (L >= 3) { m.box(w - 0.6, 0.08, 0.3, WOOD, [0, 1.8, -d / 2 + 1.7]); for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) m.box(0.1, 1.8, 0.1, WOOD, [x, 0.9, -d / 2 + 1.7]); }
   },
-  mine(b, w, d) {
+  mine(b, w, d) { return mineModel(b, w, d, GOLD); },
+  ironmine(b, w, d) { mineModel(b, w, d, '#5a6068'); ironWorks(b, w, d); },
+  _mine(b, w, d, ore = GOLD) {
     const m = b.m, L = b.level || 1;
     m.box(w - 0.2, 0.1, d - 0.2, '#7a6a55', [0, 0.05, 0]);
     m.add(new THREE.DodecahedronGeometry(2.6, 1), '#7d756a', [0, 1.1, -0.9], [0, 0.3, 0], [1.1, 0.75, 0.9]);
@@ -306,8 +316,8 @@ const MODELS = {
     for (const x of [-0.35, 0.35]) m.box(0.06, 0.05, 2.0, '#6f7378', [x, 0.13, 2.1]);
     for (let i = 0; i < 6; i++) m.box(0.9, 0.06, 0.12, WOOD, [0, 0.1, 1.3 + i * 0.35]);
     m.frustum(0.8, 0.6, 1.0, 0.8, 0.5, WOOD_L, [0, 0.2, 2.3]); for (const x of [-0.3, 0.3]) m.cyl(0.12, 0.12, 0.8, 8, DARK, [x * 1.2, 0.2, 2.3], [0, 0, Math.PI / 2]);
-    for (let i = 0; i < 5; i++) m.ball(0.14, GOLD, [-0.25 + (i % 3) * 0.25, 0.75, 2.2 + (i > 2 ? 0.2 : 0)]);
-    for (const [x, y, z] of [[-1.2, 1.5, 0.4], [1.3, 1.8, -0.1], [0.4, 2.6, -0.4]]) m.box(0.22, 0.18, 0.2, GOLD, [x, y, z], [0.5, 0.7, 0]);
+    for (let i = 0; i < 5; i++) m.ball(0.14, ore, [-0.25 + (i % 3) * 0.25, 0.75, 2.2 + (i > 2 ? 0.2 : 0)]);
+    for (const [x, y, z] of [[-1.2, 1.5, 0.4], [1.3, 1.8, -0.1], [0.4, 2.6, -0.4]]) m.box(0.22, 0.18, 0.2, ore, [x, y, z], [0.5, 0.7, 0]);
     // tools leaning by the door
     for (const x of [1.15, 1.3]) { m.box(0.05, 1.0, 0.05, '#6b4a2e', [x, 0.5, 1.5], [0, 0, 0.2]); m.box(0.4, 0.06, 0.06, '#6f7378', [x + 0.1, 1.0, 1.5]); }
     // back of the hill: a timbered air shaft, moss and shrubs
@@ -335,6 +345,59 @@ const MODELS = {
     b.g.box(0.18, 0.1, 0.18, '#ff9b6a', [1.3, 0.3, 0.6]);
     m.box(1.2, 0.1, 0.4, WOOD_L, [-1.0, 0.6, 1.55]); for (const x of [-1.45, -0.55]) m.box(0.08, 0.25, 0.35, WOOD_D, [x, 0.47, 1.55]);
     hangingLantern(b, 1.25, 1.75, 1.15);
+  },
+  // Sake brewery: a white-walled kura with a cedar ball (sugidama) over the door, vats and rice bales
+  sakebrewery(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.35, d - 0.1, STONE, [0, 0.18, 0]);
+    m.box(w - 0.6, 2.4, d - 0.9, PLASTER, [0, 0.35 + 1.2, -0.2]);
+    m.box(w - 0.54, 0.8, d - 0.84, DARK, [0, 0.8, -0.2]);                                   // tarred lower walls
+    for (let i = -3; i <= 3; i++) m.box(0.04, 0.8, d - 0.8, '#dcd6c8', [i * (w - 0.6) / 7, 0.8, -0.2]);
+    m.box(w - 0.4, 0.14, d - 0.7, WOOD, [0, 2.8, -0.2]);
+    m.roof(w - 0.6, d - 0.9, 1.5, ROOF, 2.85, { over: 0.6, ridge: 0.6, cz: -0.2 });
+    // door with an indigo noren marked 酒, and the sugidama cedar ball
+    m.box(1.1, 1.6, 0.06, WOOD_D, [-0.8, 1.15, d / 2 - 0.62]);
+    for (let i = 0; i < 3; i++) m.box(0.34, 0.6, 0.03, '#2f4a7a', [-1.14 + i * 0.35, 1.7, d / 2 - 0.57]);
+    m.box(0.22, 0.26, 0.02, '#f5efe0', [-0.8, 1.72, d / 2 - 0.55]);
+    m.ball(0.42, '#6b7a3a', [0.4, 2.2, d / 2 - 0.35], [1, 1, 1]); m.box(0.05, 0.3, 0.05, WOOD_D, [0.4, 2.65, d / 2 - 0.4]);
+    backWindow(b, 1.0, 1.9, -(d - 0.9) / 2 - 0.22, 0.7, 0.45, PAPER);
+    // vats and barrels outside, rice bales
+    for (let i = 0; i < 2; i++) { const x = w / 2 - 0.6 - i * 0.9; m.cyl(0.38, 0.34, 0.8, 12, WOOD_L, [x, 0.4, d / 2 - 0.3]); m.cyl(0.39, 0.39, 0.05, 12, DARK, [x, 0.6, d / 2 - 0.3]); m.cyl(0.39, 0.39, 0.05, 12, DARK, [x, 0.2, d / 2 - 0.3]); }
+    bales(m, -w / 2 + 0.3, d / 2 - 0.25, 3);
+    for (let i = 0; i < L + 1; i++) m.cyl(0.14, 0.12, 0.3, 8, '#efe7d6', [0.7 + i * 0.3, 0.52, d / 2 - 0.7]);
+  },
+  // Blacksmith: an open forge under a roof, glowing coals, an anvil, bellows and racks of blades
+  blacksmith(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.12, d - 0.1, DIRT, [0, 0.06, 0]);
+    posts(m, w - 0.4, d - 0.4, 2.5, 0, WOOD_D, 0.12);
+    m.box(w - 0.4, 2.3, 0.14, WOOD, [0, 1.25, -d / 2 + 0.25]);                               // back wall
+    m.roof(w - 0.4, d - 0.4, 1.2, '#4a4038', 2.5, { over: 0.4, ridge: 0.5, ridgeHex: WOOD_D });
+    // the forge: stone hearth with glowing coals and a chimney
+    m.box(1.2, 0.8, 0.9, STONE, [-0.9, 0.4, -d / 2 + 0.8]); b.g.box(0.8, 0.12, 0.55, '#ff7a2a', [-0.9, 0.84, -d / 2 + 0.8]);
+    m.box(0.55, 2.6, 0.55, STONE_D, [-0.9, 2.2, -d / 2 + 0.6]);
+    m.box(0.7, 0.35, 0.5, '#6b4a2e', [-0.1, 0.55, -d / 2 + 0.9]);                              // bellows
+    // anvil on a stump, quench tub, blades
+    m.cyl(0.25, 0.3, 0.5, 8, '#6b4a33', [0.8, 0.25, 0.4]); m.box(0.55, 0.2, 0.22, '#3a3d42', [0.8, 0.6, 0.4]); m.box(0.18, 0.12, 0.12, '#3a3d42', [1.12, 0.62, 0.4]);
+    m.cyl(0.3, 0.28, 0.4, 10, WOOD, [0.9, 0.2, -0.6]); m.cyl(0.26, 0.26, 0.02, 10, '#2e4a58', [0.9, 0.4, -0.6]);
+    m.box(1.2, 0.06, 0.12, WOOD_D, [0.5, 1.6, -d / 2 + 0.38]);
+    for (let i = 0; i < 2 + L; i++) m.box(0.04, 0.9, 0.03, '#d9dde2', [0.05 + i * 0.22, 1.2, -d / 2 + 0.42], [0, 0, 0.05]);
+    if (L >= 2) { m.cyl(0.3, 0.3, 0.06, 12, '#2b2e33', [-w / 2 + 0.3, 1.3, 0.3], [0, 0, Math.PI / 2]); }
+  },
+  // Market: striped awnings over stalls of goods
+  market(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.08, d - 0.1, '#b8a888', [0, 0.04, 0]);
+    const stalls = [[-w / 4, -d / 4, '#c2412d'], [w / 4, -d / 4, '#2f4a7a'], [-w / 4, d / 4, '#3f7a3a'], [w / 4, d / 4, '#caa04a']].slice(0, 2 + L);
+    const goods = ['#d8b653', '#8a6a44', '#a9a397', '#e06a2a', '#f4f0e6', '#6b7a3a'];
+    stalls.forEach(([x, z, col], i) => {
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(0.08, 1.8, 0.08, WOOD_D, [x + sx * 0.9, 0.9, z + sz * 0.55]);
+      for (let k = 0; k < 4; k++) m.box(0.46, 0.05, 1.3, k % 2 ? '#f5efe0' : col, [x - 0.69 + k * 0.46, 1.85, z], [0.18, 0, 0]);   // striped awning
+      m.box(1.8, 0.5, 1.0, WOOD_L, [x, 0.5, z]);
+      for (let k = 0; k < 5; k++) m.box(0.26, 0.2, 0.26, goods[(i + k) % goods.length], [x - 0.7 + k * 0.35, 0.85, z + (k % 2 ? 0.2 : -0.2)]);
+    });
+    m.cyl(0.05, 0.05, 3.2, 5, WOOD_D, [0, 1.6, 0]); m.box(0.05, 1.3, 0.5, VERM, [0, 2.6, 0.25]); m.box(0.06, 0.4, 0.4, '#f5efe0', [0, 2.7, 0.25]);
+    hangingLantern(b, 0, 2.0, 0.05);
   },
   dojo(b, w, d) {
     const m = b.m;

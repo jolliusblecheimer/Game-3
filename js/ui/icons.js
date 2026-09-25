@@ -18,6 +18,8 @@ const ICONS = {
   stone: `<path d="M2.5 20.5l1.5-7 6-2 4 2 .5 7z" fill="#8f8a80" stroke="${O}" stroke-width="1.1" stroke-linejoin="round"/>
     <path d="M11 13.5l2.5-8 6.5-1.5 2 5-1 11.5-5.5 0z" fill="#a9a497" stroke="${O}" stroke-width="1.1" stroke-linejoin="round"/>
     <path d="M14 7l5-1M4.6 14.6l4.8-1.6" stroke="#d6d1c4" stroke-width="1" fill="none" stroke-linecap="round"/>`,
+  iron: `<path d="M3 16l3-6h12l3 6z" fill="#7d8791" stroke="#2f3438" stroke-width="1.1" stroke-linejoin="round"/><path d="M6 10l1.5-3h9L18 10" fill="#9aa3ad" stroke="#2f3438" stroke-width="1.1" stroke-linejoin="round"/><path d="M8 13h8" stroke="#c9d0d6" stroke-width="1"/>`,
+  sake: `<path d="M9 3h6v3l2 3v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20V9l2-3z" fill="#efe7d6" stroke="#3b2619" stroke-width="1.1" stroke-linejoin="round"/><rect x="8" y="11" width="8" height="6" rx="1" fill="#2f4a7a"/><path d="M10.5 12.5h3M12 12.5v3.5" stroke="#f5efe0" stroke-width="1"/>`,
   gold: `<ellipse cx="12" cy="12" rx="7.6" ry="10" fill="#e6b84a" stroke="#7d5a10" stroke-width="1.2"/>
     <ellipse cx="12" cy="12" rx="5.6" ry="7.8" fill="none" stroke="#b98a24" stroke-width=".8"/>
     <path d="M7.5 8.5h9M7 12h10M7.5 15.5h9" stroke="#b98a24" stroke-width=".9"/>

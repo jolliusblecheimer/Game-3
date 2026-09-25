@@ -1,5 +1,5 @@
 {
-"v": "20260925-105359",
+"v": "20260925-110612",
 "files": [
 "css/style.css",
 "js/audio/music.js",
@@ -8,6 +8,7 @@
 "js/game/country.js",
 "js/game/data.js",
 "js/game/grid.js",
+"js/game/life.js",
 "js/game/progress.js",
 "js/game/raids.js",
 "js/game/villagers.js",
@@ -20,6 +21,8 @@
 "js/render/people.js",
 "js/render/stage.js",
 "js/render/thumbs.js",
+"js/render/weather.js",
+"js/ui/bubbles.js",
 "js/ui/camera.js",
 "js/ui/hud.js",
 "js/ui/icons.js",

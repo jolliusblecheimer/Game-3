@@ -56,7 +56,7 @@ function workFor(game, v, sitesOnly = false, sent = false) {
     if (sitesOnly && b.done) continue;
     let crew = 0; for (const o of game.villagers.values()) if (o.site === b.id && o !== v) crew++;
     // prioritised jobs first, then new buildings and upgrades, then repairs
-    const d = dist(game.center(b), v.pos) + (b.done && !b.upg ? 40 : 0) - (b.prio ? 1000 : 0);
+    const d = dist(game.center(b), v.pos) + (b.done && !b.upg && !b.fire ? 40 : 0) - (b.prio ? 1000 : 0) - (b.fire ? 2000 : 0);
     if (crew >= Math.max(2, Math.ceil(b.w * b.d / 3))) { if (sent && d < cd) { cd = d; crowded = b; } continue; }
     if (d < bd) { bd = d; best = b; }
   }
@@ -71,10 +71,10 @@ function workFor(game, v, sitesOnly = false, sent = false) {
 }
 function doBuild(game, v, b) {
   v.site = b.id;
-  const what = !b.done ? `Building the ${b.def.name}` : b.upg ? `Upgrading the ${b.def.name}` : `Repairing the ${b.def.name}`;
+  const what = b.fire ? `Putting out the fire at the ${b.def.name}!` : !b.done ? `Building the ${b.def.name}` : b.upg ? `Upgrading the ${b.def.name}` : `Repairing the ${b.def.name}`;
   goTo(game, v, game.spotAround(b, 0.9), () => {
     v.building = b.id;
-    act(v, 5, 'hammer', () => { v.building = null; }, what, game.center(b));
+    act(v, 5, b.fire ? 'drop' : 'hammer', () => { v.building = null; }, what, game.center(b));
   }, `Going to the ${b.def.name}`);
 }
 function doClear(game, v, m) {
@@ -102,6 +102,12 @@ function goHome(game, v, status) {
   return goTo(game, v, game.door(home, 0.5), () => inside(v, game.raids.alarmed ? 4 : 20, null, status), game.raids.alarmed ? 'Running inside to hide' : 'Heading home for the night');
 }
 
+// a festival: gather at the keep to pray, sit, dance and drink
+function celebrate(game, v) {
+  const keep = game.keep, c = keep ? game.door(keep, 4 + game.rand() * 5) : { x: 0, z: 8 };
+  const spot = { x: c.x + (game.rand() - 0.5) * 16, z: c.z + (game.rand() - 0.5) * 8 }, what = game.rand();
+  return goTo(game, v, spot, () => act(v, 10 + game.rand() * 10, what < 0.35 ? 'train' : what < 0.65 ? 'sit' : 'pray', null, what < 0.35 ? 'Dancing at the festival' : what < 0.65 ? 'Sharing sake at the festival' : 'Praying for a good year'), 'Off to the festival');
+}
 // walk a stretch of wall walkway: climb up at one end, patrol along the top, climb down
 function wallPatrol(game, v) {
   const walls = [...game.buildings.values()].filter(b => b.type === 'wall' && b.done && b.level >= 2);
@@ -183,13 +189,15 @@ export function thinkVillager(game, v) {
     v.aid = false; setLook(v, J.look); game.toast(`${v.name} is done helping and goes back to work`); game.emit('job', v);
   }
   if (v.job !== 'idle') setLook(v, J.look);
+  if (game.life.festival && !J.soldier && !v.carry && Math.random() < 0.55) return celebrate(game, v);
   if (work && !work.done) return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
   const mult = game.workMult() * game.levelMult(work);
   switch (v.job) {
     case 'farmer': {
-      const spot = game.spotIn(work), planting = game.rand() < 0.5;
+      if (game.life.farmMult() <= 0) { const night = game.state.time < 0.22 || game.state.time > 0.8; if (night || Math.random() < 0.5) return goHome(game, v, 'Resting by the fire — the fields lie frozen until spring'); return act(v, 6, 'idle', null, 'The fields lie frozen until spring'); }
+      const spot = game.spotIn(work), planting = game.rand() < 0.5, crop = Math.max(1, Math.round(J.amount * game.life.farmMult()));
       return goTo(game, v, spot, () => act(v, J.work / mult * 0.5, planting ? 'kneel' : 'dig',
-        () => act(v, J.work / mult * 0.5, planting ? 'dig' : 'kneel', () => pickUp(v, 'wheat', J.amount), planting ? 'Hoeing the soil' : 'Binding the sheaves'),
+        () => act(v, J.work / mult * 0.5, planting ? 'dig' : 'kneel', () => pickUp(v, 'wheat', crop), planting ? 'Hoeing the soil' : 'Binding the sheaves'),
         planting ? 'Planting seedlings' : 'Cutting ripe wheat'), 'Walking to the field');
     }
     case 'woodcutter': {
@@ -201,7 +209,7 @@ export function thinkVillager(game, v) {
       return goTo(game, v, spot, () => act(v, J.work / mult, 'chop', () => {
         t.chops = (t.chops || 0) + 1; t.reserved = 0; v.tree = null;
         if (t.chops >= ECON.treeChops) { t.alive = false; t.regrowAt = game.state.clock + ECON.treeRegrow; t.chops = 0; game.grid.set(t.cx, t.cz, TREE, true); game.nature.syncTree(t); }
-        pickUp(v, 'wood', J.amount);
+        pickUp(v, 'wood', Math.max(1, Math.round(J.amount * game.life.seasonInfo.wood)));
       }, 'Chopping wood', { x: t.x, z: t.z }), 'Looking for a good tree');
     }
     case 'stonecutter': {
@@ -210,8 +218,30 @@ export function thinkVillager(game, v) {
         () => act(v, J.work / mult * 0.4, 'work', () => pickUp(v, 'stone', J.amount), 'Squaring the block', face),
         'Breaking rock from the quarry face', face), 'Walking to the quarry');
     }
-    case 'miner':
-      return goTo(game, v, game.door(work, 0.4), () => inside(v, J.work / mult, () => pickUp(v, 'gold', J.amount), 'Digging for gold deep inside the mine'), 'Walking to the mine');
+    case 'miner': case 'ironminer': {
+      const ore = J.res;
+      return goTo(game, v, game.door(work, 0.4), () => inside(v, J.work / mult, () => pickUp(v, ore, J.amount), ore === 'iron' ? 'Hacking iron ore from the seam' : 'Digging for gold deep inside the mine'), 'Walking to the mine');
+    }
+    case 'brewer': {
+      if (game.state.res.wheat < 6) return act(v, 5, 'idle', null, 'No wheat to brew with');
+      return goTo(game, v, game.door(work, 0.5), () => inside(v, 14 / mult, () => { if (game.state.res.wheat >= 6) { game.pay({ wheat: 6 }); pickUp(v, 'sake', 3); } }, 'Stirring the rice mash in the vats'), 'Walking to the brewery');
+    }
+    case 'smith': {
+      const anvil = game.door(work, 0.9);
+      return goTo(game, v, anvil, () => {
+        if ((game.state.res.iron || 0) < 1) return act(v, 6, 'idle', null, 'No iron to forge — build an Iron Mine');
+        act(v, 10 / mult, 'hammer', () => { if ((game.state.res.iron || 0) >= 1) { game.pay({ iron: 1 }); work.forgingUntil = game.state.clock + 45; } }, 'Forging blades and armour', game.center(work));
+      }, 'Walking to the forge');
+    }
+    case 'merchant':
+      return goTo(game, v, game.spotAround(work, 0.4), () => act(v, 10 + game.rand() * 8, game.rand() < 0.5 ? 'work' : 'idle', null, game.life.merchant ? 'Haggling with the travelling merchants' : 'Minding the market stalls', game.center(work)), 'Opening the stalls');
+    case 'child': {
+      const night = game.state.time < 0.22 || game.state.time > 0.8;
+      if (night) return goHome(game, v, 'Asleep at home');
+      const base = game.keep ? game.door(game.keep, 5) : { x: 0, z: 8 };
+      if (game.rand() < 0.3) return act(v, 4 + game.rand() * 4, 'sit', null, ['Playing with pebbles', 'Watching the ants', 'Drawing in the dirt'][Math.floor(game.rand() * 3)]);
+      return goTo(game, v, { x: base.x + (game.rand() - 0.5) * 22, z: base.z + (game.rand() - 0.5) * 14 }, () => act(v, 1 + game.rand() * 2, 'idle', null, 'Playing tag'), 'Running around');
+    }
     case 'trainee': case 'trainee_archer': {
       if (!v.paid) {
         const cost = game.trainInfo(work).cost;

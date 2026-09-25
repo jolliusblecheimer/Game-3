@@ -222,7 +222,8 @@ export class Raids {
         if (v.rcd <= 0) {
           v.rcd = ranged ? 1.5 / (1 + g.rb('archFast')) : 1.0 / (1 + (v.job === 'ashigaru' ? g.rb('spearFast') : 0));
           const dmg = ranged ? UNITS.archer.dmg * (tower ? 1.3 : 1) * (1 + g.rb('archDmg')) : v.job === 'ashigaru' ? UNITS.ashigaru.dmg * (1 + g.rb('spearDmg')) : (UNITS[v.job] || UNITS.ashigaru).dmg;
-          if (ranged) this.shoot(v, t[0], dmg); else this.hurtBandit(t[0], dmg);
+          const forged = dmg * (1 + g.life.forgeBonus());
+          if (ranged) this.shoot(v, t[0], forged); else this.hurtBandit(t[0], forged);
         }
       } else if (!tower && !ranged && (!v.path || (v.chaseT || 0) < this.clock)) {
         v.chaseT = this.clock + 1.2;
@@ -252,7 +253,7 @@ export class Raids {
     const g = this.game;
     v.vhp = (v.vhp == null ? 34 : v.vhp) - dmg;
     if (v.vhp <= 0) {
-      this.victims++;
+      this.victims++; g.life.grief = Math.min(30, g.life.grief + 5);
       g.toast(`${v.name} was killed by ${this.source ? 'enemy soldiers' : 'bandits'}!`, 'bad'); g.killVillager(v.id);
       this.raiseAlarm(null, `Screams in the village — ${this.source ? 'enemy soldiers' : 'bandits'}! Everyone runs for cover.`);
     }

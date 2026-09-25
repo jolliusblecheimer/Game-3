@@ -407,3 +407,11 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .ach small { color: var(--ink-2); } .ach .when { color: var(--gold); font-weight: 700; }
 .victory { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
 .vseal { align-self: center; background: var(--verm); color: #fdf1e2; font: 700 42px var(--mincho); padding: 8px 18px; border-radius: 14px; box-shadow: var(--shade); }
+
+/* speech bubbles */
+.bubbles { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+.bubble { position: absolute; left: 0; top: 0; background: #fffdf6; color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 4px 9px; font-size: 13px; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-top-color: #fffdf6; border-bottom: 0; }
+/* market */
+.traderow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 3px 0; }
+.traderow > span { flex: 1; min-width: 50px; }

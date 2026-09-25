@@ -11,6 +11,8 @@ import { Country } from './country.js';
 import { Raids } from './raids.js';
 import { Clans } from './clans.js';
 import { Progress } from './progress.js';
+import { Life } from './life.js';
+import { SEASONS } from './data.js';
 import { NAMES, mulberry32, clamp } from '../util.js';
 
 export const SAVE_KEY = 'tenka.save.v1';
@@ -41,7 +43,9 @@ export class Game {
     this.raids = new Raids(this);
     this.clans = new Clans(this);
     this.progress = new Progress(this);
+    this.life = new Life(this);
   }
+  get season() { return this.life.season; }
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit(type, data) { this.version++; for (const fn of this.listeners) fn(type, data); }
   toast(text, kind = '') { this.emit('toast', { text, kind }); }
@@ -106,7 +110,7 @@ export class Game {
   // Harmony: every beauty building adds its own share, up to +30%
   harmony(extra = 0) { return Math.min(30, Math.round(this.beauty() + extra)); }
   hungry() { return this.state.res.wheat <= 0; }
-  workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100); }
+  workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100) * this.life.moodMult(); }
   countJob(job) { let n = 0; for (const v of this.villagers.values()) if (v.job === job) n++; return n; }
   idleVillagers() { return [...this.villagers.values()].filter(v => v.job === 'idle' && !v.away); }
   soldiers(all = false) { return [...this.villagers.values()].filter(v => JOBS[v.job].soldier && (all || !v.away)); }
@@ -236,6 +240,7 @@ export class Game {
 
   demolish(id, { silent = false, destroyed = false } = {}) {
     const b = this.buildings.get(id); if (!b || b.type === 'townhall') return;
+    if (b.fireMesh) this.life.fireFx(b, false);
     if (!silent && !destroyed) for (const r in b.def.cost) this.add(r, Math.floor(b.def.cost[r] * ECON.refund * (b.done ? 1 : 1 + b.progress)));
     for (const v of this.villagers.values()) if (v.work === id) this.setJob(v, JOBS[v.job].soldier ? v.job : 'idle');
     this.occupy(b, false);
@@ -427,14 +432,14 @@ export class Game {
     const S = this.state;
     S.clock += dt;
     S.time += dt / ECON.dayLength;
-    if (S.time >= 1) { S.time -= 1; S.day++; this.emit('day'); }
+    if (S.time >= 1) { S.time -= 1; S.day++; this.life.newDay(); this.emit('day'); }
     S.eatAcc += dt * this.pop / ECON.eatEvery;
     if (S.eatAcc >= 1) { const n = Math.floor(S.eatAcc); S.eatAcc -= n; S.res.wheat = Math.max(0, S.res.wheat - n); if (S.res.wheat === 0) this.emit('hungry'); this.emit('res'); }
     // new families are rare: a chance every few minutes, if there's room and food
     S.arriveT += dt;
     if (S.arriveT >= ECON.arriveEvery) {
       S.arriveT = 0;
-      if (S.settings.welcome && this.pop < this.housing() && this.canAfford(ECON.arriveCost) && this.rand() < ECON.arriveChance * (1 + this.harmony() / 60) && !this.raids.active) {
+      if (S.settings.welcome && this.pop < this.housing() && this.canAfford(ECON.arriveCost) && this.rand() < ECON.arriveChance * (1 + this.harmony() / 60) * SEASONS[this.season].arrive * (0.4 + this.life.mood() / 80) && !this.raids.active) {
         this.pay(ECON.arriveCost);
         const v = this.spawnVillager({ x: (this.rand() - 0.5) * 20, z: PLOT.half - 1.5 });
         S.stats.arrived++;
@@ -449,7 +454,7 @@ export class Game {
     this.countryT = (this.countryT || 0) + dt;
     if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
     this.raids.update(dt);
-    this.clans.update(); this.progress.update(dt);
+    this.clans.update(); this.progress.update(dt); this.life.update(dt);
     const R = S.research.active;
     if (R) {
       R.progress += dt / R.time;
@@ -476,6 +481,7 @@ export class Game {
   }
   // Work on a construction site or upgrade (called while a builder hammers).
   buildTick(b, dt) {
+    if (b.fire) return this.life.fightFire(b, dt);
     const mult = this.workMult();
     if (!b.done) {
       b.progress = Math.min(1, b.progress + dt * mult / Math.max(1, b.def.time));
@@ -488,7 +494,7 @@ export class Game {
       b.hp = Math.min(this.maxHp(b), b.hp + dt * this.maxHp(b) / 40);
     }
   }
-  needsWork(b) { return !b.done || !!b.upg || (b.def.hp && b.hp < this.maxHp(b) && !this.raids.active); }
+  needsWork(b) { return !!b.fire || !b.done || !!b.upg || (b.def.hp && b.hp < this.maxHp(b) && !this.raids.active); }
   completeConstruction(b) {
     b.done = true; b.progress = 1; this.syncProgress(b);
     if (b.def.time > 12) this.toast(`${b.def.name} is finished!`);
@@ -514,7 +520,7 @@ export class Game {
       v: SAVE_VERSION, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
@@ -522,7 +528,7 @@ export class Game {
       raids: this.raids.serialize(),
       research: S.research,
       country: this.country.serialize(),
-      clans: this.clans.serialize(), progress: this.progress.serialize(),
+      clans: this.clans.serialize(), progress: this.progress.serialize(), life: this.life.serialize(),
     };
   }
   load(s) {
@@ -566,6 +572,7 @@ export class Game {
         const nv = this.spawnVillager({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: v.x, z: v.z, train: v.train, paid: v.paid });
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
         if (v.aid) nv.aid = true;
+        if (v.born) nv.born = v.born;
         if (typeof v.hpf === 'number' && v.hpf < 1) nv.hpf = Math.max(0.05, v.hpf);
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
@@ -573,7 +580,7 @@ export class Game {
     if (s.research && Array.isArray(s.research.done)) S.research = { done: s.research.done.filter(id => this.researchNode(id)), active: s.research.active && this.researchNode(s.research.active.id) ? s.research.active : null };
     S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
-    try { this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }
+    try { this.life.load(s.life); this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }
     this.raids.load(s.raids);
     for (const v of this.villagers.values()) { v.person.setLook(JOBS[v.job].look); v.person.group.traverse(o => { if (o.isMesh) o.userData.pick = { kind: 'villager', id: v.id }; }); }
     if (!this.keep) this.place('townhall', PLOT.n / 2 - 2, PLOT.n / 2 - 2, 0, { done: true, free: true });
@@ -583,7 +590,7 @@ export class Game {
   offlineProgress(sec) {
     sec = Math.min(sec, ECON.offlineCapHours * 3600);
     if (sec < 120) return null;
-    const got = { wheat: 0, wood: 0, stone: 0, gold: 0 }, eff = ECON.offlineEfficiency * (1 + this.harmony() / 100);
+    const got = Object.fromEntries(Object.keys(this.state.res).map(r => [r, 0])), eff = ECON.offlineEfficiency * (1 + this.harmony() / 100);
     for (const v of this.villagers.values()) {
       const J = JOBS[v.job]; if (!J.res || v.away) continue;
       got[J.res] += sec * J.amount / (J.work / this.levelMult(this.buildings.get(v.work)) + 16) * eff;
