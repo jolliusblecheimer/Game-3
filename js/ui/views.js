@@ -152,9 +152,11 @@ export class Views {
     P.append(h('div', { class: 'phead' }, h('span', { class: 'art big' }, icon(S.icon, 50)), h('div', null, h('h2', null, s.name), h('p', { class: 'sub' }, `${S.name} ${S.tier ? '· ' + stars : ''}`))),
       h('p', { class: 'desc status' }, STATUS[st]));
     if (s.type === 'ruins') { P.append(h('p', null, st === 'ruined' ? 'Your scouts have already searched these ruins.' : 'Old ruins. A scout who reaches them may find buried treasure.')); }
+    else if (S.neutral) this.neutralPanel(P, s, S, st);
     else {
-      const march = C.marchTime(s);
-      P.append(h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(march)} each way`)));
+      const R = C.marchRoute(s), march = C.marchTime(s);
+      P.append(h('div', { class: 'irow' }, icon('hourglass', 18), h('span', null, `March: ${fmtTime(march)} each way${R.via ? ` — along your road to ${R.via.name}` : R.road ? ' — along your road' : ''}`)));
+      if (S.desc) P.append(h('p', { class: 'sub' }, S.desc));
       if (st === 'scouted' || st === 'held') {
         const L = makeLayout(s), counts = {};
         for (const d of L.defenders) counts[d.type] = (counts[d.type] || 0) + 1;
@@ -180,9 +182,33 @@ export class Views {
     const waiting = C.missions.find(m => m.kind === 'army' && m.site === s.id && m.phase === 'ready');
     const actions = h('div', { class: 'actions' });
     if (waiting) actions.append(h('button', { class: 'btn danger', onclick: () => this.openBattle(waiting) }, icon('sword', 16), 'Lead the attack'));
-    else if (s.type !== 'ruins' && st !== 'held' && st !== 'ruined' && !C.missions.some(m => m.site === s.id)) actions.append(h('button', { class: 'btn danger', onclick: () => this.armyPicker(s) }, icon('flag', 16), 'Raid'));
+    else if (s.type !== 'ruins' && !S.neutral && st !== 'held' && st !== 'ruined' && !C.missions.some(m => m.site === s.id)) actions.append(h('button', { class: 'btn danger', onclick: () => this.armyPicker(s) }, icon('flag', 16), 'Raid'));
     if (st !== 'ruined' || s.type !== 'ruins') actions.append(h('button', { class: 'btn ghost', onclick: () => { C.sendScout({ x: s.x, z: s.z }); this.renderMapUI(); } }, icon('scout', 16), 'Send a scout'));
     P.append(actions);
+  }
+  // temples and market towns: nobody to fight, but things to do
+  neutralPanel(P, s, S, st) {
+    const g = this.game, C = g.country, I = C.state[s.id] || {}, re = () => { this.renderSitePanel(); this.renderMapUI(); };
+    P.append(h('p', { class: 'sub' }, S.desc));
+    if (st === 'known' || st === 'hidden') { P.append(h('p', null, 'Send a scout to make contact first.')); return; }
+    const act = h('div', { class: 'neutral' });
+    if (s.type === 'temple') {
+      const wait = (I.offerT || 0) - C.clock, mwait = (I.monkT || 0) - C.clock;
+      act.append(h('div', { class: 'irow' }, icon('sakura', 18), h('span', null, h('b', null, 'Make an offering'), h('small', { class: 'sub' }, wait > 0 ? ` — again in ${fmtTime(wait)}` : ' — lifts the mood of your village'))),
+        h('div', { class: 'row' }, costChips(g, { gold: 50, wheat: 40 }), h('button', { class: 'btn small', disabled: wait > 0 ? true : null, onclick: () => { C.makeOffering(s); re(); } }, 'Offer')),
+        h('div', { class: 'irow' }, icon('soldier', 18), h('span', null, h('b', null, 'Ask for a warrior monk'), h('small', { class: 'sub' }, !(I.offers >= 1) ? ' — make an offering first' : mwait > 0 ? ` — again in ${fmtTime(mwait)}` : ' — a s\u014dhei joins your army'))),
+        h('div', { class: 'row' }, costChips(g, { gold: 120, wheat: 60 }), h('button', { class: 'btn small', disabled: !(I.offers >= 1) || mwait > 0 ? true : null, onclick: () => { C.askMonk(s); re(); } }, 'Ask')));
+    } else {
+      const danger = C.roadDanger(s), n = C.tradeIncome(s), hwait = (I.hireT || 0) - C.clock;
+      if (I.route) act.append(h('div', { class: 'irow' }, icon('gold', 18), h('span', null, h('b', null, 'Trade route open'), h('small', { class: 'sub' }, ` — about ${danger.length ? Math.round(n * 0.6) : n} gold a minute`))));
+      else act.append(h('div', { class: 'irow' }, icon('gold', 18), h('span', null, h('b', null, 'Open a trade route'), h('small', { class: 'sub' }, ` — about ${n} gold every minute`))),
+        h('div', { class: 'row' }, costChips(g, { gold: 100, wood: 60 }), h('button', { class: 'btn small', onclick: () => { C.openRoute(s); re(); } }, 'Open it')));
+      if (danger.length) act.append(h('p', { class: 'why' }, `Unsafe road: ${danger.map(d => d.name).join(', ')} ${danger.length > 1 ? 'lie' : 'lies'} close to it. Caravans may be robbed and earn less — take or burn ${danger.length > 1 ? 'those places' : 'it'} to make the road safe.`));
+      else act.append(h('p', { class: 'sub' }, 'The road is safe.'));
+      act.append(h('div', { class: 'irow' }, icon('katana', 18), h('span', null, h('b', null, 'Hire two r\u014dnin'), h('small', { class: 'sub' }, hwait > 0 ? ` — more in ${fmtTime(hwait)}` : ' — masterless samurai looking for a lord'))),
+        h('div', { class: 'row' }, costChips(g, { gold: 150 }), h('button', { class: 'btn small', disabled: hwait > 0 ? true : null, onclick: () => { C.hireRonin(s); re(); } }, 'Hire')));
+    }
+    P.append(act);
   }
   /* ---------- the rival clans ---------- */
   openClans() {

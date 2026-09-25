@@ -405,6 +405,16 @@ const MODELS = {
     m.cyl(0.05, 0.05, 3.2, 5, WOOD_D, [0, 1.6, 0]); m.box(0.05, 1.3, 0.5, VERM, [0, 2.6, 0.25]); m.box(0.06, 0.4, 0.4, '#f5efe0', [0, 2.7, 0.25]);
     hangingLantern(b, 0, 2.0, 0.05);
   },
+  // cliffs of a mountain pass: grey rock masses with a little green on top
+  cliff(b, w, d) {
+    const m = b.m, k = w * 7 + d * 3;
+    m.box(w, 7, d, '#7d786e', [0, 3.5, 0]);
+    for (let i = 0; i < 6; i++) {
+      const a = Math.sin(k + i * 12.9898) * 43758.5453, f = a - Math.floor(a), f2 = (f * 7.3) % 1;
+      m.add(new THREE.DodecahedronGeometry(1.6 + f * 1.6, 0), i % 2 ? '#8a857a' : '#6f6a60', [(f - 0.5) * (w - 2), 6.5 + f2 * 2.5, (f2 - 0.5) * (d - 2)], [f, f2, 0], [1.3, 0.8, 1.2]);
+    }
+    m.box(w * 0.8, 0.4, d * 0.8, '#5f7a44', [0, 7.1, 0]);
+  },
   // Stables: open stalls under a long roof, three horses, hay
   stable(b, w, d) {
     const m = b.m;

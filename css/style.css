@@ -422,3 +422,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .grp.squad b { font-size: 15px; }
 .bstat.cond { font-size: 13px; padding: 4px 8px; }
 .irow.rank b { color: var(--gold); }
+
+/* neutral places on the map */
+.neutral .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 10px 26px; }
+.neutral .irow small { font-weight: normal; }

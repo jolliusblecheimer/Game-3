@@ -16,6 +16,7 @@ const STRUCT = {
   pgate:    { hp: 480, blocks: true, gate: true, model: 'gate' },
   tower:    { hp: 1300, blocks: true, posts: true, stand: 3.62 },
   keep:     { hp: 3000, blocks: true, model: 'townhall', keep: true },
+  cliff:    { hp: 0, blocks: true },                  // rock: nothing breaks it
   house:    { blocks: true, deco: true },
   lumber:   { blocks: true, deco: true },
   storehouse: { blocks: true, deco: true },
@@ -51,6 +52,18 @@ export function makeLayout(site) {
   const wallArchers = (n, zRow, x0, x1) => { const walls = S.map((s, i) => [s, i]).filter(([s]) => s.type === 'wall' && s.cz === zRow && s.cx > x0 && s.cx < x1); for (let i = 0; i < n && walls.length; i++) { const [, idx] = walls.splice(Math.floor(r() * walls.length), 1)[0]; D.push({ type: 'enemy_archer', post: idx, slot: 0 }); } };
 
   const T = site.tier;
+  if (site.type === 'pass') {
+    // a narrow pass between cliffs, closed by a palisade with a gate and two watchtowers; bandits take tolls
+    for (const [xa, xb] of [[0, 25], [39, 63]]) for (let z = 0; z < 56; z += 8) for (let x = xa; x <= xb; x += 8) mark(add('cliff', x, z, Math.min(8, xb - x + 1), 8));
+    const gz = 32;
+    const t1 = add('tower', 26, gz - 1, 2, 2), t2 = add('tower', 37, gz - 1, 2, 2); mark(t1); mark(t2);
+    for (let x = 28; x <= 36; x++) if (x !== 31 && x !== 32) mark(add('palisade', x, gz));
+    mark(add('pgate', 31, gz, 2, 1));
+    for (let i = 0; i < 2; i++) deco('house', 27, 16, 37, 28, 2, 2);
+    posted(t1, 2); posted(t2, 2);
+    defenders('bandit', 7, [27, 16, 37, 29]); defenders('enemy_archer', 2, [27, 18, 37, 29]); defenders('outlaw', 2, [27, 16, 37, 29]);
+    return { structs: S, defenders: D, box: [26, 12, 38, 32], noFlank: true, noRiver: true };
+  }
   if (site.type === 'hideout') {
     // a few huts in the woods, no walls: three outlaws and a lookout
     for (let i = 0; i < 2; i++) deco('house', 27, 18, 37, 26, 2, 2);
@@ -180,6 +193,7 @@ export class Battle {
     this.buildTerrain();
     this.layout = makeLayout(site);
     this.buildStructures();
+    if (this.layout.noRiver) this.cond.river = false;
     if (this.cond.river) this.buildRiver();
     if (this.cond.fog) { const F = this.scene.fog; this.fogSave = [F.near, F.far]; F.near = 18; F.far = 120; }
     if (this.defend) { this.spawnGarrison(); this.spawnAttackers(); this.alarm = true; this.phase = 'siege'; }
@@ -277,7 +291,7 @@ export class Battle {
     // the area inside the walls
     const w = this.structs.filter(s => s.type === 'wall' || s.type === 'palisade' || s.type === 'tower');
     const xs = w.map(s => s.cx), zs = w.map(s => s.cz);
-    this.box = w.length ? [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] : [26, 16, 38, 28];
+    this.box = this.layout.box || (w.length ? [Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs)] : [26, 16, 38, 28]);
   }
   bush(x, z) { const s = this.structAt(x, z); return !!(s && s.def.bush); }
   inside(x, z) { const [cx, cz] = this.cellOf(x, z), b = this.box; return cx > b[0] && cx < b[2] && cz > b[1] && cz < b[3]; }
@@ -331,7 +345,7 @@ export class Battle {
     const g = this.game, list = this.mission.vids.map(id => g.villagers.get(id)).filter(Boolean);
     const order = ['berserker', 'taisho', 'samurai', 'shieldman', 'ashigaru', 'archer'];
     list.sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
-    const sides = this.mission.sides || {}, split = list.some(v => sides[v.id] === 'e');
+    const sides = this.mission.sides || {}, split = !this.layout.noFlank && list.some(v => sides[v.id] === 'e');
     // one group from the south; or a west and an east group closing in from both flanks
     const spot = (side, i) => {
       if (!split) return [27 + (i % 10), 58 + Math.floor(i / 10) * 1.3];
@@ -892,7 +906,7 @@ export class Battle {
   }
   damage(t, dmg, from) {
     if (t.isStruct) {
-      if (t.dead) return;
+      if (t.dead || !t.maxHp) return;
       t.hp -= dmg; t.hitT = 0.3;
       if (t.hp <= 0) this.destroy(t);
       return;

@@ -76,6 +76,19 @@ function siteModel(type, seed) {
     for (const [x, z, a] of [[0, -9, 0], [0, 9, 0], [-9, 0, 1], [9, 0, 1]]) { w.frustum(a ? 2.4 : 18, a ? 18 : 2.4, a ? 1.6 : 18, a ? 18 : 1.6, 2.6, '#8e897e', [x, 0, z]); w.box(a ? 1.2 : 17, 1.1, a ? 17 : 1.2, '#efe7d6', [x, 3.1, z]); }
     g.add(w.mesh(MAT.flat));
     for (const [x, z] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) add(buildModel('tower', 4, 4, seed), x, z, 0.8);
+  } else if (type === 'temple') {
+    add(buildModel('shrine', 6, 6, seed), 0, 0, 1.1);
+    add(buildModel('torii', 4, 2, seed), 0, 7, 1.0);
+    add(buildModel('sakura', 2, 2, seed), -5, 3, 1.0); add(buildModel('lantern', 2, 2, seed), 3, 5, 1.0);
+  } else if (type === 'town') {
+    add(buildModel('market', 6, 6, seed), 0, 0, 0.9);
+    for (let i = 0; i < 7; i++) { const a = i * 0.9 + r(), d = 7 + r() * 2; add(buildModel(i % 3 ? 'house' : 'storehouse', 4, i % 3 ? 4 : 6, seed + i), Math.cos(a) * d, Math.sin(a) * d, 0.65, -a); }
+  } else if (type === 'pass') {
+    const m = new Mesher(seed, 0.12);
+    for (const sx of [-1, 1]) for (let i = 0; i < 5; i++) m.add(new THREE.DodecahedronGeometry(2.4 + r() * 1.6, 0), i % 2 ? '#8a857a' : '#6f6a60', [sx * (6 + r() * 3), 1.5 + r() * 2, (i - 2) * 3.2], [r(), r(), r()], [1, 1.4, 1]);
+    g.add(m.mesh(MAT.flat));
+    const w = new Mesher(seed + 1, 0.05); for (let i = -3; i <= 3; i++) w.cyl(0.15, 0.15, 2.2, 5, '#8b7a4c', [i * 0.8, 1.1, 0]);
+    g.add(w.mesh(MAT.flat)); add(buildModel('tower', 4, 4, seed), 4, 1.5, 0.55);
   } else { // ruins
     add(buildModel('torii', 4, 2, seed), 0, 3, 0.9, 0.3);
     const m = new Mesher(seed, 0.12);
@@ -97,6 +110,7 @@ export class CountryMap {
     this.buildFog();
     this.markers = new Map();
     this.pathLines = new THREE.Group(); this.root.add(this.pathLines);
+    this.roads = new THREE.Group(); this.root.add(this.roads);
     const ringGeo = new THREE.RingGeometry(9, 11, 40); ringGeo.rotateX(-Math.PI / 2);
     this.ring = new THREE.Mesh(ringGeo, MAT.select); this.ring.visible = false; this.root.add(this.ring);
     const pinGeo = new THREE.ConeGeometry(1.6, 5, 8); pinGeo.rotateX(Math.PI);
@@ -209,6 +223,9 @@ export class CountryMap {
       for (const person of mk.userData.people || []) person.animate(dt, m.phase === 'ready' ? 'guard' : 'walk');
     }
     for (const [id, mk] of this.markers) if (!seen.has(id)) { this.root.remove(mk); this.markers.delete(id); }
+    // roads to the places you hold and the towns you trade with
+    const rk = Object.keys(C.holds).join(',') + '|' + C.sites.filter(s => (C.state[s.id] || {}).route).map(s => s.id).join(',');
+    if (rk !== this.roadKey) { this.roadKey = rk; this.buildRoads(); }
     // dotted route lines (rebuilt only when missions change)
     const key = C.missions.map(m => m.id + m.phase).join('|');
     if (key === this.lineKey) return;
@@ -220,6 +237,22 @@ export class CountryMap {
       for (let i = 0; i <= 40; i++) { const f = i / 40, x = a.x + (b.x - a.x) * f, z = a.z + (b.z - a.z) * f; pts.push(new THREE.Vector3(x, this.h(x, z) + 1.2, z)); }
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: m.kind === 'scout' ? '#f4ecdb' : '#b8392a', dashSize: 3, gapSize: 2.5 }));
       line.computeLineDistances(); this.pathLines.add(line);
+    }
+  }
+  buildRoads() {
+    const C = this.country;
+    this.roads.traverse(o => { if (o.geometry) o.geometry.dispose(); }); this.roads.clear();
+    const targets = C.sites.filter(s => C.holds[s.id] || (C.state[s.id] || {}).route);
+    const mat = this.roadMat || (this.roadMat = new THREE.MeshStandardMaterial({ color: '#c9ab72', roughness: 1 }));
+    for (const s of targets) {
+      const L = Math.hypot(s.x, s.z), n = Math.max(2, Math.ceil(L / 2.5)), nx = -s.z / L, nz = s.x / L, W = 1.1, pos = [], idx = [];
+      for (let i = 0; i <= n; i++) {
+        const f = i / n, wig = Math.sin(f * Math.PI * 3 + s.seed % 7) * 3 * Math.sin(f * Math.PI), x = s.x * f + nx * wig, z = s.z * f + nz * wig;
+        for (const sd of [-1, 1]) { const px = x + nx * W * sd, pz = z + nz * W * sd; pos.push(px, Math.max(this.h(px, pz), -0.8) + 0.35, pz); }
+        if (i) { const a = (i - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+      }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, mat); mesh.receiveShadow = true; this.roads.add(mesh);
     }
   }
   worldPos(x, z, y = 0) { return new THREE.Vector3(MAP_ORIGIN.x + x, this.h(x, z) + y, MAP_ORIGIN.z + z); }

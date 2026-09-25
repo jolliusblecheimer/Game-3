@@ -150,7 +150,16 @@ export const SITES = {
   smallcastle: { name: 'Small Castle', tier: 3, count: 3, dist: [80, 145], gap: 30, icon: 'castle', loot: { wheat: 320, wood: 260, stone: 260, gold: 160 }, tribute: { wheat: 4, stone: 4, gold: 4 }, threat: 9 },
   // the Shogun's castle: the greatest fortress in the land. Take it and Tenka is yours. (Kept last so older maps keep their places.)
   shogun: { name: 'Shogun\u2019s Castle', tier: 5, count: 1, dist: [225, 262], gap: 40, icon: 'castle', known: true, loot: { wheat: 1500, wood: 1200, stone: 1200, gold: 1200 }, tribute: { wheat: 20, stone: 15, gold: 25 }, threat: 30 },
+  // added in version 2 (placed after everything else, so older maps keep their places)
+  temple: { name: 'Mountain Temple', tier: 0, count: 2, dist: [60, 200], gap: 30, icon: 'torii', neutral: true, late: true,
+            desc: 'Monks of the old faith. Offerings lift your people\u2019s spirits, and a friend of the temple may ask for a warrior monk.' },
+  town:   { name: 'Market Town', tier: 0, count: 2, dist: [90, 230], gap: 36, icon: 'village2', neutral: true, late: true,
+            desc: 'A free town of merchants. Open a trade route for a steady income of gold — if the road is safe — and hire r\u014dnin here.' },
+  pass:   { name: 'Mountain Pass', tier: 1, count: 2, dist: [100, 200], gap: 30, minH: 10, icon: 'camp', late: true, loot: { wheat: 90, wood: 80, gold: 70 }, tribute: { gold: 4, wood: 2 }, threat: 4,
+            desc: 'Bandits hold the narrow pass and take tolls. Hold it yourself and your armies march faster everywhere.' },
 };
+// names for the places added in version 2 (the old list stays as it was, so old maps keep their names)
+export const LATE_NAMES = ['Hakone', 'Usui', 'Kiso', 'Koya', 'Hiei', 'Sakai', 'Hakata', 'Otsu', 'Ise', 'Nara', 'Suzuka', 'Tsumago'];
 export const PLACE_NAMES = ['Kiyosu', 'Nagashino', 'Okehazama', 'Inabayama', 'Kanegasaki', 'Odawara', 'Takatenjin', 'Mikatagahara', 'Anegawa', 'Sekigahara', 'Kawanakajima',
   'Itami', 'Takamatsu', 'Nanao', 'Hachigata', 'Shizugatake', 'Yamazaki', 'Toriimoto', 'Kurosawa', 'Hanamaki', 'Shirakawa', 'Aizu', 'Yoshino', 'Matsumoto'];
 

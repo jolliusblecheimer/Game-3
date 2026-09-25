@@ -171,3 +171,15 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Rain weakens archers.
   - Snow slows everyone.
   - Some places have a river across the field, with two bridges and a slow ford.
+
+## Roads, trade and new places
+- **Roads.** Every place you hold, and every town you trade with, gets a road from your village on the map. Armies march 60% faster along your roads: to reach a far place they take the road to your nearest held place, then cross open country.
+- **Mountain Temples** (neutral):
+  - Make an offering to lift your village's mood.
+  - Once they know you, the monks will send you a warrior monk.
+- **Market Towns** (neutral):
+  - Open a trade route for gold every minute.
+  - Bandits or hostile clans near the road can rob the caravans. Clear them to make the road safe.
+  - You can also hire rōnin here.
+- **Mountain Passes:** bandits hold a narrow gap between cliffs behind a palisade and two towers. Every pass you hold makes all your armies march 15% faster.
+- The map of an existing save keeps all its old places; the new ones are simply added.

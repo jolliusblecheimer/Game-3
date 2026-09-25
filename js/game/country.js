@@ -1,5 +1,5 @@
 // The country around your village: places, fog of war, scouts, armies on the march, held territory.
-import { SITES, PLACE_NAMES, WAR, JOBS, RES } from './data.js';
+import { SITES, PLACE_NAMES, LATE_NAMES, WAR, JOBS, RES } from './data.js';
 import { mulberry32, makeNoise2D, fbm, smoothstep, clamp } from '../util.js';
 
 export const MAP = { half: 300, fogN: 128 };
@@ -25,6 +25,7 @@ function generateSites(seed, height) {
   const r = mulberry32(seed + 77), sites = [], used = new Set();
   let id = 1;
   for (const [type, S] of Object.entries(SITES)) {
+    if (S.late) continue;
     for (let k = 0; k < S.count; k++) {
       for (let tries = 0; tries < 400; tries++) {
         const a = r() * Math.PI * 2, d = S.dist[0] + r() * (S.dist[1] - S.dist[0]);
@@ -34,6 +35,23 @@ function generateSites(seed, height) {
         let name; do { name = PLACE_NAMES[Math.floor(r() * PLACE_NAMES.length)]; } while (used.has(name) && used.size < PLACE_NAMES.length);
         used.add(name);
         sites.push({ id: id++, type, x, z, name, tier: S.tier, seed: Math.floor(r() * 1e9) });
+        break;
+      }
+    }
+  }
+  // version 2 places, with their own dice and names
+  const r2 = mulberry32(seed + 991), used2 = new Set();
+  for (const [type, S] of Object.entries(SITES)) {
+    if (!S.late) continue;
+    for (let k = 0; k < S.count; k++) {
+      for (let tries = 0; tries < 600; tries++) {
+        const a = r2() * Math.PI * 2, d = S.dist[0] + r2() * (S.dist[1] - S.dist[0]);
+        const x = Math.cos(a) * d, z = Math.sin(a) * d, hh = height(x, z);
+        if (hh < Math.max(1.5, S.minH || 0) || hh > 34) continue;
+        if (sites.some(s => Math.hypot(s.x - x, s.z - z) < (S.gap || 42))) continue;
+        let name; do { name = LATE_NAMES[Math.floor(r2() * LATE_NAMES.length)]; } while (used2.has(name) && used2.size < LATE_NAMES.length);
+        used2.add(name);
+        sites.push({ id: id++, type, x, z, name, tier: S.tier, seed: Math.floor(r2() * 1e9) });
         break;
       }
     }
@@ -127,8 +145,82 @@ export class Country {
     g.toast(`${c.name} sets out to scout (${Math.round(dur)}s there)`);
     g.emit('country'); return m;
   }
-  speedMult(kind) { return 1 + (kind === 'scout' ? this.game.rb('scoutSpeed') : this.game.rb('marchSpeed')) * 0.25; }
-  marchTime(site) { return Math.max(10, Math.hypot(site.x, site.z) / (WAR.armySpeed * this.speedMult('army'))); }
+  speedMult(kind) { return 1 + (kind === 'scout' ? this.game.rb('scoutSpeed') : this.game.rb('marchSpeed')) * 0.25 + (kind === 'army' ? 0.15 * this.heldOf('pass').length : 0); }
+  heldOf(type) { return Object.keys(this.holds).map(id => this.site(+id)).filter(s => s && s.type === type); }
+  // armies march along your roads to the places you hold (60% faster), then cross open country
+  marchRoute(site) {
+    const v = WAR.armySpeed * this.speedMult('army'), ROAD = 1.6;
+    if (this.holds[site.id]) return { t: Math.hypot(site.x, site.z) / (v * ROAD), via: null, road: true };
+    let best = { t: Math.hypot(site.x, site.z) / v, via: null };
+    for (const id of Object.keys(this.holds)) {
+      const d = this.site(+id); if (!d || d === site) continue;
+      const t = Math.hypot(d.x, d.z) / (v * ROAD) + Math.hypot(site.x - d.x, site.z - d.z) / v;
+      if (t < best.t - 1) best = { t, via: d };
+    }
+    return best;
+  }
+  marchTime(site) { return Math.max(10, this.marchRoute(site).t); }
+
+  /* ---------- neutral places: temples and market towns ---------- */
+  info(s) { return this.state[s.id] || (this.state[s.id] = { status: this.status(s) }); }
+  // bandits or hostile clans close to the road from home to s
+  roadDanger(s) {
+    const g = this.game, out = [], L = Math.hypot(s.x, s.z) || 1;
+    for (const o of this.sites) {
+      if (o === s || SITES[o.type].neutral || o.type === 'ruins') continue;
+      const st = this.status(o); if (st === 'ruined' || st === 'held' || st === 'hidden') continue;
+      const own = g.clans.owner(o), bad = ['bandits', 'hideout', 'pass'].includes(o.type) || (own && g.clans.hostile(own));
+      if (!bad) continue;
+      const t = clamp((o.x * s.x + o.z * s.z) / (L * L), 0, 1), d = Math.hypot(o.x - s.x * t, o.z - s.z * t);
+      if (d < 30) out.push(o);
+    }
+    return out;
+  }
+  tradeIncome(s) { return Math.round(10 + Math.hypot(s.x, s.z) / 12); }
+  openRoute(s) {
+    const g = this.game, cost = { gold: 100, wood: 60 };
+    if (!g.canAfford(cost)) return g.toast('Not enough to open the trade route', 'warn');
+    g.pay(cost); this.info(s).route = true; this.info(s).tradeT = this.clock + 60;
+    g.toast(`A trade route to ${s.name} is open: caravans will bring gold every minute.`); g.progress.log(`Opened a trade route to ${s.name}.`, 'life');
+    g.emit('country'); return true;
+  }
+  hireRonin(s) {
+    const g = this.game, I = this.info(s), cost = { gold: 150 };
+    if ((I.hireT || 0) > this.clock) return g.toast('No more r\u014dnin in town for now', 'warn');
+    if (!g.canAfford(cost)) return g.toast('Not enough gold', 'warn');
+    g.pay(cost); I.hireT = this.clock + 1440;
+    const a = g.spawnVillager({ job: 'samurai' }), b = g.spawnVillager({ job: 'samurai' });
+    g.toast(`${a.name} and ${b.name}, two r\u014dnin from ${s.name}, join your clan.`); g.progress.log(`Hired the r\u014dnin ${a.name} and ${b.name} in ${s.name}.`, 'war');
+    g.emit('country'); return true;
+  }
+  makeOffering(s) {
+    const g = this.game, I = this.info(s), cost = { gold: 50, wheat: 40 };
+    if ((I.offerT || 0) > this.clock) return g.toast('The monks are still at prayer for your last offering', 'warn');
+    if (!g.canAfford(cost)) return g.toast('Not enough for an offering', 'warn');
+    g.pay(cost); I.offerT = this.clock + 720; I.offers = (I.offers || 0) + 1;
+    g.life.moodBoost = Math.max(g.life.moodBoost, 18);
+    g.toast(`The monks of ${s.name} pray for your village. Spirits rise.`); g.emit('country'); return true;
+  }
+  askMonk(s) {
+    const g = this.game, I = this.info(s), cost = { gold: 120, wheat: 60 };
+    if (!(I.offers >= 1)) return g.toast('Make an offering first — the monks don\u2019t know you yet', 'warn');
+    if ((I.monkT || 0) > this.clock) return g.toast('No monk can be spared again so soon', 'warn');
+    if (!g.canAfford(cost)) return g.toast('Not enough for the temple', 'warn');
+    g.pay(cost); I.monkT = this.clock + 1440;
+    const v = g.spawnVillager({ job: 'sohei' });
+    g.toast(`${v.name}, a warrior monk of ${s.name}, comes to fight for you.`); g.progress.log(`The warrior monk ${v.name} came from ${s.name}.`, 'war');
+    g.emit('country'); return true;
+  }
+  updateTrade() {
+    const g = this.game;
+    for (const s of this.sites) {
+      const I = this.state[s.id]; if (!I || !I.route || this.clock < (I.tradeT || 0)) continue;
+      I.tradeT = this.clock + 60;
+      const danger = this.roadDanger(s), n = this.tradeIncome(s);
+      if (danger.length && Math.random() < 0.3) { g.toast(`Bandits robbed the caravan from ${s.name} near ${danger[0].name}! Clear the road to keep your trade safe.`, 'warn'); continue; }
+      g.add('gold', danger.length ? Math.round(n * 0.6) : n);
+    }
+  }
   sendArmy(site, vids, rams, cats = 0) {
     const g = this.game, cost = { wheat: Math.ceil(WAR.marchCost * vids.length * (g.rb('supply') ? 0.5 : 1)) };
     if (!vids.length) return g.toast('Choose at least one soldier', 'warn');
@@ -190,6 +282,7 @@ export class Country {
         g.emit('country');
       }
     }
+    this.updateTrade();
     // held places pay tribute; unguarded ones may be retaken
     for (const [id, hold] of Object.entries(this.holds)) {
       const s = this.site(+id), S = SITES[s.type];
