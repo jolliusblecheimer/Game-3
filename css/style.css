@@ -446,3 +446,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .raidcmd .grp b { font-size: 16px; }
 .raidcmd .grp small { font-size: 11px; color: var(--ink-2, #6b5f52); }
 @media (max-width: 1000px) { .raidcmd { max-width: calc(100% - 270px); left: auto; right: 132px; transform: none; } #ui.lefty .raidcmd { right: auto; left: 132px; } }
+
+/* map labels that would overlap shrink to just the name */
+.maplabel.crowded small, .maplabel.crowded .icon { display: none; }
+.maplabel.crowded { padding: 2px 8px; opacity: .85; }
+.mapside .mission { cursor: pointer; }

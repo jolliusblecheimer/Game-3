@@ -116,13 +116,14 @@ export class CountryMap {
     const pinGeo = new THREE.ConeGeometry(1.6, 5, 8); pinGeo.rotateX(Math.PI);
     this.pin = new THREE.Mesh(pinGeo, new THREE.MeshStandardMaterial({ color: '#b8392a', emissive: '#5a1008' })); this.pin.visible = false; this.root.add(this.pin);
   }
-  h(x, z) { return Math.max(-1.2, this.country.height(x, z)); }
+  h(x, z) { const t = Math.max(-1.2, this.country.height(x, z)); return this.baseH ? this.shown(t, this.fogAt(x, z)) : t; }
   buildTerrain() {
     const size = MAP.half * 2 + 160, seg = 200, H = this.country.height, n = makeNoise2D(this.country.game.state.seed + 404);
     const g = new THREE.PlaneGeometry(size, size, seg, seg); g.rotateX(-Math.PI / 2);
     const P = g.attributes.position, col = new Float32Array(P.count * 3), c = new THREE.Color();
     for (let i = 0; i < P.count; i++) P.setY(i, H(P.getX(i), P.getZ(i)));
     g.computeVertexNormals();
+    this.baseH = Float32Array.from({ length: P.count }, (_, i) => P.getY(i));
     const N = g.attributes.normal;
     this.forest = (x, z) => fbm(n, x * 0.012, z * 0.012, 3);
     for (let i = 0; i < P.count; i++) {
@@ -134,6 +135,35 @@ export class CountryMap {
     g.setAttribute('color', new THREE.BufferAttribute(col, 3));
     const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }));
     m.receiveShadow = true; this.terrain = m; this.root.add(m);
+    // rivers, lakes and the sea around the province
+    const wg = new THREE.PlaneGeometry(size, size, 1, 1); wg.rotateX(-Math.PI / 2);
+    this.water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: '#4f8fb0', roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.88 }));
+    this.water.position.y = -0.55; this.water.receiveShadow = true; this.root.add(this.water);
+  }
+  // how explored a spot is (0 = under the clouds, 1 = seen), smoothed between fog cells
+  fogAt(x, z) {
+    const N = MAP.fogN, F = this.country.fog, fx = (x + MAP.half) / (2 * MAP.half) * N - 0.5, fz = (z + MAP.half) / (2 * MAP.half) * N - 0.5;
+    const x0 = Math.floor(fx), z0 = Math.floor(fz), tx = fx - x0, tz = fz - z0;
+    const at = (a, b) => (a < 0 || b < 0 || a >= N || b >= N) ? 0 : F[b * N + a] / 255;
+    return (at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx) * (1 - tz) + (at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx) * tz;
+  }
+  // unexplored land lies low under the clouds; mountains rise as your scouts uncover them
+  shown(h, f) { const flat = Math.min(h, 4) * 0.6; return flat + (h - flat) * Math.min(1, f * 1.4); }
+  reshapeTerrain() {
+    const g = this.terrain.geometry, P = g.attributes.position, B = this.baseH;
+    for (let i = 0; i < P.count; i++) P.setY(i, this.shown(B[i], this.fogAt(P.getX(i), P.getZ(i))));
+    P.needsUpdate = true; g.computeVertexNormals();
+    if (this.forestList) {
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3();
+      this.forestList.forEach(([x, , z, s], i) => { const f = this.fogAt(x, z); m4.compose(V.set(x, this.shown(this.country.height(x, z), f) - 0.2, z), q, S.set(s * f, s * f, s * f)); this.forestMesh.setMatrixAt(i, m4); });
+      this.forestMesh.instanceMatrix.needsUpdate = true;
+    }
+    for (const s of this.country.sites) {
+      const o = this.siteObjs && this.siteObjs.get(s.id); if (o) o.position.y = this.h(s.x, s.z);
+      if (s._banner) s._banner.position.y = this.h(s._banner.position.x, s._banner.position.z);
+      for (const cb of Object.values(s._clanBanners || {})) cb.position.y = this.h(cb.position.x, cb.position.z);
+    }
+    this.roadKey = null;
   }
   buildForest() {
     const t = new Mesher(5, 0.08); t.cyl(0.15, 0.2, 1.2, 5, '#4a3222', [0, 0.6, 0]); t.cone(1.3, 3.2, 6, '#2f5a36', [0, 2.4, 0]); t.cone(0.9, 2.2, 6, '#3b6f42', [0, 3.6, 0]);
@@ -147,6 +177,7 @@ export class CountryMap {
     const im = new THREE.InstancedMesh(geo, MAT.flat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
     list.forEach(([x, y, z, s], i) => { m4.compose(new THREE.Vector3(x, y - 0.2, z), q, new THREE.Vector3(s, s, s)); im.setMatrixAt(i, m4); });
     im.castShadow = true; im.receiveShadow = true; this.root.add(im);
+    this.forestList = list; this.forestMesh = im;
   }
   buildSites() {
     this.siteObjs = new Map();
@@ -194,6 +225,9 @@ export class CountryMap {
     c.globalCompositeOperation = 'source-over';
     this.fogTex.needsUpdate = true;
     this.country.fogDirty = false;
+    // reshaping the land is heavier: at most every half second
+    const now = performance.now();
+    if (!this.reshapeT || now - this.reshapeT > 500) { this.reshapeT = now; this.reshapeTerrain(); } else this.reshapeLater = true;
   }
   personMarker(look, n = 1) {
     const g = new THREE.Group();
@@ -203,6 +237,7 @@ export class CountryMap {
   update(dt, t) {
     const C = this.country;
     if (C.fogDirty) this.redrawFog();
+    else if (this.reshapeLater && performance.now() - this.reshapeT > 500) { this.reshapeLater = false; this.reshapeT = performance.now(); this.reshapeTerrain(); }
     this.fog.material.map.offset.set(Math.sin(t * 0.01) * 0.003, 0);
     this.banners.forEach((b, i) => { if (b.visible) b.userData.cloth.rotation.y = Math.sin(t * 1.3 + i) * 0.18; });
     for (const s of C.sites) {

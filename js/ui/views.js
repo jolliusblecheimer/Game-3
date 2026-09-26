@@ -99,6 +99,19 @@ export class Views {
       if (vis) el.style.transform = `translate(${(p.x + 1) / 2 * W}px, ${(1 - p.y) / 2 * H}px) translate(-50%, -100%)`;
     }
     for (const el of [...this.labels.children]) if (!seen.has(el.dataset.k)) el.remove();
+    // keep labels from piling up: more important ones win, the others shrink to a name or step aside
+    const rank = el => el.classList.contains('on') ? 0 : el.classList.contains('army') ? 1 : el.classList.contains('home') ? 2 : el.classList.contains('held') ? 3 : 4;
+    const shown = [...this.labels.children].filter(el => el.style.display !== 'none').sort((a, b) => rank(a) - rank(b));
+    const boxes = [];
+    for (const el of shown) {
+      const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(el.style.transform); if (!m) continue;
+      if (!el._w) { el._w = el.offsetWidth || 120; el._h = el.offsetHeight || 34; }
+      const x = +m[1], y = +m[2], hit = r => Math.abs(r.x - x) < (r.w + el._w) / 2 - 4 && Math.abs(r.y - y) < (r.h + el._h) / 2 - 2;
+      let small = false, hide = false;
+      if (boxes.some(hit)) { small = true; if (boxes.some(r => Math.abs(r.x - x) < (r.w + el._w * 0.6) / 2 && Math.abs(r.y - y) < (r.h + 22) / 2)) hide = true; }
+      el.classList.toggle('crowded', small); el.style.visibility = hide ? 'hidden' : '';
+      if (!hide) boxes.push({ x, y, w: small ? el._w * 0.6 : el._w, h: small ? 22 : el._h });
+    }
     this.liveT = (this.liveT || 0) + dt; if (this.liveT > 0.5) { this.liveT = 0; this.renderMissions(); }
   }
   renderMapUI() {
@@ -111,6 +124,18 @@ export class Views {
   }
   renderMissions() {
     const C = this.game.country, box = this.missionBox; if (!box) return;
+    // same missions as last time: just move the bars and update the times
+    const key = C.missions.map(m => m.id + m.phase + m.vids.length).join('|') + '#' + Object.keys(C.holds).map(id => id + ':' + [...this.game.villagers.values()].filter(v => v.away === 'hold:' + id).length).join(',');
+    if (key === this.missionKey && box.children.length) {
+      C.missions.forEach(m => {
+        const row = box.querySelector(`[data-m="${m.id}"]`); if (!row) return;
+        const p = C.posOf(m), site = m.site ? C.site(m.site) : null, left = m.phase === 'ready' ? 0 : Math.max(0, m.dur - (C.clock - m.t0));
+        row.querySelector('small').textContent = m.phase === 'ready' ? `Waiting at ${site.name}` : m.phase === 'back' ? `Coming home · ${fmtTime(left)}` : site ? `Marching on ${site.name} · ${fmtTime(left)}` : `Exploring · ${fmtTime(left)}`;
+        row.querySelector('.bar > i').style.width = `${(m.phase === 'ready' ? 1 : p.t) * 100}%`;
+      });
+      return;
+    }
+    this.missionKey = key;
     box.textContent = '';
     box.append(h('button', { class: 'btn small', onclick: () => this.openClans() }, icon('flag', 16), 'Clans & diplomacy'));
     box.append(h('h3', null, 'Your people abroad'));
@@ -120,13 +145,13 @@ export class Views {
       const left = m.phase === 'ready' ? 0 : Math.max(0, m.dur - (C.clock - m.t0));
       const title = m.kind === 'scout' ? `Scout ${this.game.villagers.get(m.vids[0])?.name || ''}` : `Army of ${m.vids.length}${m.rams ? ` + ${m.rams} ram${m.rams > 1 ? 's' : ''}` : ''}`;
       const what = m.phase === 'ready' ? `Waiting at ${site.name}` : m.phase === 'back' ? `Coming home · ${fmtTime(left)}` : site ? `Marching on ${site.name} · ${fmtTime(left)}` : `Exploring · ${fmtTime(left)}`;
-      box.append(h('div', { class: 'mission' }, icon(m.kind === 'scout' ? 'scout' : 'flag', 22), h('div', null, h('b', null, title), h('small', null, what),
+      box.append(h('div', { class: 'mission', 'data-m': m.id, onclick: e => { if (e.target.closest('button')) return; const q = C.posOf(m); this.mapCam.target.set(MAP_ORIGIN.x + q.x, 0, MAP_ORIGIN.z + q.z); } }, icon(m.kind === 'scout' ? 'scout' : 'flag', 22), h('div', null, h('b', null, title), h('small', null, what),
         h('div', { class: 'bar' }, h('i', { style: `width:${(m.phase === 'ready' ? 1 : p.t) * 100}%` }))),
         m.phase === 'ready' ? h('button', { class: 'btn danger small', onclick: () => this.openBattle(m) }, icon('sword', 16), 'Attack') : null));
     }
     for (const id of Object.keys(C.holds)) {
       const s = C.site(+id), n = [...this.game.villagers.values()].filter(v => v.away === 'hold:' + id).length;
-      box.append(h('div', { class: 'mission' }, icon('castle', 22), h('div', null, h('b', null, s.name), h('small', null, `Held by ${n} · pays ${this.costText(SITES[s.type].tribute)} a minute`))));
+      box.append(h('div', { class: 'mission', onclick: () => { this.mapCam.target.set(MAP_ORIGIN.x + s.x, 0, MAP_ORIGIN.z + s.z); this.selectSite(s); } }, icon('castle', 22), h('div', null, h('b', null, s.name), h('small', null, `Held by ${n} · pays ${this.costText(SITES[s.type].tribute)} a minute`))));
     }
     box.append(h('button', { class: 'btn ghost small', onclick: () => this.toVillage() }, icon('house', 16), 'Back to the village'));
   }
