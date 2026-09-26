@@ -237,3 +237,30 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - When one of your held places is attacked while you're away, you get a **report**: how many came, whether it held, and who fell.
 - **Next raid:** the clan panel shows roughly when the next raid is due, and scouts warn you about a minute before it arrives.
 - The thick ring of trees where your land used to end is much thinner.
+
+## Eras, research and Great Buildings (reworked)
+- **Six eras:** Village → Fortified Village → Castle Town → Daimyō's Domain → Contender for the Realm → Shogunate.
+- **Wisdom (智)** gathers every minute, and keeps gathering while you're away:
+  - Each Strategy Hall level adds more Wisdom per minute and more storage; the hall can now be upgraded to level 3.
+  - The Great Buddha adds more still.
+  - Battles you win, raids you beat off, temple offerings and tasks give extra Wisdom.
+- **Research** (Wisdom in the clan panel, or the Strategy Hall):
+  - Put Wisdom into a technology; when it's full, pay the goods to complete it. There are 45 technologies across the six eras, including all the old skill-tree bonuses. Anything you had already learned stays learned.
+  - Each era's key technology (★) is what lets the Keep grow to its next level. Keeps that had already grown count as having reached those eras.
+  - The Shogun's castle can only be attacked, and the realm only won, once you hold the **Imperial Mandate**.
+- **Great Buildings (wonders):**
+  - Nine of them: Kinkaku-ji, the Great Buddha, the Itsukushima Torii, the White Heron Keep, the Great Temple Bell, the Thousand Gates of Inari, Osaka Castle, the Hall of a Thousand Kannon and Nijō Palace.
+  - To build one, you need 5 blueprints (from battles, raids you beat off, temples and tasks). Then invest Wisdom to raise it to level 10.
+  - Each one gives a bonus that grows with its level: mood, Wisdom, trade, stronger walls, faster training, gold, army strength, healing, homes and tribute.
+
+## Roads
+- Every working building (homes, fields, workshops, storehouses, wonders) must be connected to the Keep by a road. Roads may run through gates.
+- A building without a road does nothing: no workers, no homes, no storage. It shows a red 道 sign.
+- In a building's panel, "Lay the road for me" builds free dirt roads for you. The clan panel counts the buildings that have no road.
+- Decorations, walls, gates and towers don't need roads.
+
+## The map
+- Unexplored land lies flat under the clouds. The hills and woods rise as your scouts uncover them.
+- Rivers, lakes and the sea now have water.
+- Labels no longer pile up on top of each other.
+- The side panel's buttons no longer vanish under your finger.

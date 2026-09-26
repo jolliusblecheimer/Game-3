@@ -1,6 +1,6 @@
 // The story of your clan: the chronicle, statistics, tasks with rewards, the guide for new lords,
 // achievements — and the goal: unify the land (Tenka) by taking the Shogun's castle or breaking every rival clan.
-import { BUILDINGS, RESEARCH, CLANS, rankOf } from './data.js';
+import { BUILDINGS, TECHS, ERAS, CLANS, rankOf } from './data.js';
 
 const soldiers = g => g.soldiers(true).length;
 const count = (g, t) => g.countType(t);
@@ -19,13 +19,14 @@ export const GUIDE = [
 
 // Task templates: each makes a task from where you stand now, or nothing if it doesn't fit
 const TASKS = [
-  g => { const want = Object.entries(BUILDINGS).find(([t, d]) => d.cat && d.th <= g.thLevel && !d.line && count(g, t) === 0 && t !== 'townhall' && (g.buildLimit(t) ?? 1) > 0); return want && { id: 'build:' + want[0], text: `Build a ${want[1].name}`, check: gg => count(gg, want[0]) > 0 && [...gg.buildings.values()].some(b => b.type === want[0] && b.done), reward: { wood: 80, stone: 40 } }; },
+  g => { const want = Object.entries(BUILDINGS).find(([t, d]) => d.cat && d.cat !== 'wonder' && d.th <= g.thLevel && !d.line && count(g, t) === 0 && t !== 'townhall' && (g.buildLimit(t) ?? 1) > 0); return want && { id: 'build:' + want[0], text: `Build a ${want[1].name}`, check: gg => count(gg, want[0]) > 0 && [...gg.buildings.values()].some(b => b.type === want[0] && b.done), reward: { wood: 80, stone: 40 } }; },
   g => { const n = g.pop + 5; return { id: 'pop:' + n, text: `Grow your village to ${n} villagers`, check: gg => gg.pop >= n, reward: { wheat: 150, gold: 30 } }; },
   g => { const n = soldiers(g) + 3; return { id: 'army:' + n, text: `Have ${n} soldiers`, check: gg => soldiers(gg) >= n, reward: { gold: 60, wheat: 80 } }; },
   g => { const n = (g.progress.stats.battlesWon || 0) + 1; return { id: 'win:' + n, text: 'Win a raid on a place on the map', check: gg => (gg.progress.stats.battlesWon || 0) >= n, reward: { gold: 80, wood: 100 } }; },
   g => { const n = (g.state.stats.raidsBeaten || 0) + 1; return soldiers(g) ? { id: 'defend:' + n, text: 'Beat off a raid on your village', check: gg => (gg.state.stats.raidsBeaten || 0) >= n, reward: { stone: 120, gold: 40 } } : null; },
   g => g.thLevel < 5 && { id: 'keep:' + (g.thLevel + 1), text: `Upgrade your Keep to level ${g.thLevel + 1}`, check: gg => gg.thLevel > g.thLevel, reward: { gold: 120, stone: 150 } },
-  g => { const n = g.state.research.done.length + 1; return [...g.buildings.values()].some(b => b.type === 'strategy' && b.done) && { id: 'study:' + n, text: 'Complete a study at the Strategy Hall', check: gg => gg.state.research.done.length >= n, reward: { gold: 70 } }; },
+  g => { const n = g.state.research.done.length + 1; return { id: 'study:' + n, text: 'Complete a technology (Research)', check: gg => gg.state.research.done.length >= n, reward: { gold: 70 }, wisdom: 3 }; },
+  g => { const need = Object.keys(BUILDINGS).filter(t => BUILDINGS[t].wonder && BUILDINGS[t].wonder.era <= g.era + 1 && !count(g, t)); return need.length && { id: 'bp:' + g.state.research.done.length, text: 'Find a blueprint for a Great Building (win battles, beat off raids)', check: gg => Object.values(gg.state.blueprints || {}).reduce((a, b) => a + b, 0) > Object.values(g.state.blueprints || {}).reduce((a, b) => a + b, 0), reward: { gold: 60, stone: 60 }, wisdom: 2 }; },
   g => { const n = Math.min(30, g.harmony() + 5); return g.harmony() < 30 && { id: 'harmony:' + n, text: `Raise Harmony to +${n}%`, check: gg => gg.harmony() >= n, reward: { wheat: 120, wood: 60 } }; },
   g => { const held = Object.keys(g.country.holds).length; return soldiers(g) >= 4 && { id: 'hold:' + (held + 1), text: 'Take a place and hold it with a garrison', check: gg => Object.keys(gg.country.holds).length > held, reward: { gold: 100, stone: 100 } }; },
   g => { const n = (g.progress.stats.scouts || 0) + 2; return { id: 'scout:' + n, text: 'Send out two scouts', check: gg => (gg.progress.stats.scouts || 0) >= n, reward: { wheat: 60, gold: 20 } }; },
@@ -50,7 +51,11 @@ export const ACHIEVEMENTS = [
   { id: 'burner', name: 'Fire and Sword', desc: 'Plunder 5 places', check: g => (g.progress.stats.plundered || 0) >= 5 },
   { id: 'flawless', name: 'Not One Lost', desc: 'Win a battle without losing a soldier', check: g => !!g.progress.stats.flawless },
   { id: 'slayer', name: 'Bandit Slayer', desc: 'Defeat 100 raiders', check: g => (g.progress.stats.raidersKilled || 0) >= 100 },
-  { id: 'scholar', name: 'Scholar of War', desc: 'Complete a whole skill tree', check: g => Object.values(RESEARCH).some(T => T.nodes.every(n => g.hasResearch(n.id))) },
+  { id: 'scholar', name: 'Scholar of War', desc: 'Complete every technology of an era', check: g => [1, 2, 3, 4, 5, 6].some(e => TECHS.filter(t => t.era === e).every(t => g.hasResearch(t.id))) },
+  { id: 'castletown', name: 'Castle Town', desc: 'Reach the era of the Castle Town', check: g => g.era >= 3 },
+  { id: 'shogunate', name: 'The Shogunate', desc: 'Reach the final era', check: g => g.era >= 6 },
+  { id: 'wonder', name: 'A Wonder of the Age', desc: 'Build a Great Building', check: g => [...g.buildings.values()].some(b => b.def.wonder && b.done) },
+  { id: 'wonder10', name: 'Eternal', desc: 'Raise a Great Building to level 10', check: g => [...g.buildings.values()].some(b => b.def.wonder && b.level >= 10) },
   { id: 'samurai', name: 'Way of the Warrior', desc: 'Have 10 samurai', check: g => jobs(g, 'samurai') >= 10 },
   { id: 'friend', name: 'Friends in High Places', desc: 'Ally with a clan', check: g => Object.keys(CLANS).some(k => g.clans.friendly(k)) },
   { id: 'wedding', name: 'A Great Wedding', desc: 'Marry into a clan', check: g => Object.keys(CLANS).some(k => g.clans.status[k] === 'married') },
@@ -89,6 +94,7 @@ export class Progress {
     this.fillTasks();
     for (const t of this.tasks.slice()) if (t.check(g)) {
       for (const r in t.reward) g.add(r, t.reward[r]);
+      if (t.wisdom) g.gainWisdom(t.wisdom);
       g.toast(`Task done: ${t.text}! Reward: ${Object.entries(t.reward).map(([r, n]) => `${n} ${r}`).join(', ')}`);
       this.log(`Task done: ${t.text}.`, 'task');
       this.tasks = this.tasks.filter(x => x !== t); this.fillTasks(t.id); g.emit('tasks');
@@ -107,7 +113,11 @@ export class Progress {
   check() {
     const g = this.game;
     for (const a of ACHIEVEMENTS) if (!this.ach[a.id] && a.check(g)) { this.ach[a.id] = g.state.day; g.toast(`Achievement: ${a.name} — ${a.desc}`); this.log(`Achievement unlocked: ${a.name}.`, 'ach'); g.emit('achievement', a); }
-    if (!this.won && Object.keys(CLANS).every(k => g.clans.status[k] === 'fallen')) this.win('conquest');
+    if (!this.won && Object.keys(CLANS).every(k => g.clans.status[k] === 'fallen')) {
+      // the clans are broken — but only the Emperor's mandate makes you ruler of the realm
+      if (g.hasResearch('mandate')) this.win('conquest');
+      else if (!this.mandateHint) { this.mandateHint = true; g.toast('Every rival clan is broken! Win the Emperor\u2019s mandate (Research) to be named ruler of the realm.'); }
+    }
   }
   win(how) {
     if (this.won) return;

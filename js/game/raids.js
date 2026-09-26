@@ -798,6 +798,8 @@ export class Raids {
       if (v.rhp != null) { const f = v.rhp / maxHp(v); v.hpf = f >= 0.99 ? null : Math.max(0.05, f); } v.rhp = null; v.vhp = null;
     }
     if (stolen.length) g.toast(`The raid is over. The ${this.army ? 'enemy' : 'bandits'} got away with ${stolen.map(([r, v]) => `${v} ${RES[r].name.toLowerCase()}`).join(', ')}.`, 'warn');
+    if (!stolen.length) { g.gainWisdom(this.army ? 4 : 2, 'the raid taught your captains something'); if (g.rand() < (this.army ? 0.5 : 0.25)) g.giveBlueprint('left behind by the raiders'); }
+    if (stolen.length) { /* nothing learned from a defeat */ }
     else if (!this.victims) { g.toast(`Raid repelled! ${this.bandName(this.killed)} defeated${this.fled ? `, ${this.fled} fled` : ''}${bounty ? ` — ${bounty} gold bounty` : ''}.`); g.state.stats.raidsBeaten = (g.state.stats.raidsBeaten || 0) + 1; }
     this.schedule();
     g.emit('raidEnd');

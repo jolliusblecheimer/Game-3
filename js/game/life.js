@@ -35,6 +35,8 @@ export class Life {
     const room = g.housing() - g.pop; if (room <= 0) parts.push(['Crowded homes', -8]);
     if ((g.state.res.sake || 0) >= 10) parts.push(['Sake to share', 6]);
     if (this.festival) parts.push(['Festival!', 20]);
+    const kin = g.wonderLevel('kinkaku'); if (kin) parts.push(['Kinkaku-ji', Math.round(2 + 1.5 * kin)]);
+    if (g.rb('realm')) parts.push(['One realm, one banner', 15]);
     if (this.moodBoost > 0.5) parts.push(['Good memories', Math.round(this.moodBoost)]);
     if (this.grief > 0.5) parts.push(['Grief', -Math.round(this.grief)]);
     parts.push([`${this.seasonInfo.name}`, this.seasonInfo.mood]);
@@ -52,7 +54,7 @@ export class Life {
   }
 
   /* ---------- festivals ---------- */
-  festivalCost() { return (this.S.res.sake || 0) >= 20 ? { wheat: 100, sake: 20 } : { wheat: 120, gold: 60 }; }
+  festivalCost() { const f = 1 - 0.05 * this.g.wonderLevel('itsukushima'), c = (this.S.res.sake || 0) >= 20 ? { wheat: 100, sake: 20 } : { wheat: 120, gold: 60 }; for (const k in c) c[k] = Math.round(c[k] * f); return c; }
   festivalBlock() {
     if (this.festival) return 'A festival is on right now';
     const left = this.lastFestival + DAY * 3 - this.S.clock; if (left > 0) return `The next festival can be held in ${Math.ceil(left / DAY)} day${left > DAY ? 's' : ''}`;
@@ -73,7 +75,7 @@ export class Life {
 
   /* ---------- the market ---------- */
   market() { for (const b of this.g.buildings.values()) if (b.type === 'market' && this.g.works(b)) return b; return null; }
-  prices(r) { const m = this.market(), L = m ? m.level : 1, v = VALUE[r]; return { sell: v * (0.55 + 0.1 * L), buy: v * (1.6 - 0.1 * L) }; }
+  prices(r) { const m = this.market(), L = m ? m.level : 1, v = VALUE[r], t = this.g.rb('tradeBoost'); return { sell: v * (0.55 + 0.1 * L) * (1 + t), buy: v * (1.6 - 0.1 * L) / (1 + t * 0.6) }; }
   // sell (n > 0: give goods, get gold) or buy (n < 0: pay gold, get goods), in lots of 10
   trade(r, n) {
     const g = this.g, P = this.prices(r);

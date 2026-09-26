@@ -3,6 +3,8 @@
 const O = '#2b2118'; // ink outline
 
 const ICONS = {
+  wisdom: `<path d="M5 5.5c0-1.4 1-2 2-2h11c1 0 2 .6 2 2v1H7" fill="#efe2bf" stroke="${O}" stroke-width="1.1"/><rect x="5" y="5.5" width="13" height="14" fill="#f6ecd0" stroke="${O}" stroke-width="1.1"/><path d="M5 19.5c0 1 .8 1.5 1.8 1.5h11c1 0 1.2-.6 1.2-1.5v-1H5z" fill="#efe2bf" stroke="${O}" stroke-width="1.1"/><path d="M8.5 9h6M8.5 12h6M8.5 15h4" stroke="#b8342a" stroke-width="1.3" stroke-linecap="round"/>`,
+  blueprint: `<rect x="3" y="4" width="18" height="16" rx="1.5" fill="#3f6f9e" stroke="${O}" stroke-width="1.1"/><path d="M6 16l3-6 3 3 2-4 4 7z" fill="none" stroke="#dcecf8" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 7h5" stroke="#dcecf8" stroke-width="1.2"/>`,
   wheat: `<path d="M12 22.5V7" stroke="#7a5a1c" stroke-width="1.6" stroke-linecap="round" fill="none"/>
     <g fill="#e6b84a" stroke="#7a5a1c" stroke-width=".8">
       <ellipse cx="12" cy="4.4" rx="1.7" ry="2.7"/>

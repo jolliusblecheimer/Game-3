@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, RESEARCH, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -158,6 +158,10 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('button', { class: 'crow link2', title: 'Research: invest Wisdom in new technologies', onclick: () => this.openResearch() }, icon('wisdom', 20), h('span', null, 'Wisdom'), h('b')), el => {
+        const w = Math.floor(g.state.wisdom), cap = g.wisdomCap(); el.lastChild.textContent = `${w}/${cap}`; el.classList.toggle('attn', w >= cap);
+        el.title = `Era ${g.era}: ${ERAS[g.era].name}. Wisdom +${g.wisdomRate().toFixed(1)} a minute — click to research`;
+      }),
       this.live(h('button', { class: 'crow link2', title: 'Buildings with no road to the Keep do nothing — click to find one', onclick: () => { const b = [...g.buildings.values()].find(b => b.done && b.linked === false); if (b) { const c = g.center(b); this.cam.target.set(c.x, 0, c.z); this.input.select({ kind: 'building', id: b.id }); } } }, icon('road', 20), h('span', null, 'No road'), h('b')), el => {
         const n = g.unlinked || 0; el.hidden = !n; el.lastChild.textContent = String(n); el.classList.toggle('attn', n > 0);
         if (n > 0 && !g.state.settings.roadIntro && this.modal.hidden) {
@@ -202,13 +206,13 @@ export class Hud {
     }
     for (const [type, d] of Object.entries(BUILDINGS)) {
       if (d.cat !== this.cat) continue;
-      const locked = (d.th || 1) > g.thLevel, lim = g.buildLimit(type), have = lim !== null ? g.countType(type) : 0, full = !locked && lim !== null && have >= lim;
+      const wlock = d.wonder ? g.wonderBlock(type) : '', locked = (d.th || 1) > g.thLevel || !!wlock, lim = g.buildLimit(type), have = lim !== null ? g.countType(type) : 0, full = !locked && lim !== null && have >= lim;
       const infoBtn = h('button', { class: 'infobtn', title: 'What does it do?', onclick: e => { e.stopPropagation(); this.toggleInfo(type, card); } }, icon('info', 16));
       const card = h('div', { class: 'card' + (locked || full ? ' locked' : ''), role: 'button', tabindex: '0',
-        onclick: () => { if (locked) { this.toggleInfo(type, card); this.toast(`Upgrade your Keep to level ${d.th} to build the ${d.name}`, 'warn'); } else if (full) this.toast(lim ? `You have all ${lim} allowed (${d.name}) — upgrade them, or upgrade the Keep to build more` : `The ${d.name} unlocks at a higher Keep level`, 'warn'); else this.input.startPlacing(type); },
+        onclick: () => { if (locked) { this.toggleInfo(type, card); this.toast(wlock ? (wlock.startsWith('Blue') ? `The ${d.name} needs ${WONDER_BP} blueprints — win battles, beat off raids, make offerings at temples` : `The ${d.name} can be built from the ${wlock}`) : `Upgrade your Keep to level ${d.th} to build the ${d.name}`, 'warn'); } else if (full) this.toast(lim ? `You have all ${lim} allowed (${d.name}) — upgrade them, or upgrade the Keep to build more` : `The ${d.name} unlocks at a higher Keep level`, 'warn'); else this.input.startPlacing(type); },
         onpointerenter: e => { if (e.pointerType !== 'touch') this.showInfo(type, card); }, onpointerleave: () => this.hideInfo() },
         art('building', type, d.kanji, 'thumb'), h('span', { class: 'nm' }, d.name),
-        locked ? h('span', { class: 'lock' }, `Keep level ${d.th}`) : costChips(g, d.cost, this.live), infoBtn);
+        locked ? h('span', { class: 'lock' }, wlock && (d.th || 1) <= g.thLevel ? wlock : wlock && wlock.startsWith('Blue') ? `Keep ${d.th} · ${wlock}` : wlock || `Keep level ${d.th}`) : costChips(g, d.cost, this.live), infoBtn);
       if (lim !== null && !locked && lim > 1) card.append(h('span', { class: 'limit' + (full ? ' full' : '') }, `${have}/${lim}`));
       card.dataset.type = type;
       row.append(card);
@@ -678,50 +682,56 @@ export class Hud {
     body.append(h('h3', null, `Battering rams · ${g.state.rams || 0}`), h('p', { class: 'sub' }, g.state.ramBuild ? 'One more is being built at the Siege Workshop.' : 'Built at the Siege Workshop.'));
     const holds = Object.keys(C.holds);
     if (holds.length) body.append(h('h3', null, 'Held places'), h('div', { class: 'chips' }, holds.map(id => { const s = C.site(+id); return h('span', { class: 'chip' }, icon(SITES[s.type].icon, 16), `${s.name} · ${C.garrison(s).length} guards`); })));
-    this.openModal('Your army', body, [{ label: 'Skill trees', cls: 'ghost', fn: () => setTimeout(() => this.openResearch(), 0) }, { label: 'Close' }], { wide: true });
+    this.openModal('Your army', body, [{ label: 'Research', cls: 'ghost', fn: () => setTimeout(() => this.openResearch(), 0) }, { label: 'Close' }], { wide: true });
   }
   /* ---------- skill trees ---------- */
-  openResearch(tab) {
-    const g = this.game, body = h('div', { class: 'research' });
-    const hasHall = [...g.buildings.values()].some(b => b.type === 'strategy' && b.done);
-    const W = 212, H = 186, NW = 186; // column width, row height, node width
-    let cur = tab || this.researchTab || 'spear';
+  // what a Great Building gives at a level
+  wonderBonus(type, L) {
+    return {
+      kinkaku: `+${Math.round(2 + 1.5 * L)} mood`, daibutsu: `+${(0.25 * L).toFixed(2)} Wisdom a minute, +${4 * L} room`,
+      itsukushima: `+${5 * L}% trade, festivals ${5 * L}% cheaper`, himeji: `walls, gates and towers +${6 * L}% stronger`,
+      bell: `soldiers train ${5 * L}% faster, sentries see ${10 * L}% further`, inari: `+${(1.5 * L).toFixed(1)} gold a minute`,
+      osaka: `your soldiers +${3 * L}% damage, commanders +${4 * L}% health`, sanjusangendo: `the wounded heal ${12 * L}% faster`,
+      nijo: `+${3 * L} homes, +${8 * L}% tribute`,
+    }[type] || '';
+  }
+  // Research: six eras of technologies, paid for with Wisdom and completed with goods
+  openResearch() {
+    const g = this.game, body = h('div', { class: 'techtree' });
     const render = () => {
       body.textContent = '';
-      if (!hasHall) body.append(h('p', { class: 'why' }, 'Build a Strategy Hall (Military, Keep level 2) to start researching.'));
-      const A = g.state.research.active;
-      if (A) body.append(h('div', { class: 'upgrade' }, h('b', null, `Studying: ${g.researchNode(A.id).node.name}`), this.bar2(() => g.state.research.active ? g.state.research.active.progress : 1)));
-      body.append(h('div', { class: 'rtabs' }, Object.entries(RESEARCH).map(([key, T]) => {
-        const n = T.nodes.filter(x => g.hasResearch(x.id)).length;
-        return h('button', { class: 'rtab' + (key === cur ? ' on' : ''), onclick: () => { cur = this.researchTab = key; render(); } },
-          T.look ? art('person', T.look, null, 'face') : h('span', { class: 'art face' }, icon(T.icon, 22)), h('span', null, h('b', null, T.name), h('small', null, `${n} / ${T.nodes.length} learned`)));
-      })));
-      const T = RESEARCH[cur], rows = Math.max(...T.nodes.map(n => n.r)) + 1, byId = Object.fromEntries(T.nodes.map(n => [n.id, n]));
-      const graph = h('div', { class: 'rgraph', style: `width:${3 * W}px;height:${rows * H}px` });
-      // branch lines
-      const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('class', 'rlines'); svg.setAttribute('width', 3 * W); svg.setAttribute('height', rows * H);
-      for (const n of T.nodes) for (const id of n.req || []) {
-        const p = byId[id]; if (!p) continue;
-        const x1 = p.c * W + W / 2, y1 = p.r * H + H - 38, x2 = n.c * W + W / 2, y2 = n.r * H, my = (y1 + y2) / 2;
-        const path = document.createElementNS(NS, 'path');
-        path.setAttribute('d', `M${x1} ${y1} C${x1} ${my} ${x2} ${my} ${x2} ${y2}`);
-        path.setAttribute('class', g.hasResearch(id) ? 'done' : '');
-        svg.append(path);
+      const E = ERAS[g.era], cap = g.wisdomCap();
+      body.append(h('div', { class: 'thead' },
+        h('div', { class: 'era' }, h('span', { class: 'ek' }, E.kanji), h('span', null, h('small', null, `Era ${g.era} of 6`), h('b', null, E.name))),
+        this.live(h('div', { class: 'wis' }, icon('wisdom', 22), h('span', null, h('b'), h('small')), h('div', { class: 'bar' }, h('i'))), el => {
+          const w = Math.floor(g.state.wisdom); el.querySelector('b').textContent = `${w} / ${g.wisdomCap()} Wisdom`;
+          el.querySelector('small').textContent = `+${g.wisdomRate().toFixed(1)} a minute${w >= g.wisdomCap() ? ' — full! spend it' : ''}`; el.querySelector('.bar > i').style.width = `${Math.min(100, w / g.wisdomCap() * 100)}%`;
+        })),
+        h('p', { class: 'sub' }, 'Wisdom gathers every minute (faster with a Strategy Hall and the Great Buddha) and comes from battles, raids you beat off, temples and tasks. Put it into a technology; once it is full, pay the goods to complete it. Each era’s key technology (★) opens the next Keep level.'));
+      const cols = h('div', { class: 'ecols' });
+      for (let e = 1; e <= 6; e++) {
+        const col = h('div', { class: 'ecol' + (e === g.era ? ' now' : e < g.era ? ' past' : ' future') }, h('div', { class: 'ehead' }, h('span', { class: 'ek' }, ERAS[e].kanji), h('b', null, ERAS[e].short)));
+        for (const T of TECHS.filter(t => t.era === e).sort((a, b) => a.row - b.row)) {
+          const done = g.hasResearch(T.id), why = g.researchBlock(T.id), pts = g.techPts(T.id), full = pts >= T.pts;
+          const card = h('div', { class: 'tech' + (done ? ' done' : why ? ' locked' : full ? ' full' : '') + (T.key ? ' key' : '') },
+            h('b', null, (T.key ? '★ ' : '') + T.name), h('small', null, T.desc));
+          if (done) card.append(h('span', { class: 'pill' }, '✓ Learned'));
+          else if (why) card.append(h('small', { class: 'why' }, why));
+          else {
+            card.append(h('div', { class: 'bar' }, h('i', { style: `width:${pts / T.pts * 100}%` })), h('small', { class: 'sub' }, `${pts} / ${T.pts} Wisdom`));
+            if (!full) card.append(h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { if (g.investTech(T.id, 1)) render(); } }, '+1'), h('button', { class: 'btn small', onclick: () => { if (g.investTech(T.id)) render(); } }, icon('wisdom', 14), 'Invest')));
+            else card.append(h('div', { class: 'row' }, costChips(g, T.cost, this.live), h('button', { class: 'btn small', onclick: () => { if (g.completeTech(T.id)) render(); } }, 'Complete')));
+          }
+          col.append(card);
+        }
+        cols.append(col);
       }
-      graph.append(svg);
-      for (const n of T.nodes) {
-        const done = g.hasResearch(n.id), active = A && A.id === n.id, why = g.researchBlock(n.id);
-        const locked = !done && !active && why && why !== 'Not enough resources' && !why.startsWith('Scholars');
-        graph.append(h('div', { class: 'node rnode' + (done ? ' done' : active ? ' active' : locked ? ' locked' : ''), style: `left:${n.c * W + (W - NW) / 2}px;top:${n.r * H}px;width:${NW}px` },
-          h('b', null, n.name), h('small', null, n.desc),
-          done ? h('span', { class: 'pill' }, '✓ Learned') : active ? h('span', { class: 'pill' }, 'Studying…') : [h('div', { class: 'row' }, costChips(g, n.cost, this.live), h('small', { class: 'sub' }, fmtTime(n.time))),
-            h('button', { class: 'btn small', disabled: why ? true : null, title: why || 'Start studying', onclick: () => { if (g.startResearch(n.id)) render(); } }, why && why !== 'Not enough resources' ? why : 'Research')]));
-      }
-      body.append(h('div', { class: 'rwrap' }, graph));
+      body.append(h('div', { class: 'ewrap' }, cols));
+      requestAnimationFrame(() => { const now = body.querySelector('.ecol.now'); const wrap = body.querySelector('.ewrap'); if (now && wrap && !this.researchScrolled) { wrap.scrollLeft = now.offsetLeft - 20; this.researchScrolled = true; } });
     };
+    this.researchScrolled = false;
     render();
-    this.openModal('Skill trees', body, [{ label: 'Close' }], { wide: true });
+    this.openModal('Research', body, [{ label: 'Close' }], { wide: true });
     this.modal.querySelector('.sheet').classList.add('xwide');
   }
 

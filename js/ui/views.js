@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
 import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
 import { RTSCamera } from './camera.js';
-import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS, BUILDINGS, RANKS, rankOf } from '../game/data.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS, BUILDINGS, RANKS, rankOf, WONDER_MAX, wonderLevelCost } from '../game/data.js';
 
 // abilities you can trigger in battle (R)
 const ABIL = { ...COMMANDERS, ninja: { ability: 'Grappling Hook', abilityDesc: 'Climbs silently over a wall to a spot you choose.', point: true }, sohei: { ability: 'Prayer of Iron', abilityDesc: 'Everyone within 10 takes half damage for 6s.' } };
@@ -207,6 +207,7 @@ export class Views {
     const waiting = C.missions.find(m => m.kind === 'army' && m.site === s.id && m.phase === 'ready');
     const actions = h('div', { class: 'actions' });
     if (waiting) actions.append(h('button', { class: 'btn danger', onclick: () => this.openBattle(waiting) }, icon('sword', 16), 'Lead the attack'));
+    else if (s.type === 'shogun' && !g.hasResearch('mandate')) actions.append(h('p', { class: 'why' }, 'The Shogun will not face a mere daimyō in the field. Win the Emperor\u2019s leave first: research the Imperial Mandate (era of the Contender).'));
     else if (s.type !== 'ruins' && !S.neutral && st !== 'held' && st !== 'ruined' && !C.missions.some(m => m.site === s.id)) actions.append(h('button', { class: 'btn danger', onclick: () => this.armyPicker(s) }, icon('flag', 16), 'Raid'));
     if (st !== 'ruined' || s.type !== 'ruins') actions.append(h('button', { class: 'btn ghost', onclick: () => { C.sendScout({ x: s.x, z: s.z }); this.renderMapUI(); } }, icon('scout', 16), 'Send a scout'));
     P.append(actions);
@@ -483,7 +484,10 @@ export class Views {
       this.closeBattle();
     };
     if (result === 'victory') {
-      P.add('battlesWon'); if (!r.dead.length) P.stats.flawless = true;
+      P.add('battlesWon');
+      g.gainWisdom(2 + site.tier * 2, 'lessons from the battle');
+      if (site.tier >= 2 || g.rand() < 0.5) g.giveBlueprint(`among the spoils of ${site.name}`);
+      if (site.tier >= 4 && g.rand() < 0.5) g.giveBlueprint('another one'); if (!r.dead.length) P.stats.flawless = true;
       if (['castle', 'warlord', 'shogun', 'smallcastle', 'fort'].includes(site.type)) P.add('castlesTaken');
       P.log(`Victory at ${site.name}${r.dead.length ? ` — fallen: ${r.dead.join(', ')}` : ', without a single loss'}.`, 'war');
       if (site.type === 'shogun') setTimeout(() => P.win('shogun'), 400);
@@ -707,10 +711,16 @@ export class Views {
       p.append(box);
     }
     if (b.type === 'strategy' && b.done) {
-      const A = g.state.research.active;
-      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Skill trees')),
-        A ? [h('p', { class: 'sub' }, `Studying ${g.researchNode(A.id).node.name}…`), this.hud.bar2(() => g.state.research.active ? g.state.research.active.progress : 1)] : h('p', { class: 'sub' }, 'Your scholars are waiting for orders.'),
-        h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, 'Open the skill trees')));
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, 'Scholars')),
+        h('p', { class: 'sub' }, `Wisdom: +${g.wisdomRate().toFixed(1)} a minute, room for ${g.wisdomCap()}. Every level of the hall adds more.`),
+        h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, icon('wisdom', 16), 'Open research')));
+    }
+    if (b.def.wonder && b.done) {
+      const need = wonderLevelCost(b.level), have = b.gbPts || 0;
+      p.append(h('div', { class: 'jobs wonderbox' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, `Great Building · level ${b.level} of ${WONDER_MAX}`)),
+        h('p', { class: 'wbonus' }, this.hud.wonderBonus(b.type, b.level), b.level < WONDER_MAX ? h('small', null, ` → next: ${this.hud.wonderBonus(b.type, b.level + 1)}`) : null),
+        b.level < WONDER_MAX ? [h('div', { class: 'bar' }, h('i', { style: `width:${have / need * 100}%` })), h('small', { class: 'sub' }, `${have} / ${need} Wisdom to level ${b.level + 1} · you have ${Math.floor(g.state.wisdom)}`),
+          h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { g.investWonder(b, 1); this.hud.renderPanel(); } }, '+1'), h('button', { class: 'btn small', onclick: () => { g.investWonder(b); this.hud.renderPanel(); } }, icon('wisdom', 14), 'Invest Wisdom'))] : h('p', { class: 'sub' }, 'At its greatest.')));
     }
     if (b.type === 'workshop' && b.done) {
       const cost = { wood: 120, stone: 20 };

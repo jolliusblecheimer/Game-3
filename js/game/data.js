@@ -188,6 +188,7 @@ export const CATEGORIES = [
   { id: 'military', name: 'Military', icon: 'military' },
   { id: 'defense', name: 'Defense', icon: 'defense' },
   { id: 'beauty', name: 'Harmony', icon: 'beauty' },
+  { id: 'wonder', name: 'Wonders', icon: 'torii' },
 ];
 
 // size = footprint in grid cells (1 cell = 2 × 2 world units), before rotation.
@@ -230,8 +231,27 @@ export const BUILDINGS = {
                 desc: 'Unemployed villagers train here and graduate as Spearmen — or, with a bigger Keep, as Shield-bearers or Samurai.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
-  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true,
-                desc: 'Scholars of war study here. Research skill trees for every kind of soldier, your scouts, your sieges and your defenses.' },
+  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true, maxLevel: 3,
+                desc: 'Scholars gather Wisdom here: more Wisdom every minute, and room to store much more of it. Upgrade it for more.' },
+  // ---- Great Buildings (wonders) ----
+  kinkaku:  { name: 'Kinkaku-ji', kanji: '金閣寺', cat: 'wonder', size: [4, 4], cost: { wood: 400, stone: 250, gold: 300 }, time: 150, h: 9, th: 3, unique: true, wonder: { era: 3, bonus: 'mood' },
+              desc: 'The Golden Pavilion beside its mirror pond. Your people are proud and content: more mood with every level.' },
+  daibutsu: { name: 'Great Buddha of Nara', kanji: '大仏', cat: 'wonder', size: [4, 4], cost: { wood: 450, stone: 400, gold: 250 }, time: 160, h: 10, th: 3, unique: true, wonder: { era: 3, bonus: 'wisdom' },
+              desc: 'A bronze Buddha in a great hall. Pilgrims and scholars come: more Wisdom every minute and room to store it.' },
+  itsukushima: { name: 'Itsukushima Torii', kanji: '厳島', cat: 'wonder', size: [3, 3], cost: { wood: 350, stone: 150, gold: 350 }, time: 140, h: 7, th: 3, unique: true, wonder: { era: 3, bonus: 'trade' },
+              desc: 'The great vermilion gate standing in the water. Merchants and pilgrims flock in: better trade and cheaper festivals.' },
+  himeji:   { name: 'White Heron Keep', kanji: '白鷺城', cat: 'wonder', size: [4, 4], cost: { wood: 400, stone: 700, gold: 250 }, time: 180, h: 12, th: 4, unique: true, wonder: { era: 4, bonus: 'walls' },
+              desc: 'A shining white castle keep on a stone base, like Himeji. Your walls, gates and towers are stronger with every level.' },
+  bell:     { name: 'Great Temple Bell', kanji: '大梵鐘', cat: 'wonder', size: [3, 3], cost: { wood: 300, stone: 300, gold: 250, iron: 60 }, time: 150, h: 7, th: 4, unique: true, wonder: { era: 4, bonus: 'drill' },
+              desc: 'A bronze bell as tall as a house. Its call sets the rhythm of the drill yard: soldiers train faster and sentries watch sharper.' },
+  inari:    { name: 'Thousand Gates of Inari', kanji: '千本鳥居', cat: 'wonder', size: [4, 3], cost: { wood: 500, stone: 200, gold: 300 }, time: 150, h: 6, th: 4, unique: true, wonder: { era: 4, bonus: 'gold' },
+              desc: 'Tunnels of vermilion torii up the hillside, each one a merchant’s thanks. Gold flows in every minute.' },
+  osaka:    { name: 'Osaka Castle', kanji: '大坂城', cat: 'wonder', size: [5, 5], cost: { wood: 700, stone: 900, gold: 500, iron: 120 }, time: 220, h: 14, th: 5, unique: true, wonder: { era: 5, bonus: 'army' },
+              desc: 'The great black-and-gold castle of the realm’s strongest lord. Your soldiers fight harder in every battle.' },
+  sanjusangendo: { name: 'Hall of a Thousand Kannon', kanji: '三十三間堂', cat: 'wonder', size: [6, 3], cost: { wood: 700, stone: 400, gold: 400 }, time: 200, h: 6, th: 5, unique: true, wonder: { era: 5, bonus: 'heal' },
+              desc: 'A hall 120 metres long, a thousand golden statues of mercy inside. The wounded heal much faster.' },
+  nijo:     { name: 'Nijō Palace', kanji: '二条城', cat: 'wonder', size: [5, 4], cost: { wood: 800, stone: 600, gold: 800, sake: 120 }, time: 240, h: 8, th: 5, unique: true, wonder: { era: 6, bonus: 'court' },
+              desc: 'The Shogun’s palace of painted halls and singing floors. More room for your people, more tribute from the places you hold.' },
   workshop:   { name: 'Siege Workshop', kanji: '工房', cat: 'military', size: [3, 3], cost: { wood: 220, stone: 90, gold: 40 }, time: 90, h: 4, th: 3, unique: true,
                 desc: 'Carpenters build battering rams here for breaking castle gates — and, with a Keep of level 4, catapults that smash walls and towers from afar.' },
   stable:     { name: 'Stables', kanji: '厩', cat: 'military', size: [3, 3], cost: { wood: 180, stone: 60, gold: 40 }, time: 80, h: 4, th: 3, unique: true,
@@ -276,49 +296,77 @@ export const RAIDS = {
 
 // Skill trees, researched at the Strategy Hall. Each tree branches: a node needs every node in `req`.
 // c = column (0 left, 1 middle, 2 right), r = row (top to bottom).
-export const RESEARCH = {
-  spear: { name: 'Spearmen', look: 'ashigaru', nodes: [
-    { id: 'spear1', c: 1, r: 0, name: 'Spear Drill', desc: 'Spearmen hit 15% harder.', cost: { gold: 60, wheat: 60 }, time: 120, fx: { spearDmg: 0.15 } },
-    { id: 'spear2', c: 0, r: 1, req: ['spear1'], name: 'Lacquered Armour', desc: 'Spearmen have 25% more health.', cost: { gold: 120, wood: 80 }, time: 180, fx: { spearHp: 0.25 } },
-    { id: 'spear3', c: 0, r: 2, req: ['spear2'], name: 'Spear Wall', desc: 'Holding spearmen take 30% less damage.', cost: { gold: 200, stone: 120 }, time: 240, fx: { spearWall: 0.3 } },
-    { id: 'spear4', c: 2, r: 1, req: ['spear1'], name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', cost: { gold: 160, wheat: 150 }, time: 200, fx: { spearFast: 0.15 } },
-    { id: 'spear5', c: 2, r: 2, req: ['spear4'], name: 'Dojo Masters', desc: 'Trainees at the Dojo and Kyūdō Range learn 30% faster.', cost: { gold: 180, wood: 120 }, time: 220, fx: { trainFast: 0.3 } },
-    { id: 'spear6', c: 1, r: 3, req: ['spear3', 'spear5'], name: 'Way of the Yari', desc: 'Spearmen hit another 20% harder.', cost: { gold: 380, wheat: 250 }, time: 360, fx: { spearDmg: 0.2 } },
-  ] },
-  archer: { name: 'Archers', look: 'archer', nodes: [
-    { id: 'arch1', c: 1, r: 0, name: 'Longbows', desc: 'Archers shoot 20% further.', cost: { gold: 60, wood: 80 }, time: 120, fx: { archRange: 0.2 } },
-    { id: 'arch2', c: 0, r: 1, req: ['arch1'], name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', cost: { gold: 120, wood: 120 }, time: 180, fx: { archDmg: 0.2 } },
-    { id: 'arch5', c: 0, r: 2, req: ['arch2'], name: 'Bodkin Points', desc: 'Arrows punch through armour: another 15% damage.', cost: { gold: 200, stone: 100 }, time: 240, fx: { archDmg: 0.15 } },
-    { id: 'arch3', c: 2, r: 1, req: ['arch1'], name: 'Volley Fire', desc: 'Archers loose arrows 20% faster.', cost: { gold: 140, wood: 140 }, time: 200, fx: { archFast: 0.2 } },
-    { id: 'arch4', c: 2, r: 2, req: ['arch3'], name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', cost: { gold: 220, wheat: 150 }, time: 260, fx: { archEyes: 1 } },
-    { id: 'arch6', c: 1, r: 3, req: ['arch5', 'arch4'], name: 'Master of the Bow', desc: 'Archers shoot 15% further and 10% faster.', cost: { gold: 380, wood: 250 }, time: 360, fx: { archRange: 0.15, archFast: 0.1 } },
-  ] },
-  command: { name: 'Commanders', look: 'berserker', nodes: [
-    { id: 'cmd1', c: 1, r: 0, name: 'Iron Hide', desc: 'Commanders have 30% more health.', cost: { gold: 150, stone: 100 }, time: 180, fx: { cmdHp: 0.3 } },
-    { id: 'cmd2', c: 0, r: 1, req: ['cmd1'], name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', cost: { gold: 240, wood: 150 }, time: 240, fx: { cmdCd: 0.3 } },
-    { id: 'cmd3', c: 0, r: 2, req: ['cmd2'], name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', cost: { gold: 360, wheat: 200 }, time: 300, fx: { bloodlust: 1 } },
-    { id: 'cmd5', c: 2, r: 1, req: ['cmd1'], name: 'War Council', desc: 'Commanders have another 20% more health.', cost: { gold: 240, stone: 150 }, time: 240, fx: { cmdHp: 0.2 } },
-    { id: 'cmd4', c: 2, r: 2, req: ['cmd5'], name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', cost: { gold: 400, stone: 250 }, time: 320, fx: { banner: 1 } },
-    { id: 'cmd6', c: 1, r: 3, req: ['cmd3', 'cmd4'], name: 'Living Legend', desc: 'Abilities recharge another 20% faster.', cost: { gold: 600, wheat: 300 }, time: 420, fx: { cmdCd: 0.2 } },
-  ] },
-  siege: { name: 'Siege', look: null, icon: 'ram', nodes: [
-    { id: 'siege1', c: 1, r: 0, name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', cost: { gold: 100, wood: 150 }, time: 150, fx: { ramHp: 0.5 } },
-    { id: 'siege2', c: 0, r: 1, req: ['siege1'], name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', cost: { gold: 200, stone: 150 }, time: 240, fx: { ramDmg: 0.4 } },
-    { id: 'siege3', c: 2, r: 1, req: ['siege1'], name: 'Carpenters’ Guild', desc: 'Rams are built 40% faster.', cost: { gold: 150, wood: 200 }, time: 200, fx: { ramBuild: 0.4 } },
-    { id: 'siege4', c: 1, r: 2, req: ['siege2', 'siege3'], name: 'Swinging Crew', desc: 'Rams hit another 30% harder.', cost: { gold: 320, stone: 200 }, time: 300, fx: { ramDmg: 0.3 } },
-  ] },
-  logistics: { name: 'Scouts & Marches', look: null, icon: 'scout', nodes: [
-    { id: 'log1', c: 1, r: 0, name: 'Swift Scouts', desc: 'Scouts travel 25% faster.', cost: { gold: 40, wheat: 60 }, time: 90, fx: { scoutSpeed: 1 } },
-    { id: 'log3', c: 0, r: 1, req: ['log1'], name: 'Spy Network', desc: 'Scouts see much further around them.', cost: { gold: 140, wheat: 120 }, time: 180, fx: { scoutSight: 1 } },
-    { id: 'log5', c: 0, r: 2, req: ['log3'], name: 'Mountain Guides', desc: 'Scouts travel another 25% faster.', cost: { gold: 200, wheat: 150 }, time: 220, fx: { scoutSpeed: 1 } },
-    { id: 'log2', c: 2, r: 1, req: ['log1'], name: 'Mountain Paths', desc: 'Armies march 25% faster.', cost: { gold: 100, wheat: 100 }, time: 150, fx: { marchSpeed: 1 } },
-    { id: 'log4', c: 2, r: 2, req: ['log2'], name: 'Supply Lines', desc: 'Marches cost half the wheat.', cost: { gold: 260, wheat: 200 }, time: 270, fx: { supply: 1 } },
-  ] },
-  defense: { name: 'Village Defense', look: null, icon: 'wall', nodes: [
-    { id: 'def1', c: 1, r: 0, name: 'Mortar Walls', desc: 'Walls, gates and palisades are 30% stronger.', cost: { gold: 80, stone: 150 }, time: 150, fx: { wallHp: 0.3 } },
-    { id: 'def2', c: 0, r: 1, req: ['def1'], name: 'Watchmen', desc: 'Your soldiers spot sneaking bandits from 50% further away.', cost: { gold: 120, wood: 100 }, time: 180, fx: { earlyWarn: 1 } },
-    { id: 'def4', c: 0, r: 2, req: ['def2'], name: 'Bounty Hunters', desc: 'Double gold for every bandit your people defeat.', cost: { gold: 160, wheat: 150 }, time: 200, fx: { bounty: 1 } },
-    { id: 'def3', c: 2, r: 1, req: ['def1'], name: 'Murder Holes', desc: 'Your towers drop stones on attackers at your gates.', cost: { gold: 220, stone: 220 }, time: 260, fx: { murder: 1 } },
-    { id: 'def5', c: 2, r: 2, req: ['def3'], name: 'Stone Keep', desc: 'Walls, gates and palisades another 30% stronger.', cost: { gold: 260, stone: 300 }, time: 300, fx: { wallHp: 0.3 } },
-  ] },
-};
+// ---------------------------------------------------------------------------------------------
+// Eras and technologies. Your clan rises through six eras. Scholars gather Wisdom (智) over time;
+// you invest it in technologies, then pay the goods to complete them. Each era's key technology
+// lets the Keep grow one level further — and the last one earns the Emperor's leave to take the realm.
+export const ERAS = [
+  null,
+  { name: 'Village of the Warring States', short: 'Village', kanji: '村' },
+  { name: 'Fortified Village', short: 'Fortress', kanji: '砦' },
+  { name: 'Castle Town', short: 'Castle Town', kanji: '城下町' },
+  { name: 'Daimyō’s Domain', short: 'Domain', kanji: '領国' },
+  { name: 'Contender for the Realm', short: 'Contender', kanji: '天下人' },
+  { name: 'Shogunate', short: 'Shogunate', kanji: '幕府' },
+];
+// Wisdom per minute and how much can be stored; the Strategy Hall and the Great Buddha add more
+export const WISDOM = { base: 1, perHall: 0.6, cap: 12, capPerHall: 10 };
+export const KEY_TECHS = ['keep2', 'keep3', 'keep4', 'keep5', 'mandate'];
+
+export const TECHS = [
+  // era 1: the village
+  { id: 'agri', era: 1, row: 0, name: 'Crop Rotation', desc: 'Fields yield 15% more.', pts: 4, cost: { wheat: 40 }, fx: { farmBoost: 0.15 } },
+  { id: 'log1', era: 1, row: 1, name: 'Swift Scouts', desc: 'Scouts travel 25% faster.', pts: 3, cost: { gold: 40, wheat: 60 }, fx: { scoutSpeed: 1 } },
+  { id: 'spear1', era: 1, row: 2, name: 'Spear Drill', desc: 'Spearmen hit 15% harder.', pts: 5, cost: { gold: 60, wheat: 60 }, fx: { spearDmg: 0.15 } },
+  { id: 'carpentry', era: 1, row: 3, name: 'Carpentry', desc: 'Villagers build and upgrade 15% faster.', pts: 4, cost: { wood: 60 }, fx: { buildFast: 0.15 } },
+  { id: 'keep2', era: 1, row: 4, key: true, req: ['agri', 'spear1'], name: 'Clan Hall', desc: 'Opens the era of the Fortified Village: the Keep can grow to level 2.', pts: 8, cost: { wood: 120, stone: 60 }, fx: {} },
+  // era 2: the fortified village
+  { id: 'def1', era: 2, row: 0, req: ['keep2'], name: 'Mortar Walls', desc: 'Walls, gates and palisades are 30% stronger.', pts: 8, cost: { gold: 80, stone: 150 }, fx: { wallHp: 0.3 } },
+  { id: 'arch1', era: 2, row: 1, req: ['keep2'], name: 'Longbows', desc: 'Archers shoot 20% further.', pts: 8, cost: { gold: 60, wood: 80 }, fx: { archRange: 0.2 } },
+  { id: 'spear2', era: 2, row: 2, req: ['spear1', 'keep2'], name: 'Lacquered Armour', desc: 'Spearmen have 25% more health.', pts: 10, cost: { gold: 120, wood: 80 }, fx: { spearHp: 0.25 } },
+  { id: 'spear4', era: 2, row: 3, req: ['spear1', 'keep2'], name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', pts: 10, cost: { gold: 160, wheat: 150 }, fx: { spearFast: 0.15 } },
+  { id: 'log2', era: 2, row: 4, req: ['log1', 'keep2'], name: 'Mountain Paths', desc: 'Armies march 25% faster.', pts: 8, cost: { gold: 100, wheat: 100 }, fx: { marchSpeed: 1 } },
+  { id: 'trade1', era: 2, row: 5, req: ['keep2'], name: 'Merchant Guilds', desc: 'Better prices at the market and 15% more from trade routes.', pts: 10, cost: { gold: 60, wood: 80 }, fx: { tradeBoost: 0.15 } },
+  { id: 'keep3', era: 2, row: 6, key: true, req: ['def1', 'arch1'], name: 'Castle Architecture', desc: 'Opens the era of the Castle Town: the Keep can grow to level 3, and the first Great Buildings can be raised.', pts: 16, cost: { wood: 300, stone: 250, gold: 80 }, fx: {} },
+  // era 3: the castle town
+  { id: 'arch2', era: 3, row: 0, req: ['arch1', 'keep3'], name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', pts: 14, cost: { gold: 120, wood: 120 }, fx: { archDmg: 0.2 } },
+  { id: 'arch3', era: 3, row: 1, req: ['arch1', 'keep3'], name: 'Volley Fire', desc: 'Archers loose arrows 20% faster.', pts: 14, cost: { gold: 140, wood: 140 }, fx: { archFast: 0.2 } },
+  { id: 'def2', era: 3, row: 2, req: ['def1', 'keep3'], name: 'Watchmen', desc: 'Your soldiers spot sneaking bandits from 50% further away.', pts: 12, cost: { gold: 120, wood: 100 }, fx: { earlyWarn: 1 } },
+  { id: 'def3', era: 3, row: 3, req: ['def1', 'keep3'], name: 'Murder Holes', desc: 'Your towers drop stones on attackers at your gates.', pts: 16, cost: { gold: 220, stone: 220 }, fx: { murder: 1 } },
+  { id: 'spear3', era: 3, row: 4, req: ['spear2', 'keep3'], name: 'Spear Wall', desc: 'Holding spearmen take 30% less damage.', pts: 16, cost: { gold: 200, stone: 120 }, fx: { spearWall: 0.3 } },
+  { id: 'spear5', era: 3, row: 5, req: ['spear4', 'keep3'], name: 'Dojo Masters', desc: 'Trainees at the Dojo and Kyūdō Range learn 30% faster.', pts: 14, cost: { gold: 180, wood: 120 }, fx: { trainFast: 0.3 } },
+  { id: 'siege1', era: 3, row: 6, req: ['keep3'], name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', pts: 12, cost: { gold: 100, wood: 150 }, fx: { ramHp: 0.5 } },
+  { id: 'log3', era: 3, row: 7, req: ['log2', 'keep3'], name: 'Spy Network', desc: 'Scouts see much further around them.', pts: 12, cost: { gold: 140, wheat: 120 }, fx: { scoutSight: 1 } },
+  { id: 'keep4', era: 3, row: 8, key: true, req: ['arch2', 'def2', 'spear3'], name: 'Seat of a Daimyō', desc: 'Opens the era of the Daimyō’s Domain: the Keep can grow to level 4.', pts: 26, cost: { wood: 500, stone: 500, gold: 200 }, fx: {} },
+  // era 4: the domain
+  { id: 'arch4', era: 4, row: 0, req: ['arch3', 'keep4'], name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', pts: 22, cost: { gold: 220, wheat: 150 }, fx: { archEyes: 1 } },
+  { id: 'arch5', era: 4, row: 1, req: ['arch2', 'keep4'], name: 'Bodkin Points', desc: 'Arrows punch through armour: another 15% damage.', pts: 22, cost: { gold: 200, stone: 100 }, fx: { archDmg: 0.15 } },
+  { id: 'def4', era: 4, row: 2, req: ['def2', 'keep4'], name: 'Bounty Hunters', desc: 'Double gold for every raider your people defeat.', pts: 20, cost: { gold: 160, wheat: 150 }, fx: { bounty: 1 } },
+  { id: 'def5', era: 4, row: 3, req: ['def3', 'keep4'], name: 'Stone Keep', desc: 'Walls, gates and palisades another 30% stronger.', pts: 24, cost: { gold: 260, stone: 300 }, fx: { wallHp: 0.3 } },
+  { id: 'cmd1', era: 4, row: 4, req: ['keep4'], name: 'Iron Hide', desc: 'Commanders have 30% more health.', pts: 22, cost: { gold: 150, stone: 100 }, fx: { cmdHp: 0.3 } },
+  { id: 'siege2', era: 4, row: 5, req: ['siege1', 'keep4'], name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', pts: 22, cost: { gold: 200, stone: 150 }, fx: { ramDmg: 0.4 } },
+  { id: 'siege3', era: 4, row: 6, req: ['siege1', 'keep4'], name: 'Carpenters’ Guild', desc: 'Rams and catapults are built 40% faster.', pts: 20, cost: { gold: 150, wood: 200 }, fx: { ramBuild: 0.4 } },
+  { id: 'log4', era: 4, row: 7, req: ['log3', 'keep4'], name: 'Supply Lines', desc: 'Marches cost half the wheat.', pts: 22, cost: { gold: 260, wheat: 200 }, fx: { supply: 1 } },
+  { id: 'keep5', era: 4, row: 8, key: true, req: ['def5', 'cmd1', 'siege2'], name: 'The Great Keep', desc: 'Opens the era of the Contender: the Keep can grow to level 5.', pts: 36, cost: { wood: 800, stone: 900, gold: 400 }, fx: {} },
+  // era 5: contender for the realm
+  { id: 'spear6', era: 5, row: 0, req: ['spear3', 'spear5', 'keep5'], name: 'Way of the Yari', desc: 'Spearmen hit another 20% harder.', pts: 32, cost: { gold: 380, wheat: 250 }, fx: { spearDmg: 0.2 } },
+  { id: 'arch6', era: 5, row: 1, req: ['arch4', 'arch5', 'keep5'], name: 'Master of the Bow', desc: 'Archers shoot 15% further and 10% faster.', pts: 32, cost: { gold: 380, wood: 250 }, fx: { archRange: 0.15, archFast: 0.1 } },
+  { id: 'cmd2', era: 5, row: 2, req: ['cmd1', 'keep5'], name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', pts: 30, cost: { gold: 240, wood: 150 }, fx: { cmdCd: 0.3 } },
+  { id: 'cmd5', era: 5, row: 3, req: ['cmd1', 'keep5'], name: 'War Council', desc: 'Commanders have another 20% more health.', pts: 30, cost: { gold: 240, stone: 150 }, fx: { cmdHp: 0.2 } },
+  { id: 'siege4', era: 5, row: 4, req: ['siege2', 'siege3', 'keep5'], name: 'Swinging Crew', desc: 'Rams hit another 30% harder.', pts: 32, cost: { gold: 320, stone: 200 }, fx: { ramDmg: 0.3 } },
+  { id: 'log5', era: 5, row: 5, req: ['log4', 'keep5'], name: 'Mountain Guides', desc: 'Scouts travel another 25% faster.', pts: 28, cost: { gold: 200, wheat: 150 }, fx: { scoutSpeed: 1 } },
+  { id: 'granary', era: 5, row: 6, req: ['keep5'], name: 'Rice Tax Registers', desc: 'Your storehouses and Keep hold 25% more.', pts: 30, cost: { gold: 300, wood: 300 }, fx: { storageBoost: 0.25 } },
+  { id: 'mandate', era: 5, row: 7, key: true, req: ['spear6', 'arch6', 'cmd5'], name: 'Imperial Mandate', desc: 'Opens the Shogunate era: the last Great Buildings — and the Emperor’s leave to march on the Shogun’s castle and rule the realm.', pts: 48, cost: { gold: 1000, sake: 100, iron: 100 }, fx: {} },
+  // era 6: the shogunate
+  { id: 'cmd3', era: 6, row: 0, req: ['cmd2', 'mandate'], name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', pts: 45, cost: { gold: 360, wheat: 200 }, fx: { bloodlust: 1 } },
+  { id: 'cmd4', era: 6, row: 1, req: ['cmd5', 'mandate'], name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', pts: 45, cost: { gold: 400, stone: 250 }, fx: { banner: 1 } },
+  { id: 'cmd6', era: 6, row: 2, req: ['cmd3', 'cmd4'], name: 'Living Legend', desc: 'Commander abilities recharge another 20% faster.', pts: 55, cost: { gold: 600, wheat: 300 }, fx: { cmdCd: 0.2 } },
+  { id: 'survey', era: 6, row: 3, req: ['mandate'], name: 'Taikō’s Land Survey', desc: 'All fields, camps, quarries and mines yield 20% more.', pts: 55, cost: { gold: 500, stone: 300 }, fx: { prodBoost: 0.2, farmBoost: 0.2 } },
+  { id: 'realm', era: 6, row: 4, req: ['survey', 'cmd6'], name: 'Rule of the Realm', desc: 'Peace under one banner: +15 mood in your village, and every clan thinks better of you.', pts: 70, cost: { gold: 800, sake: 150 }, fx: { realm: 1 } },
+];
+
+// Great Buildings: unique wonders. Gather 5 blueprints (from raids you beat off, battles you win,
+// temples and tasks), build it, then invest Wisdom to raise it up to level 10.
+export const WONDER_BP = 5;
+export const WONDER_MAX = 10;
+export const wonderLevelCost = L => 10 + 8 * L;   // Wisdom to go from level L to L+1

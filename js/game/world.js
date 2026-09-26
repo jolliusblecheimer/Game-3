@@ -1,6 +1,9 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, RESEARCH, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
+
+// what each Great Building adds to the bonuses, per level
+const WONDER_FX = { wallHp: [['himeji', 0.06]], trainFast: [['bell', 0.05]], earlyWarn: [['bell', 0.1]], spearDmg: [['osaka', 0.03]], archDmg: [['osaka', 0.03]], cmdHp: [['osaka', 0.04]], healFast: [['sanjusangendo', 0.12]], tradeBoost: [['itsukushima', 0.05]] };
 import { Grid, FREE, TREE, ROCK } from './grid.js';
 import { PLOT, OLD_PLOT_N } from '../render/nature.js';
 import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
@@ -33,7 +36,7 @@ export class Game {
     this.state = {
       seed, res: { ...START.res }, clock: 0, time: 0.3, day: 1, nextId: 1,
       settings: { welcome: true }, stats: { arrived: 0, trained: 0, raidsBeaten: 0 },
-      arriveT: 0, eatAcc: 0, research: { done: [], active: null },
+      arriveT: 0, eatAcc: 0, research: { done: [], pts: {} }, wisdom: 3, blueprints: {},
     };
     this.listeners = new Set();
     this.version = 0;
@@ -133,11 +136,13 @@ export class Game {
   housing() {
     let h = 0;
     for (const b of this.buildings.values()) if (this.works(b)) { if (b.type === 'townhall') h += TOWNHALL[b.level].housing; else if (b.def.housing) h += b.def.housing + (b.def.housingUp || 2) * (b.level - 1); }
+    h += 3 * this.wonderLevel('nijo');
     return h;
   }
   storageCap() {
     let s = 0;
     for (const b of this.buildings.values()) if (this.works(b)) { if (b.type === 'townhall') s += TOWNHALL[b.level].storage; else if (b.def.storage) s += b.def.storage + 300 * (b.level - 1); }
+    s = Math.round(s * (1 + this.rb('storageBoost')));
     return s;
   }
   jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
@@ -171,26 +176,85 @@ export class Game {
   hasBuildWork() { for (const b of this.buildings.values()) if (this.needsWork(b)) return true; return this.clearMarks.size > 0; }
   maxHp(b) { return b.def.hp ? Math.round(b.def.hp * (1 + 0.6 * (b.level - 1)) * (1 + this.rb('wallHp'))) : 0; }
 
-  /* ---------- research (skill trees) ---------- */
-  researchNode(id) { for (const [tree, T] of Object.entries(RESEARCH)) { const i = T.nodes.findIndex(n => n.id === id); if (i >= 0) return { tree, i, node: T.nodes[i] }; } return null; }
+  /* ---------- research: eras, Wisdom and technologies ---------- */
+  researchNode(id) { const t = TECHS.find(t => t.id === id); return t ? { node: t } : null; }
   hasResearch(id) { return this.state.research.done.includes(id); }
-  // sum of a research effect over everything researched
-  rb(key) { let v = 0; for (const id of this.state.research.done) { const r = this.researchNode(id); if (r && r.node.fx[key]) v += r.node.fx[key]; } return v; }
+  // your era: one more for every key technology
+  get era() { let e = 1; for (const k of KEY_TECHS) if (this.hasResearch(k)) e++; return e; }
+  // a bonus from technologies and Great Buildings (e.g. 'wallHp' → +0.3)
+  rb(key) {
+    let v = 0; for (const id of this.state.research.done) { const r = this.researchNode(id); if (r && r.node.fx[key]) v += r.node.fx[key]; }
+    const W = WONDER_FX[key]; if (W) for (const [type, per] of W) v += per * this.wonderLevel(type);
+    return v;
+  }
+  hallLevel() { let L = 0; for (const b of this.buildings.values()) if (b.type === 'strategy' && this.works(b)) L = Math.max(L, b.level); return L; }
+  wisdomRate() { return WISDOM.base + WISDOM.perHall * this.hallLevel() + 0.25 * this.wonderLevel('daibutsu'); }   // per minute
+  wisdomCap() { return WISDOM.cap + WISDOM.capPerHall * this.hallLevel() + 4 * this.wonderLevel('daibutsu'); }
+  gainWisdom(n, why) {
+    const S = this.state, before = Math.floor(S.wisdom);
+    S.wisdom = Math.min(this.wisdomCap() + (why ? n : 0), S.wisdom + n);     // gifts may go over the cap
+    if (why && Math.floor(S.wisdom) > before) this.toast(`+${Math.floor(S.wisdom) - before} Wisdom — ${why}`);
+  }
+  techPts(id) { return (this.state.research.pts || {})[id] || 0; }
   researchBlock(id) {
     const r = this.researchNode(id); if (!r) return 'Unknown';
     if (this.hasResearch(id)) return 'Researched';
-    if (![...this.buildings.values()].some(b => b.type === 'strategy' && b.done)) return 'Build a Strategy Hall first';
-    if (this.state.research.active) return 'Scholars are busy with another study';
     const miss = (r.node.req || []).filter(id => !this.hasResearch(id)).map(id => this.researchNode(id).node.name);
-    if (miss.length) return `Needs ${miss.join(' and ')} first`;
-    if (!this.canAfford(r.node.cost)) return 'Not enough resources';
+    if (miss.length) return `Needs ${miss.join(' and ')}`;
+    if (r.node.era > this.era) return `Needs the ${ERAS[r.node.era - 1] ? ERAS[r.node.era - 1].short : ''} era`;
     return '';
   }
-  startResearch(id) {
+  // put Wisdom into a technology (n = how much; defaults to everything that fits)
+  investTech(id, n = Infinity) {
     const why = this.researchBlock(id); if (why) { this.toast(why, 'warn'); return false; }
-    const r = this.researchNode(id); this.pay(r.node.cost);
-    this.state.research.active = { id, progress: 0, time: r.node.time };
-    this.toast(`Your scholars begin studying ${r.node.name}`); this.emit('research'); return true;
+    const T = this.researchNode(id).node, S = this.state, have = Math.floor(S.wisdom), need = T.pts - this.techPts(id);
+    const put = Math.min(have, need, n); if (put <= 0) { this.toast(need <= 0 ? 'Fully studied — complete it' : 'Not enough Wisdom yet — it gathers every minute', 'warn'); return false; }
+    S.wisdom -= put; S.research.pts = S.research.pts || {}; S.research.pts[id] = this.techPts(id) + put;
+    this.emit('research'); return true;
+  }
+  completeTech(id) {
+    const why = this.researchBlock(id); if (why) { this.toast(why, 'warn'); return false; }
+    const T = this.researchNode(id).node;
+    if (this.techPts(id) < T.pts) { this.toast('Invest more Wisdom first', 'warn'); return false; }
+    if (!this.canAfford(T.cost)) { this.toast('Not enough resources to complete it', 'warn'); return false; }
+    this.pay(T.cost); this.state.research.done.push(id); delete this.state.research.pts[id];
+    this.sfx('fanfare');
+    if (T.key) { const E = ERAS[this.era]; this.toast(`A new era: ${E.name} (${E.kanji})!`); this.progress.log(`The clan entered a new era: ${E.name}.`, 'research'); }
+    else { this.toast(`Learned: ${T.name}!`); this.progress.log(`Your scholars mastered ${T.name}.`, 'research'); }
+    this.emit('research'); return true;
+  }
+  startResearch(id) { return this.investTech(id); }
+
+  /* ---------- Great Buildings ---------- */
+  wonderLevel(type) { for (const b of this.buildings.values()) if (b.type === type && this.works(b)) return b.level; return 0; }
+  blueprints(type) { return (this.state.blueprints || {})[type] || 0; }
+  // one blueprint for a wonder you can soon build (up to one era ahead) and haven't yet
+  giveBlueprint(why) {
+    const S = this.state, can = Object.entries(BUILDINGS).filter(([t, d]) => d.wonder && d.wonder.era <= this.era + 1 && this.countType(t) === 0 && this.blueprints(t) < WONDER_BP);
+    if (!can.length) return null;
+    const [t, d] = can[Math.floor(this.rand() * can.length)];
+    S.blueprints = S.blueprints || {}; S.blueprints[t] = this.blueprints(t) + 1;
+    this.toast(`Blueprint found${why ? ' — ' + why : ''}: ${d.name} (${S.blueprints[t]}/${WONDER_BP})${S.blueprints[t] >= WONDER_BP ? ' — ready to build!' : ''}`);
+    this.emit('blueprint', t); return t;
+  }
+  wonderBlock(type) {
+    const d = BUILDINGS[type]; if (!d.wonder) return '';
+    if (this.countType(type)) return '';
+    if (this.era < d.wonder.era) return `${ERAS[d.wonder.era].short} era`;
+    if (this.blueprints(type) < WONDER_BP) return `Blueprints ${this.blueprints(type)}/${WONDER_BP}`;
+    return '';
+  }
+  investWonder(b, n = Infinity) {
+    if (!b || !b.def.wonder || !this.works(b)) return false;
+    if (b.level >= WONDER_MAX) { this.toast('It is at its highest level'); return false; }
+    const need = wonderLevelCost(b.level) - (b.gbPts || 0), put = Math.min(Math.floor(this.state.wisdom), need, n);
+    if (put <= 0) { this.toast('Not enough Wisdom yet', 'warn'); return false; }
+    this.state.wisdom -= put; b.gbPts = (b.gbPts || 0) + put;
+    if (b.gbPts >= wonderLevelCost(b.level)) {
+      b.gbPts = 0; b.level++; this.makeVisual(b); this.sfx('fanfare');
+      this.toast(`The ${b.def.name} rises to level ${b.level}!`); this.progress.log(`The ${b.def.name} reached level ${b.level}.`, 'build');
+    }
+    this.emit('wonder', b); return true;
   }
   beauty() { let s = 0; for (const b of this.buildings.values()) if (b.done && b.def.beauty) s += b.def.beauty; return s; }
   // Harmony: every beauty building adds its own share, up to +30%
@@ -200,7 +264,7 @@ export class Game {
   countJob(job) { let n = 0; for (const v of this.villagers.values()) if (v.job === job) n++; return n; }
   idleVillagers() { return [...this.villagers.values()].filter(v => v.job === 'idle' && !v.away); }
   soldiers(all = false) { return [...this.villagers.values()].filter(v => JOBS[v.job].soldier && (all || !v.away)); }
-  unlocked(type) { return (BUILDINGS[type].th || 1) <= this.thLevel; }
+  unlocked(type) { return (BUILDINGS[type].th || 1) <= this.thLevel && !this.wonderBlock(type); }
   killVillager(id) {
     const v = this.villagers.get(id); if (!v) return;
     if (v.work) { const b = this.buildings.get(v.work); if (b) b.workers = b.workers.filter(i => i !== id); }
@@ -426,12 +490,14 @@ export class Game {
       const to = BUILDINGS[def.upgradeTo];
       return { to: def.upgradeTo, name: `Rebuild as ${to.name}`, cost: to.cost, time: to.time, level: 1, ok: th >= to.th && this.canAfford(to.cost), why: th < to.th ? `Needs Town Hall level ${to.th}` : this.canAfford(to.cost) ? '' : 'Not enough resources' };
     }
+    if (def.wonder) return null;     // wonders grow with Wisdom, not with goods
     const max = def.maxLevel || 1; if (b.level >= max) return { max: true };
     const L = b.level + 1;
     let cost, time, why = '';
     if (b.type === 'townhall') {
       const T = TOWNHALL[L]; cost = T.cost; time = T.time;
-      if (this.pop < T.needPop) why = `Needs ${T.needPop} villagers (you have ${this.pop})`;
+      if (!this.hasResearch('keep' + L)) why = `Research \u201c${this.researchNode('keep' + L).node.name}\u201d first`;
+      else if (this.pop < T.needPop) why = `Needs ${T.needPop} villagers (you have ${this.pop})`;
     } else {
       cost = {}; for (const r in def.cost) cost[r] = round5(def.cost[r] * Math.pow(1.7, L - 1));
       if (def.cat === 'resources' || def.cat === 'military') cost.gold = (cost.gold || 0) + round5(10 * (L - 1) * (L - 1));
@@ -577,18 +643,16 @@ export class Game {
     if (this.linkDirty) this.computeLinks();
     this.raids.update(dt);
     this.clans.update(); this.progress.update(dt); this.life.update(dt);
-    const R = S.research.active;
-    if (R) {
-      R.progress += dt / R.time;
-      if (R.progress >= 1) { S.research.done.push(R.id); S.research.active = null; this.toast(`Research complete: ${this.researchNode(R.id).node.name}!`); this.progress.log(`Your scholars mastered ${this.researchNode(R.id).node.name}.`, 'research'); this.emit('research'); }
-    }
+    if (S.wisdom < this.wisdomCap()) S.wisdom = Math.min(this.wisdomCap(), S.wisdom + dt / 60 * this.wisdomRate());
+    // the Thousand Gates: gold every minute
+    const inari = this.wonderLevel('inari'); if (inari) { this.inariAcc = (this.inariAcc || 0) + dt / 60 * 1.5 * inari; if (this.inariAcc >= 1) { const n = Math.floor(this.inariAcc); this.inariAcc -= n; this.add('gold', n); } }
     if (S.catBuild && S.clock >= S.catBuild.done) { S.catapults = (S.catapults || 0) + 1; S.catBuild = null; this.toast('A catapult is ready at the Siege Workshop'); this.emit('rams'); }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     // wounds heal slowly by themselves, four times faster with a Healer's House (resting inside: faster still)
     const healer = [...this.buildings.values()].some(b => b.def.heals && this.works(b));
     for (const v of this.villagers.values()) {
       if (v.hpf == null || v.away || (this.raids.alarmed && v.rhp != null)) continue;
-      v.hpf += dt / (healer ? (v.resting ? 90 : 150) : 600);
+      v.hpf += dt / (healer ? (v.resting ? 90 : 150) : 600) * (1 + this.rb('healFast'));
       if (v.hpf >= 1) { v.hpf = null; v.resting = false; }
     }
     for (const v of this.villagers.values()) {
@@ -607,7 +671,7 @@ export class Game {
     if (b.fire) return this.life.fightFire(b, dt);
     const mult = this.workMult();
     if (!b.done) {
-      b.progress = Math.min(1, b.progress + dt * mult / Math.max(1, b.def.time));
+      b.progress = Math.min(1, b.progress + dt * mult * (1 + this.rb('buildFast')) / Math.max(1, b.def.time));
       this.syncProgress(b);
       if (b.progress >= 1) this.completeConstruction(b);
     } else if (b.upg) {
@@ -644,14 +708,14 @@ export class Game {
     return {
       v: SAVE_VERSION, plot: PLOT.n, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
-      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined })).concat(this.keptBuildings || []),
+      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined })).concat(this.keptBuildings || []),
       villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null, catapults: S.catapults || 0, catBuild: S.catBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
       marks: [...this.clearMarks.values()].map(m => [m.kind, m.cx, m.cz]),
       raids: this.raids.serialize(),
-      research: S.research,
+      research: { done: S.research.done, pts: S.research.pts || {} }, wisdom: +(+S.wisdom || 0).toFixed(2), blueprints: S.blueprints || {},
       country: this.country.serialize(),
       clans: this.clans.serialize(), progress: this.progress.serialize(), life: this.life.serialize(),
     };
@@ -694,6 +758,7 @@ export class Game {
         const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null });
         if (b.prio) nb.prio = true;
         if (b.trainAs) nb.trainAs = b.trainAs;
+        if (b.gbPts) nb.gbPts = +b.gbPts;
         if (b.upg && b.upg.level) { nb.upg = { level: b.upg.level, progress: clamp(+b.upg.progress || 0, 0, 1), time: +b.upg.time || 60, convert: !!b.upg.convert }; this.makeVisual(nb); }
       } catch (e) { console.warn('Skipped a building while loading', b, e); this.keptBuildings.push(b); }
     }
@@ -710,7 +775,14 @@ export class Game {
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
     for (const [kind, cx, cz] of s.marks || []) this.mark(kind, cx, cz);
-    if (s.research && Array.isArray(s.research.done)) S.research = { done: s.research.done.filter(id => this.researchNode(id)), active: s.research.active && this.researchNode(s.research.active.id) ? s.research.active : null };
+    if (s.research && Array.isArray(s.research.done)) {
+      // (old saves: a study that was under way comes back as half-invested Wisdom)
+      S.research = { done: s.research.done.filter(id => this.researchNode(id)), pts: { ...(s.research.pts || {}) } };
+      const A = s.research.active; if (A && this.researchNode(A.id) && !S.research.done.includes(A.id)) S.research.pts[A.id] = Math.ceil(this.researchNode(A.id).node.pts / 2);
+    }
+    S.wisdom = typeof s.wisdom === 'number' ? s.wisdom : 6; S.blueprints = s.blueprints || {};
+    // (old saves: a Keep that already grew counts as having reached those eras)
+    for (let L = 2; L <= this.thLevel; L++) if (!S.research.done.includes('keep' + L)) S.research.done.push('keep' + L);
     S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null; S.catapults = +s.catapults || 0; S.catBuild = s.catBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
     try { this.life.load(s.life); this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }
@@ -723,6 +795,7 @@ export class Game {
   offlineProgress(sec) {
     sec = Math.min(sec, ECON.offlineCapHours * 3600);
     if (sec < 120) return null;
+    this.state.wisdom = Math.min(this.wisdomCap(), (this.state.wisdom || 0) + sec / 60 * this.wisdomRate() * ECON.offlineEfficiency);
     const got = Object.fromEntries(Object.keys(this.state.res).map(r => [r, 0])), eff = ECON.offlineEfficiency * (1 + this.harmony() / 100);
     for (const v of this.villagers.values()) {
       const J = JOBS[v.job]; if (!J.res || v.away) continue;

@@ -198,7 +198,7 @@ export function thinkVillager(game, v) {
   switch (v.job) {
     case 'farmer': {
       if (game.life.farmMult() <= 0) { const night = game.state.time < 0.22 || game.state.time > 0.8; if (night || Math.random() < 0.5) return goHome(game, v, 'Resting by the fire — the fields lie frozen until spring'); return act(v, 6, 'idle', null, 'The fields lie frozen until spring'); }
-      const spot = game.spotIn(work), planting = game.rand() < 0.5, crop = Math.max(1, Math.round(J.amount * game.life.farmMult()));
+      const spot = game.spotIn(work), planting = game.rand() < 0.5, crop = Math.max(1, Math.round(J.amount * game.life.farmMult() * (1 + game.rb('farmBoost'))));
       return goTo(game, v, spot, () => act(v, J.work / mult * 0.5, planting ? 'kneel' : 'dig',
         () => act(v, J.work / mult * 0.5, planting ? 'dig' : 'kneel', () => pickUp(v, 'wheat', crop), planting ? 'Hoeing the soil' : 'Binding the sheaves'),
         planting ? 'Planting seedlings' : 'Cutting ripe wheat'), 'Walking to the field');

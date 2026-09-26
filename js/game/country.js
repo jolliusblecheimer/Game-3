@@ -176,7 +176,7 @@ export class Country {
     }
     return out;
   }
-  tradeIncome(s) { return Math.round(10 + Math.hypot(s.x, s.z) / 12); }
+  tradeIncome(s) { return Math.round((10 + Math.hypot(s.x, s.z) / 12) * (1 + this.game.rb('tradeBoost'))); }
   openRoute(s) {
     const g = this.game, cost = { gold: 100, wood: 60 };
     if (!g.canAfford(cost)) return g.toast('Not enough to open the trade route', 'warn');
@@ -199,6 +199,8 @@ export class Country {
     if (!g.canAfford(cost)) return g.toast('Not enough for an offering', 'warn');
     g.pay(cost); I.offerT = this.clock + 720; I.offers = (I.offers || 0) + 1;
     g.life.moodBoost = Math.max(g.life.moodBoost, 18);
+    g.gainWisdom(3, 'the monks share their teachings');
+    if (g.rand() < 0.3) g.giveBlueprint('from the temple archives');
     g.toast(`The monks of ${s.name} pray for your village. Spirits rise.`); g.emit('country'); return true;
   }
   askMonk(s) {
@@ -289,7 +291,7 @@ export class Country {
       const guards = [...g.villagers.values()].filter(v => v.away === 'hold:' + id);
       if (this.clock >= hold.tributeT) {
         hold.tributeT = this.clock + 60;
-        for (const r in S.tribute) g.add(r, S.tribute[r]);
+        const nijo = 1 + 0.08 * g.wonderLevel('nijo'); for (const r in S.tribute) g.add(r, Math.round(S.tribute[r] * nijo));
       }
       // an enemy force gathers: you get a warning and time to respond
       if (!hold.attack && this.clock >= hold.checkT) {

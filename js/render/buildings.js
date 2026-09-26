@@ -4,6 +4,7 @@ import { ModelBuilder, Mesher, MAT } from './geo.js';
 
 const WOOD = '#5a3a28', WOOD_L = '#8b5e3c', WOOD_D = '#3b2619', PLASTER = '#efe7d6', ROOF = '#3a414d', ROOF_D = '#262b33';
 const STONE = '#8e897e', STONE_D = '#6d685f', THATCH = '#b8955a', THATCH_D = '#8f7040', VERM = '#c2412d', GOLD = '#dcaa45';
+const WATER = '#4f8fb0';
 const PAPER = '#f3e9cf', DIRT = '#7d6245', SAND = '#e7dec8', MOSS = '#5f8a3e', BAMBOO = '#a9b25e', DARK = '#23252a';
 
 // mortar lines on a sloped stone base (frustum wb×db → wt×dt, height h)
@@ -431,6 +432,163 @@ const MODELS = {
     backWindow(b, 0, 1.7, -(d - 0.9) / 2 - 0.02, 0.8, 0.45, PAPER);
     hangingLantern(b, -w / 2 + 0.5, 1.9, d / 2 - 0.15); if (L >= 3) hangingLantern(b, w / 2 - 0.5, 1.9, d / 2 - 0.15);
   },
+  // ================= Great Buildings =================
+  // Kinkaku-ji: the Golden Pavilion on its mirror pond
+  kinkaku(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.16, d - 0.1, STONE_D, [0, 0.08, 0]);
+    m.box(w - 0.7, 0.1, d - 0.7, WATER, [0, 0.17, 0]);
+    m.box(4.2, 0.3, 3.6, MOSS, [0, 0.25, -0.9]);
+    m.box(3.2, 1.4, 2.6, PAPER, [0, 1.1, -0.9]); for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(0.16, 1.4, 0.16, WOOD, [sx * 1.5, 1.1, -0.9 + sz * 1.2]);
+    m.box(3.3, 0.12, 2.7, WOOD, [0, 1.8, -0.9]); m.box(3.6, 0.1, 3.0, WOOD_L, [0, 0.45, -0.9]);
+    m.roof(3.2, 2.6, 0.7, ROOF_D, 1.85, { over: 0.5, ridge: 0.5, cz: -0.9 });
+    m.box(2.9, 1.2, 2.3, GOLD, [0, 2.95, -0.9]); m.box(3.3, 0.1, 2.7, GOLD, [0, 2.35, -0.9]);
+    m.roof(2.9, 2.3, 0.6, ROOF_D, 3.55, { over: 0.45, ridge: 0.5, cz: -0.9 });
+    m.box(1.8, 1.0, 1.5, GOLD, [0, 4.6, -0.9]);
+    m.roof(1.8, 1.5, 1.4, ROOF_D, 5.1, { over: 0.4, ridge: 0.25, cz: -0.9, ornaments: GOLD });
+    m.box(0.16, 0.5, 0.36, GOLD, [0, 6.8, -0.9]); m.box(0.5, 0.1, 0.1, GOLD, [0, 6.95, -0.9]);          // the phoenix
+    for (const [x, z] of [[-w / 2 + 0.7, d / 2 - 0.8], [w / 2 - 0.8, d / 2 - 0.9], [w / 2 - 0.9, -d / 2 + 0.8]]) { m.cyl(0.1, 0.14, 1.2, 5, WOOD, [x, 0.6, z]); m.cone(0.9, 1.4, 6, '#2f5a36', [x, 1.6, z], [0, 0, 0.2]); }
+    for (let i = 0; i < 5; i++) m.ball(0.3 + (i % 2) * 0.15, '#8a857a', [-2.2 + i * 1.1, 0.2, 2.2 - (i % 3) * 0.3], [1.2, 0.6, 1]);
+    if (L >= 3) stoneLantern(b, 2.6, 2.4, 0.9);
+    if (L >= 6) { b.g.box(0.25, 0.25, 0.25, '#ffd76a', [0, 7.3, -0.9]); }
+  },
+  // The Great Buddha: seated in bronze on a lotus throne, a hall behind, incense before him
+  daibutsu(b, w, d) {
+    const m = b.m, L = b.level || 1, BR = '#5d6b58', BR2 = '#4d5a48';
+    m.box(w - 0.1, 0.14, d - 0.1, '#b8a888', [0, 0.07, 0]);
+    // the hall behind
+    m.box(w - 1.2, 3.2, 1.6, WOOD, [0, 1.75, -d / 2 + 1.1]); m.roof(w - 1.2, 1.6, 1.6, ROOF, 3.35, { over: 0.6, ridge: 0.6, cz: -d / 2 + 1.1, ornaments: GOLD });
+    // plinth, lotus, the Buddha
+    m.frustum(4.2, 3.6, 3.6, 3.0, 0.8, STONE, [0, 0.14, 0.2]);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; m.cone(0.45, 0.9, 4, '#8b6f4a', [Math.cos(a) * 1.3, 1.25, 0.2 + Math.sin(a) * 1.1], [Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6]); }
+    m.cyl(1.5, 1.6, 0.5, 14, BR2, [0, 1.2, 0.2]);                                  // crossed legs
+    m.frustum(2.2, 1.6, 1.5, 1.0, 2.2, BR, [0, 1.3, 0.1]);                         // body in robes
+    m.ball(0.55, BR, [-0.9, 3.0, 0.1], [1, 1.2, 1]); m.ball(0.55, BR, [0.9, 3.0, 0.1], [1, 1.2, 1]); // shoulders
+    m.box(1.0, 0.25, 0.5, BR2, [0, 1.9, 0.75]);                                   // hands in the lap
+    m.cyl(0.35, 0.4, 0.4, 10, BR, [0, 3.65, 0.1]);                                // neck
+    m.ball(0.85, BR, [0, 4.45, 0.12], [1, 1.12, 1]);                              // head
+    for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; m.ball(0.14, BR2, [Math.cos(a) * 0.55, 5.1, 0.12 + Math.sin(a) * 0.55]); }
+    m.ball(0.3, BR2, [0, 5.35, 0.12]); m.box(0.18, 0.5, 0.08, BR2, [-0.85, 4.3, 0.15]); m.box(0.18, 0.5, 0.08, BR2, [0.85, 4.3, 0.15]);
+    m.box(0.12, 0.05, 0.05, '#2a2e2a', [-0.28, 4.5, 0.95]); m.box(0.12, 0.05, 0.05, '#2a2e2a', [0.28, 4.5, 0.95]);
+    // incense burner and smoke of lanterns
+    m.cyl(0.35, 0.45, 0.5, 8, BR2, [0, 0.4, d / 2 - 0.9]); m.roof(0.8, 0.8, 0.4, BR2, 0.7, { over: 0.1, ridge: 0.5, cz: d / 2 - 0.9 });
+    for (const x of [-2.6, 2.6]) stoneLantern(b, x, d / 2 - 0.9, 0.9);
+    if (L >= 4) b.g.cyl(1.2, 1.2, 0.05, 20, '#ffd76a', [0, 4.45, -0.35], [Math.PI / 2, 0, 0]);   // halo
+  },
+  // Itsukushima: the great vermilion gate standing in the sea
+  itsukushima(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.12, d - 0.1, SAND, [0, 0.06, 0]);
+    m.box(w - 0.5, 0.1, d - 1.6, WATER, [0, 0.13, -0.4]);
+    // the o-torii
+    for (const s of [-1, 1]) { m.cyl(0.26, 0.3, 5.2, 10, VERM, [s * 1.7, 2.7, -0.4]); for (const t of [-1, 1]) m.cyl(0.14, 0.17, 4.2, 8, VERM, [s * 1.7 + t * 0.75, 2.2, -0.4 + 0.5 * t], [0.12 * t, 0, -0.12 * s * t]); }
+    m.box(5.8, 0.35, 0.5, DARK, [0, 5.35, -0.4], [0, 0, 0]); m.box(6.4, 0.18, 0.62, DARK, [0, 5.6, -0.4]);
+    m.box(4.6, 0.3, 0.36, VERM, [0, 4.5, -0.4]); m.box(0.5, 0.8, 0.12, DARK, [0, 4.95, -0.2]); m.box(0.4, 0.6, 0.1, GOLD, [0, 4.95, -0.14]);
+    for (const x of [-2.3, 2.3]) m.box(0.3, 0.2, 0.3, VERM, [x, 5.72, -0.4], [0, 0, x > 0 ? -0.25 : 0.25]);
+    // the shore: a small shrine hall and lanterns
+    m.box(2.6, 1.3, 0.9, VERM, [0, 0.8, d / 2 - 0.55]); m.roof(2.6, 0.9, 0.7, '#4a4038', 1.45, { over: 0.35, ridge: 0.5, cz: d / 2 - 0.55 });
+    for (const x of [-2.3, 2.3]) stoneLantern(b, x, d / 2 - 0.6, 0.8);
+    if (L >= 5) for (let i = 0; i < 6; i++) b.g.cyl(0.08, 0.08, 0.14, 6, '#ffd76a', [-1.9 + i * 0.76, 0.22, 1.2], [0, 0, 0]);
+  },
+  // White Heron Keep: a white castle on a sloping stone base, gables and grey tiles
+  himeji(b, w, d) {
+    const m = b.m, L = b.level || 1, WH = '#f4f2ec';
+    m.frustum(w - 0.4, d - 0.4, w - 2.0, d - 2.0, 2.4, STONE, [0, 0, 0]); courses(m, w - 0.4, d - 0.4, w - 2.0, d - 2.0, 2.4, 0, 6);
+    const tiers = [[5.6, 5.0, 1.8], [4.6, 4.0, 1.6], [3.6, 3.1, 1.5], [2.6, 2.2, 1.4]];
+    let y = 2.4;
+    tiers.forEach(([tw, td, th], i) => {
+      m.box(tw, th, td, WH, [0, y + th / 2, 0]);
+      for (let k = -1; k <= 1; k++) { m.box(0.34, 0.3, 0.05, DARK, [k * tw / 3.2, y + th * 0.55, td / 2 + 0.01]); m.box(0.34, 0.3, 0.05, DARK, [k * tw / 3.2, y + th * 0.55, -td / 2 - 0.01]); }
+      m.roof(tw, td, 1.0, '#5c6570', y + th, { over: 0.55, ridge: 0.45, ornaments: i === 3 ? GOLD : null });
+      m.frustum(1.6, 0.9, 0.2, 0.9, 0.6, '#5c6570', [0, y + th + 0.1, td / 2 + 0.4]);      // chidori gable
+      y += th + 0.5;
+    });
+    m.box(0.2, 0.5, 0.3, GOLD, [-0.75, y + 0.9, 0], [0, 0, 0.3]); m.box(0.2, 0.5, 0.3, GOLD, [0.75, y + 0.9, 0], [0, 0, -0.3]);
+    for (const x of [-w / 2 + 0.8, w / 2 - 0.8]) { m.box(1.2, 1.2, 1.2, WH, [x, 3.0, d / 2 - 1.2]); m.roof(1.2, 1.2, 0.6, '#5c6570', 3.6, { over: 0.3, ridge: 0.5, cx: x, cz: d / 2 - 1.2 }); }
+    if (L >= 4) for (const x of [-1.5, 1.5]) hangingLantern(b, x, 3.4, d / 2 - 1.0);
+  },
+  // The great bell in its open tower
+  bell(b, w, d) {
+    const m = b.m, L = b.level || 1, BR = '#6b5a3a';
+    m.frustum(w - 0.4, d - 0.4, w - 1.2, d - 1.2, 0.9, STONE, [0, 0, 0]);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { m.box(0.3, 3.6, 0.3, WOOD, [sx * 1.6, 2.7, sz * 1.6], [sz * 0.05, 0, -sx * 0.05]); }
+    for (const z of [-1.6, 1.6]) m.box(3.6, 0.22, 0.24, WOOD_D, [0, 2.2, z]); for (const x of [-1.6, 1.6]) m.box(0.24, 0.22, 3.6, WOOD_D, [x, 2.2, 0]);
+    m.box(3.7, 0.24, 0.3, WOOD_D, [0, 4.4, 0]);
+    m.roof(4.0, 4.0, 1.8, ROOF, 4.5, { over: 0.8, ridge: 0.3, ornaments: GOLD });
+    // the bell
+    m.cyl(0.08, 0.08, 0.5, 6, DARK, [0, 4.1, 0]);
+    m.cyl(0.62, 0.95, 2.0, 16, BR, [0, 2.85, 0]); m.ball(0.62, BR, [0, 3.85, 0], [1, 0.5, 1]);
+    for (let i = 0; i < 4; i++) m.box(1.95, 0.06, 0.06, '#57492f', [0, 2.2 + i * 0.45, 0.72 - i * 0.04]);
+    for (let r = 0; r < 3; r++) for (let c = -2; c <= 2; c++) m.ball(0.06, '#57492f', [c * 0.17, 3.45 - r * 0.17, 0.66]);
+    // the striking log on ropes
+    m.cyl(0.18, 0.18, 2.2, 8, WOOD_L, [-1.3, 2.5, 0], [0, 0, Math.PI / 2]); m.box(0.03, 1.5, 0.03, '#d9c79a', [-1.8, 3.3, 0]); m.box(0.03, 1.5, 0.03, '#d9c79a', [-0.8, 3.3, 0]);
+    if (L >= 3) for (const x of [-2.2, 2.2]) stoneLantern(b, x, d / 2 - 0.5, 0.7);
+  },
+  // Fushimi Inari: tunnels of vermilion torii up the hill, a shrine and two stone foxes
+  inari(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.12, d - 0.1, '#6f8f4f', [0, 0.06, 0]);
+    for (const lane of [-1.2, 1.2]) {
+      m.box(0.9, 0.04, d - 1.2, '#b8a888', [lane, 0.14, 0.2]);
+      const n = 6 + Math.min(4, L - 1);
+      for (let i = 0; i < n; i++) {
+        const z = d / 2 - 0.6 - i * (d - 1.6) / n, y = i * 0.05;
+        for (const s of [-1, 1]) m.box(0.12, 1.9, 0.12, VERM, [lane + s * 0.48, 1.05 + y, z]);
+        m.box(1.25, 0.12, 0.18, DARK, [lane, 2.0 + y, z]); m.box(1.05, 0.1, 0.12, VERM, [lane, 1.75 + y, z]);
+      }
+    }
+    m.box(2.6, 1.3, 1.1, VERM, [0, 1.0, -d / 2 + 0.8]); m.roof(2.6, 1.1, 0.8, '#4a4038', 1.65, { over: 0.35, ridge: 0.5, cz: -d / 2 + 0.8, ornaments: GOLD });
+    for (const x of [-w / 2 + 0.6, w / 2 - 0.6]) { m.box(0.5, 0.5, 0.5, STONE, [x, 0.3, d / 2 - 0.6]); m.ball(0.22, '#f4f2ec', [x, 0.8, d / 2 - 0.6], [0.8, 1.2, 1]); m.cone(0.07, 0.25, 4, '#f4f2ec', [x - 0.08, 1.12, d / 2 - 0.55]); m.cone(0.07, 0.25, 4, '#f4f2ec', [x + 0.08, 1.12, d / 2 - 0.55]); m.box(0.14, 0.06, 0.1, VERM, [x, 0.65, d / 2 - 0.42]); }
+  },
+  // Osaka Castle: a great black-and-gold keep on a huge stone base above a moat
+  osaka(b, w, d) {
+    const m = b.m, L = b.level || 1, BK = '#2a2c30';
+    m.box(w - 0.1, 0.1, d - 0.1, WATER, [0, 0.05, 0]);
+    m.frustum(w - 1.0, d - 1.0, w - 3.0, d - 3.0, 3.0, STONE, [0, 0, 0]); courses(m, w - 1.0, d - 1.0, w - 3.0, d - 3.0, 3.0, 0, 7);
+    const tiers = [[6.4, 5.8, 1.8], [5.4, 4.8, 1.6], [4.4, 3.9, 1.5], [3.5, 3.1, 1.4], [2.6, 2.3, 1.3]];
+    let y = 3.0;
+    tiers.forEach(([tw, td, th], i) => {
+      m.box(tw, th, td, i % 2 ? '#f0ede4' : BK, [0, y + th / 2, 0]);
+      for (let k = -1; k <= 1; k++) { m.box(0.3, 0.3, 0.05, GOLD, [k * tw / 3.2, y + th * 0.6, td / 2 + 0.01]); m.box(0.3, 0.3, 0.05, GOLD, [k * tw / 3.2, y + th * 0.6, -td / 2 - 0.01]); }
+      m.roof(tw, td, 0.9, '#4d6a6a', y + th, { over: 0.6, ridge: 0.45, ridgeHex: GOLD, ornaments: GOLD });
+      y += th + 0.45;
+    });
+    m.box(0.25, 0.7, 0.4, GOLD, [-0.7, y + 0.7, 0], [0, 0, 0.35]); m.box(0.25, 0.7, 0.4, GOLD, [0.7, y + 0.7, 0], [0, 0, -0.35]);   // shachihoko
+    m.box(1.6, 0.15, 1.8, WOOD, [0, 0.3, d / 2 - 0.6]);            // the bridge over the moat
+    if (L >= 3) for (const x of [-2, 2]) hangingLantern(b, x, 4.3, 3.0);
+    if (L >= 7) b.g.box(0.3, 0.3, 0.3, '#ffd76a', [0, y + 1.3, 0]);
+  },
+  // Sanjūsangen-dō: a very long hall, its open front showing rows of golden statues
+  sanjusangendo(b, w, d) {
+    const m = b.m, L = b.level || 1;
+    m.box(w - 0.1, 0.3, d - 0.1, STONE, [0, 0.15, 0]);
+    m.box(w - 0.8, 2.2, d - 1.6, '#e8e2d4', [0, 1.4, -0.3]);
+    const bays = 11;
+    for (let i = 0; i <= bays; i++) m.box(0.16, 2.2, 0.16, VERM, [-(w - 0.8) / 2 + i * (w - 0.8) / bays, 1.4, (d - 1.6) / 2 - 0.3]);
+    m.box(w - 0.8, 0.2, 0.2, VERM, [0, 2.4, (d - 1.6) / 2 - 0.3]);
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 26; i++) { const x = -(w - 1.6) / 2 + i * (w - 1.6) / 25; m.box(0.18, 0.55, 0.14, GOLD, [x, 0.6 + r * 0.32, 0.4 - r * 0.35]); m.ball(0.08, GOLD, [x, 0.95 + r * 0.32, 0.4 - r * 0.35]); }
+    m.box(w - 0.2, 0.15, 0.9, WOOD_L, [0, 0.35, d / 2 - 0.5]);
+    m.roof(w - 0.8, d - 1.2, 1.5, ROOF, 2.5, { over: 0.7, ridge: 0.8 });
+    if (L >= 3) for (const x of [-w / 2 + 1, w / 2 - 1]) hangingLantern(b, x, 2.1, d / 2 - 0.3);
+  },
+  // Nijō Palace: painted halls with cypress-bark roofs behind a gilded Kara-mon gate, a garden pond
+  nijo(b, w, d) {
+    const m = b.m, L = b.level || 1, BARK = '#6a4a3a';
+    m.box(w - 0.1, 0.12, d - 0.1, '#c9bfa6', [0, 0.06, 0]);
+    for (const [x, z, hw, hd] of [[-1.6, -1.2, 4.2, 3.0], [2.4, -2.0, 3.4, 2.6]]) {
+      m.box(hw, 1.7, hd, PLASTER, [x, 1.0, z]); m.box(hw + 0.1, 0.2, hd + 0.1, WOOD, [x, 1.85, z]);
+      for (let i = 0; i < 5; i++) m.box(0.12, 1.7, 0.12, WOOD, [x - hw / 2 + i * hw / 4, 1.0, z + hd / 2]);
+      m.roof(hw, hd, 1.4, BARK, 1.95, { over: 0.55, ridge: 0.45, cx: x, cz: z, ridgeHex: '#3b2a20', ornaments: GOLD });
+    }
+    // the Kara-mon: a gilded gate with a curved gable
+    const gz = d / 2 - 0.7;
+    for (const s of [-1, 1]) m.box(0.3, 2.2, 0.3, DARK, [s * 1.0, 1.1, gz]);
+    m.box(2.4, 0.5, 0.6, GOLD, [0, 2.3, gz]); m.box(2.2, 0.3, 0.5, VERM, [0, 1.95, gz]);
+    m.frustum(3.0, 1.4, 0.4, 1.1, 1.0, BARK, [0, 2.55, gz]); m.box(0.5, 0.4, 0.1, GOLD, [0, 3.0, gz + 0.62]);
+    for (const s of [-1, 1]) m.box(1.8, 1.2, 0.2, PLASTER, [s * 2.6, 0.7, gz]);
+    m.box(2.6, 0.1, 1.8, WATER, [w / 2 - 1.8, 0.14, 1.2]); for (let i = 0; i < 4; i++) m.ball(0.25, '#8a857a', [w / 2 - 2.8 + i * 0.6, 0.18, 0.4], [1, 0.6, 1]);
+    if (L >= 3) stoneLantern(b, w / 2 - 0.8, 2.4, 0.8);
+  },
   // Stables: open stalls under a long roof, three horses, hay
   stable(b, w, d) {
     const m = b.m;
@@ -748,7 +906,7 @@ export function buildModel(type, w, d, seed = 1, conn = null, level = 1) {
   b.level = level;
   MODELS[type](b, w, d, conn);
   // every upgrade leaves a visible mark: a clan banner, then lanterns
-  if (level >= 2 && !['wall', 'palisade', 'hedge', 'road', 'stoneroad', 'spikes', 'townhall', 'gate', 'tower'].includes(type)) {
+  if (level >= 2 && !['wall', 'palisade', 'hedge', 'road', 'stoneroad', 'spikes', 'townhall', 'gate', 'tower', 'kinkaku', 'daibutsu', 'itsukushima', 'himeji', 'bell', 'inari', 'osaka', 'sanjusangendo', 'nijo'].includes(type)) {
     const x = w / 2 - 0.25, z = d / 2 - 0.25;
     b.m.cyl(0.04, 0.04, 2.6, 5, WOOD_D, [x, 1.3, z]); b.m.box(0.04, 1.3, 0.45, level >= 4 ? GOLD : VERM, [x, 1.9, z - 0.25]); b.m.cyl(0.12, 0.12, 0.05, 10, '#f5efe0', [x + 0.03, 2.2, z - 0.25], [0, 0, Math.PI / 2]);
     if (level >= 3) hangingLantern(b, -w / 2 + 0.3, 1.3, d / 2 - 0.2);
