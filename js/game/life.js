@@ -47,7 +47,7 @@ export class Life {
 
   /* ---------- the forge ---------- */
   forgeBonus() {
-    for (const b of this.g.buildings.values()) if (b.type === 'blacksmith' && b.done && (b.forgingUntil || 0) > this.S.clock) return 0.08 * b.level;
+    for (const b of this.g.buildings.values()) if (b.type === 'blacksmith' && this.g.works(b) && (b.forgingUntil || 0) > this.S.clock) return 0.08 * b.level;
     return 0;
   }
 
@@ -72,7 +72,7 @@ export class Life {
   }
 
   /* ---------- the market ---------- */
-  market() { for (const b of this.g.buildings.values()) if (b.type === 'market' && b.done) return b; return null; }
+  market() { for (const b of this.g.buildings.values()) if (b.type === 'market' && this.g.works(b)) return b; return null; }
   prices(r) { const m = this.market(), L = m ? m.level : 1, v = VALUE[r]; return { sell: v * (0.55 + 0.1 * L), buy: v * (1.6 - 0.1 * L) }; }
   // sell (n > 0: give goods, get gold) or buy (n < 0: pay gold, get goods), in lots of 10
   trade(r, n) {

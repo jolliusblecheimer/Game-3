@@ -23,6 +23,8 @@ const CONNECT = {
 };
 const round5 = n => Math.max(5, Math.round(n / 5) * 5);
 
+const LINK_EVENTS = new Set(['build', 'built', 'demolish', 'move', 'upgraded']);
+
 export class Game {
   constructor(stage, nature, seed) {
     this.stage = stage; this.scene = stage.scene; this.nature = nature;
@@ -47,7 +49,78 @@ export class Game {
   }
   get season() { return this.life.season; }
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  emit(type, data) { this.version++; for (const fn of this.listeners) fn(type, data); }
+  emit(type, data) { this.version++; if (LINK_EVENTS.has(type)) this.linkDirty = true; for (const fn of this.listeners) fn(type, data); }
+
+  /* ---------- roads: every working building must be connected to the Keep ---------- */
+  // decorations, walls, towers, gates and roads themselves don't need a road
+  needsRoad(b) { const d = b.def; return b.type !== 'townhall' && !d.road && !d.line && d.cat !== 'beauty' && d.cat !== 'defense'; }
+  // does this building do its job? (finished, and connected when it has to be)
+  works(b) { return !!b && b.done && (!this.needsRoad(b) || b.linked !== false); }
+  border(b) { const out = []; for (let x = b.cx; x < b.cx + b.w; x++) out.push([x, b.cz - 1], [x, b.cz + b.d]); for (let z = b.cz; z < b.cz + b.d; z++) out.push([b.cx - 1, z], [b.cx + b.w, z]); return out; }
+  // flood out from the Keep along roads (and through gates and torii) and mark what is reached
+  computeLinks() {
+    const G = this.grid, n = G.n, keep = this.keep; this.linkDirty = false;
+    const cond = new Uint8Array(n * n), reach = new Uint8Array(n * n);
+    for (const b of this.buildings.values()) if (b.def.road || ((b.type === 'gate' || b.type === 'torii') && b.done)) for (let z = b.cz; z < b.cz + b.d; z++) for (let x = b.cx; x < b.cx + b.w; x++) cond[G.idx(x, z)] = 1;
+    const q = [];
+    if (keep) for (const [x, z] of this.border(keep)) if (G.inside(x, z) && cond[G.idx(x, z)] && !reach[G.idx(x, z)]) { reach[G.idx(x, z)] = 1; q.push(G.idx(x, z)); }
+    while (q.length) { const i = q.pop(), x = i % n, z = (i / n) | 0; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= n || c >= n) continue; const j = G.idx(a, c); if (cond[j] && !reach[j]) { reach[j] = 1; q.push(j); } } }
+    this.roadReach = reach;
+    const keepCells = new Set(); if (keep) for (let z = keep.cz; z < keep.cz + keep.d; z++) for (let x = keep.cx; x < keep.cx + keep.w; x++) keepCells.add(x + ',' + z);
+    let off = 0;
+    for (const b of this.buildings.values()) {
+      const was = b.linked;
+      b.linked = !this.needsRoad(b) || this.border(b).some(([x, z]) => G.inside(x, z) && (reach[G.idx(x, z)] || keepCells.has(x + ',' + z)));
+      if (!b.linked && b.done) off++;
+      this.roadSign(b, !b.linked);
+      if (was !== undefined && was !== b.linked && b.done) this.emit('linkChange', b);
+    }
+    this.unlinked = off;
+  }
+  // a little red "no road" sign over a building that isn't connected
+  roadSign(b, on) {
+    if (!on) { if (b.sign) { this.scene.remove(b.sign); b.sign = null; } return; }
+    if (!Game.signMat) {
+      const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+      x.fillStyle = '#b8342a'; x.beginPath(); x.arc(32, 32, 29, 0, Math.PI * 2); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 4; x.stroke();
+      x.fillStyle = '#fff'; x.font = 'bold 30px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('\u9053', 32, 34);
+      x.strokeStyle = '#fff'; x.lineWidth = 5; x.beginPath(); x.moveTo(14, 50); x.lineTo(50, 14); x.stroke();
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; Game.signMat = new THREE.SpriteMaterial({ map: t, depthTest: false });
+    }
+    if (!b.sign) { b.sign = new THREE.Sprite(Game.signMat); b.sign.scale.set(1.8, 1.8, 1); b.sign.renderOrder = 30; this.scene.add(b.sign); }
+    const c = this.center(b); b.sign.position.set(c.x, (b.def.h || 3) + 1.6, c.z);
+  }
+  // lay free dirt roads from a building to the nearest road that reaches the Keep (or to the Keep itself)
+  autoRoad(b, quiet = false) {
+    if (this.linkDirty || !this.roadReach) this.computeLinks();
+    if (b.linked) return true;
+    const G = this.grid, n = G.n, keep = this.keep, reach = this.roadReach;
+    const keepCells = new Set(); if (keep) for (let z = keep.cz; z < keep.cz + keep.d; z++) for (let x = keep.cx; x < keep.cx + keep.w; x++) keepCells.add(G.idx(x, z));
+    const free = i => { const o = G.occ[i]; return o === 0 || o < 0 || (o > 0 && this.isRoad(o)); };
+    const came = new Int32Array(n * n).fill(-2), q = [];
+    for (const [x, z] of this.border(b)) { if (!G.inside(x, z)) continue; const i = G.idx(x, z); if (free(i) && came[i] === -2) { came[i] = -1; q.push(i); } }
+    let goal = -1;
+    for (let h = 0; h < q.length && goal < 0; h++) {
+      const i = q[h], x = i % n, z = (i / n) | 0;
+      if (reach[i]) { goal = i; break; }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= n || c >= n) continue; const j = G.idx(a, c);
+        if (keepCells.has(j)) { goal = i; break; }
+        if (came[j] === -2 && free(j)) { came[j] = i; q.push(j); }
+      }
+    }
+    if (goal < 0) { if (!quiet) this.toast(`No way to lay a road from the ${b.def.name} to the Keep — clear a path`, 'warn'); return false; }
+    for (let i = goal; i !== -1; i = came[i]) { if (G.occ[i] > 0) continue; const x = i % n, z = (i / n) | 0; this.place('road', x, z, 0, { free: true }); }
+    this.computeLinks();
+    return true;
+  }
+  autoRoadAll() {
+    this.computeLinks(); let n = 0;
+    const list = [...this.buildings.values()].filter(b => b.done && !b.linked).sort((a, b) => { const k = this.keep, ca = this.center(a), cb = this.center(b), ck = k ? this.center(k) : { x: 0, z: 0 }; return Math.hypot(ca.x - ck.x, ca.z - ck.z) - Math.hypot(cb.x - ck.x, cb.z - ck.z); });
+    for (const b of list) if (!b.linked && this.autoRoad(b, true)) n++;
+    this.toast(n ? `Dirt roads laid: ${n} building${n > 1 ? 's' : ''} connected to the Keep` : 'Nothing could be connected — clear a path first', n ? '' : 'warn');
+    return n;
+  }
   toast(text, kind = '') { this.emit('toast', { text, kind }); }
   // sound effects go straight to the interface (not through emit: battles make a lot of noise)
   sfx(kind) { if (this.onSfx) this.onSfx(kind); }
@@ -59,12 +132,12 @@ export class Game {
   get thLevel() { const k = this.keep; return k ? k.level : 1; }
   housing() {
     let h = 0;
-    for (const b of this.buildings.values()) if (b.done) { if (b.type === 'townhall') h += TOWNHALL[b.level].housing; else if (b.def.housing) h += b.def.housing + (b.def.housingUp || 2) * (b.level - 1); }
+    for (const b of this.buildings.values()) if (this.works(b)) { if (b.type === 'townhall') h += TOWNHALL[b.level].housing; else if (b.def.housing) h += b.def.housing + (b.def.housingUp || 2) * (b.level - 1); }
     return h;
   }
   storageCap() {
     let s = 0;
-    for (const b of this.buildings.values()) if (b.done) { if (b.type === 'townhall') s += TOWNHALL[b.level].storage; else if (b.def.storage) s += b.def.storage + 300 * (b.level - 1); }
+    for (const b of this.buildings.values()) if (this.works(b)) { if (b.type === 'townhall') s += TOWNHALL[b.level].storage; else if (b.def.storage) s += b.def.storage + 300 * (b.level - 1); }
     return s;
   }
   jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
@@ -74,7 +147,7 @@ export class Game {
     return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
   }
   // can the dojo train this class now? (Keep level, and some need a building: Stables for cavalry, a Shrine for monks)
-  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && this.thLevel >= T.th && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && b.done)); }
+  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && this.thLevel >= T.th && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
   // veterans: kills and battles raise a soldier's rank
   credit(v, kills = 0, battles = 0) {
     if (!v) return;
@@ -501,6 +574,7 @@ export class Game {
     }
     this.countryT = (this.countryT || 0) + dt;
     if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
+    if (this.linkDirty) this.computeLinks();
     this.raids.update(dt);
     this.clans.update(); this.progress.update(dt); this.life.update(dt);
     const R = S.research.active;
@@ -511,7 +585,7 @@ export class Game {
     if (S.catBuild && S.clock >= S.catBuild.done) { S.catapults = (S.catapults || 0) + 1; S.catBuild = null; this.toast('A catapult is ready at the Siege Workshop'); this.emit('rams'); }
     if (S.ramBuild && S.clock >= S.ramBuild.done) { S.rams = (S.rams || 0) + 1; S.ramBuild = null; this.toast('A battering ram is ready at the Siege Workshop'); this.emit('rams'); }
     // wounds heal slowly by themselves, four times faster with a Healer's House (resting inside: faster still)
-    const healer = [...this.buildings.values()].some(b => b.def.heals && b.done);
+    const healer = [...this.buildings.values()].some(b => b.def.heals && this.works(b));
     for (const v of this.villagers.values()) {
       if (v.hpf == null || v.away || (this.raids.alarmed && v.rhp != null)) continue;
       v.hpf += dt / (healer ? (v.resting ? 90 : 150) : 600);
@@ -561,6 +635,8 @@ export class Game {
     const farm = [...this.buildings.values()].find(b => b.type === 'farm');
     const vs = [...this.villagers.values()];
     this.setJob(vs[0], 'farmer', farm.id); this.setJob(vs[1], 'farmer', farm.id);
+    this.computeLinks(); for (const b of [...this.buildings.values()]) if (!b.linked) this.autoRoad(b, true);
+    this.state.settings.roadIntro = true;
     this.toast('Welcome, lord. Your people await your command.');
   }
   serialize() {

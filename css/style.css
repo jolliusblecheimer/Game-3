@@ -451,3 +451,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .maplabel.crowded small, .maplabel.crowded .icon { display: none; }
 .maplabel.crowded { padding: 2px 8px; opacity: .85; }
 .mapside .mission { cursor: pointer; }
+
+/* a building without a road */
+.noroad { background: #fbe3dc; border: 1px solid #e0584a; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.noroad b { color: #9e2a22; }
+.noroad p { margin: 0; font-size: 13px; }

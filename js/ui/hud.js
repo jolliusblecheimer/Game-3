@@ -158,6 +158,17 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
+      this.live(h('button', { class: 'crow link2', title: 'Buildings with no road to the Keep do nothing — click to find one', onclick: () => { const b = [...g.buildings.values()].find(b => b.done && b.linked === false); if (b) { const c = g.center(b); this.cam.target.set(c.x, 0, c.z); this.input.select({ kind: 'building', id: b.id }); } } }, icon('road', 20), h('span', null, 'No road'), h('b')), el => {
+        const n = g.unlinked || 0; el.hidden = !n; el.lastChild.textContent = String(n); el.classList.toggle('attn', n > 0);
+        if (n > 0 && !g.state.settings.roadIntro && this.modal.hidden) {
+          g.state.settings.roadIntro = true;
+          setTimeout(() => this.openModal('Roads to the Keep', h('div', null,
+            h('p', null, 'From now on every working building — homes, fields, workshops, storehouses — must be connected to the Keep by a road. Without one it does nothing: no workers, no homes, no storage.'),
+            h('p', null, `${n} of your buildings aren’t connected yet. They show a red 道 sign.`),
+            h('p', { class: 'sub' }, 'Decorations, walls, gates and towers don’t need roads. Roads may pass through gates. Dirt roads are free.')),
+            [{ label: 'I’ll lay them myself', cls: 'ghost' }, { label: 'Connect them with free dirt roads', fn: () => g.autoRoadAll() }]), 400);
+        }
+      }),
       this.live(h('div', { class: 'crow', title: 'When the next raid is expected (your scouts only know roughly)' }, icon('camp', 20), h('span', null, 'Next raid'), h('b')), el => {
         const R = g.raids, t = R.timeLeft();
         el.hidden = !isFinite(t) && !R.active;
@@ -458,6 +469,7 @@ export class Hud {
     }
     if (type === 'raid') this.sound('war');
     if (type === 'victory') setTimeout(() => this.showVictory(data), 600);
+    if (type === 'linkChange' && data && data.linked === false && data.done) this.toast(`The ${data.def.name} lost its road to the Keep and stops working`, 'warn');
     if (type === 'holdReport' && !document.getElementById('ui').classList.contains('mode-battle')) {
       const r = data;
       this.openModal(`Report from ${r.site.name}`, h('div', null,

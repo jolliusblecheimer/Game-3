@@ -645,6 +645,12 @@ export class Views {
 
   /* ================= keep & workshop panels ================= */
   extraPanel(p, b) {
+    const G0 = this.game;
+    if (b.done && G0.needsRoad(b) && b.linked === false) {
+      const warn = h('div', { class: 'noroad' }, h('b', null, 'No road to the Keep'), h('p', null, `The ${b.def.name} does nothing until a road connects it to the Keep (or to a road that reaches it). Dirt roads are free.`),
+        h('button', { class: 'btn small', onclick: () => { if (G0.autoRoad(b)) { G0.toast(`The ${b.def.name} is connected`); this.hud.renderPanel(); } } }, icon('road', 15), 'Lay the road for me'));
+      p.insertBefore(warn, p.children[2] || null);
+    }
     const g = this.game;
     if (b.type === 'townhall' && b.done) {
       const box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('soldier', 18), h('b', null, 'Commanders')));

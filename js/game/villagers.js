@@ -25,7 +25,7 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 function nearestDropoff(game, v, res) {
   let best = null, bd = Infinity;
   for (const b of game.buildings.values()) {
-    if (!b.done) continue;
+    if (!game.works(b)) continue;
     const d = b.def.dropoff; if (d !== 'all' && d !== res) continue;
     const dd = dist(game.center(b), v.pos); if (dd < bd) { bd = dd; best = b; }
   }
@@ -193,6 +193,7 @@ export function thinkVillager(game, v) {
   if (v.job !== 'idle') setLook(v, J.look);
   if (game.life.festival && !J.soldier && !v.carry && Math.random() < 0.55) return celebrate(game, v);
   if (work && !work.done) return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
+  if (work && !game.works(work)) return act(v, 4, 'idle', null, `Idle — the ${work.def.name} has no road to the Keep`);
   const mult = game.workMult() * game.levelMult(work);
   switch (v.job) {
     case 'farmer': {
