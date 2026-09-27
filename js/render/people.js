@@ -44,7 +44,7 @@ export const LOOKS = {
 
 function toolMesh(m, tool) {
   switch (tool) {
-    case 'hoe': m.box(0.05, 1.3, 0.05, '#7a5a3a', [0, -0.15, 0.1], [1.2, 0, 0]); m.box(0.25, 0.06, 0.2, '#8d9298', [0, -0.42, 0.72], [1.2, 0, 0]); break;
+    case 'hoe': m.box(0.05, 1.3, 0.05, '#7a5a3a', [0, -0.15, 0.1], [1.2, 0, 0]); m.box(0.24, 0.24, 0.05, '#8d9298', [0, -0.06, 0.74], [-0.25, 0, 0]); break;
     case 'axe': m.box(0.05, 0.8, 0.05, '#6b4a2e', [0, -0.05, 0.08]); m.box(0.05, 0.22, 0.25, '#9aa0a6', [0, 0.28, 0.2]); break;
     case 'hammer': m.box(0.05, 0.7, 0.05, '#6b4a2e', [0, -0.05, 0.05]); m.box(0.16, 0.16, 0.3, '#6f7378', [0, 0.28, 0.05]); break;
     case 'pick': m.box(0.05, 0.8, 0.05, '#6b4a2e', [0, -0.05, 0.05]); m.box(0.06, 0.06, 0.6, '#6f7378', [0, 0.3, 0.05], [0.25, 0, 0]); break;
@@ -177,7 +177,7 @@ export class Person {
     this.carry.wood = cm(m => { for (let i = 0; i < 3; i++) m.cyl(0.1, 0.1, 1.1, 6, '#7a5438', [-0.1 + i * 0.1, 1.72 + (i % 2) * 0.1, -0.22], [0, 0, Math.PI / 2]); });
     this.carry.stone = cm(m => { m.box(0.4, 0.3, 0.3, '#a9a397', [0, 1.72, -0.22]); });
     this.carry.gold = cm(m => { m.box(0.34, 0.24, 0.26, '#6b4a2e', [0, 1.68, -0.22]); m.ball(0.1, '#e0b04a', [0.05, 1.85, -0.2]); m.ball(0.08, '#e0b04a', [-0.08, 1.84, -0.24]); });
-    this.pose = 'idle';
+    this.pose = 'idle'; this.shieldArm = !!L.shield;
     root.scale.setScalar(L.scale || 1);
   }
   setCarry(res) { for (const k in this.carry) this.carry[k].visible = k === res; }
@@ -232,9 +232,14 @@ export class Person {
       H.legs.forEach((l, i) => { l.rotation.x = go ? (i === 0 || i === 3 ? s : -s) * 0.7 : 0; });
       H.body.position.y = go ? Math.abs(s) * 0.06 : 0; bodyY += go ? Math.abs(s) * 0.05 : 0;
     }
-    body.position.y = bodyY; body.rotation.x = bodyRX;
-    for (const a of this.arms) { a.position.y = 1.5 + bodyY; }
-    for (const k in this.carry) this.carry[k].position.y = bodyY;
+    // a shield stays up in front of its bearer, whatever the sword arm does
+    if (this.shieldArm && pose !== 'sit' && pose !== 'pray') aL.rotation.set(pose === 'walk' ? -0.35 + Math.sin(t * 9) * 0.08 : -0.6, 0, -0.18);
+    // the torso bends at the hips; shoulders (and what's carried) ride along with it, legs follow the hips down
+    const HIP = 0.82, cb = Math.cos(bodyRX), sb = Math.sin(bodyRX), oy = bodyY + HIP - HIP * cb, oz = -HIP * sb;
+    body.position.set(0, oy, oz); body.rotation.x = bodyRX;
+    this.arms.forEach((a, i) => { a.position.set(i ? 0.33 : -0.33, bodyY + HIP + (1.5 - HIP) * cb, (1.5 - HIP) * sb); a.rotation.x += bodyRX; });
+    for (const l of this.legs) l.position.y = HIP + bodyY;
+    for (const k in this.carry) { this.carry[k].position.set(0, oy, oz); this.carry[k].rotation.x = bodyRX; }
   }
   carryVisible() { for (const k in this.carry) if (this.carry[k].visible) return true; return false; }
   dispose() { this.group.traverse(o => o.geometry && o.geometry.dispose()); }
