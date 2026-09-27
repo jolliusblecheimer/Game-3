@@ -264,3 +264,15 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - Rivers, lakes and the sea now have water.
 - Labels no longer pile up on top of each other.
 - The side panel's buttons no longer vanish under your finger.
+
+## The Scholars' Pavilion and the research tree
+- **Scholars' Pavilion (書院)** (Village tab, from Keep level 1):
+  - It's where your clan does its research. Without it, Wisdom only trickles in (0.25 a minute).
+  - With it you get 1 a minute, and each of its 5 levels adds more Wisdom and more room to store it. The Strategy Hall adds a little more on top.
+  - It's a raised hall of dark timber and glowing shoji in a moss garden, with a lotus pond, a cloud-pruned pine, a red maple and a stone lantern. Each level adds more: a scroll rack and a red arched bridge, then a two-storey library, a lantern path, and a golden finial and a bell.
+- **The research tree:**
+  - Technologies grow along nine branches (Eras, Harvest & trade, Scouts & marches, Spears, Bows, Walls, Siege, Warriors, Commanders), painted in ink on washi paper with ink-wash mountains behind. Each era has a calligraphy kanji at the top, and the current one sits on a red sun.
+  - Learned technologies get a vermilion seal and a plum blossom. The ones you can study now glow gold, and a ring around the seal shows how much Wisdom is in.
+  - Tap a technology to see what it does and what it grows from, and to invest in it. Drag the paper to look around.
+- **Troops come from research:** shield-bearers, ninja, warrior monks, cavalry, samurai, both commanders and catapults.
+- **Move mode:** Move and Demolish only show up in Move mode. Press Move or G, then drag a building, or tap it to demolish it.

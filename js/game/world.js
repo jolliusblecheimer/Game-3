@@ -188,8 +188,9 @@ export class Game {
     return v;
   }
   hallLevel() { let L = 0; for (const b of this.buildings.values()) if (b.type === 'strategy' && this.works(b)) L = Math.max(L, b.level); return L; }
-  wisdomRate() { return WISDOM.base + WISDOM.perHall * this.hallLevel() + 0.25 * this.wonderLevel('daibutsu'); }   // per minute
-  wisdomCap() { return WISDOM.cap + WISDOM.capPerHall * this.hallLevel() + 4 * this.wonderLevel('daibutsu'); }
+  pavilionLevel() { let L = 0; for (const b of this.buildings.values()) if (b.type === 'shoin' && this.works(b)) L = Math.max(L, b.level); return L; }
+  wisdomRate() { const P = this.pavilionLevel(); return WISDOM.base + (P ? WISDOM.pavilion + WISDOM.perPavilion * (P - 1) : 0) + WISDOM.perHall * this.hallLevel() + 0.25 * this.wonderLevel('daibutsu'); }   // per minute
+  wisdomCap() { const P = this.pavilionLevel(); return WISDOM.cap + (P ? WISDOM.capPavilion + WISDOM.capPerPavilion * (P - 1) : 0) + WISDOM.capPerHall * this.hallLevel() + 4 * this.wonderLevel('daibutsu'); }
   gainWisdom(n, why) {
     const S = this.state, before = Math.floor(S.wisdom);
     S.wisdom = Math.min(this.wisdomCap() + (why ? n : 0), S.wisdom + n);     // gifts may go over the cap

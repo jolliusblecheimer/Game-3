@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, TECH_LANES, TECH_LANE, KEY_TECHS, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -700,44 +700,112 @@ export class Hud {
       nijo: `+${3 * L} homes, +${8 * L}% tribute`,
     }[type] || '';
   }
-  // Research: six eras of technologies, paid for with Wisdom and completed with goods
+  // Research: a real tree on washi paper. Branches of ink grow from era to era; learned technologies
+  // are stamped with a vermilion seal and a plum blossom; what you can study now glows gold.
   openResearch() {
-    const g = this.game, body = h('div', { class: 'techtree' });
-    const render = () => {
-      body.textContent = '';
-      const E = ERAS[g.era], cap = g.wisdomCap();
-      body.append(h('div', { class: 'thead' },
-        h('div', { class: 'era' }, h('span', { class: 'ek' }, E.kanji), h('span', null, h('small', null, `Era ${g.era} of 6`), h('b', null, E.name))),
-        this.live(h('div', { class: 'wis' }, icon('wisdom', 22), h('span', null, h('b'), h('small')), h('div', { class: 'bar' }, h('i'))), el => {
-          const w = Math.floor(g.state.wisdom); el.querySelector('b').textContent = `${w} / ${g.wisdomCap()} Wisdom`;
-          el.querySelector('small').textContent = `+${g.wisdomRate().toFixed(1)} a minute${w >= g.wisdomCap() ? ' — full! spend it' : ''}`; el.querySelector('.bar > i').style.width = `${Math.min(100, w / g.wisdomCap() * 100)}%`;
-        })),
-        h('p', { class: 'sub' }, 'Wisdom gathers every minute (faster with a Strategy Hall and the Great Buddha) and comes from battles, raids you beat off, temples and tasks. Put it into a technology; once it is full, pay the goods to complete it. Each era’s key technology (★) opens the next Keep level.'));
-      const cols = h('div', { class: 'ecols' });
-      for (let e = 1; e <= 6; e++) {
-        const col = h('div', { class: 'ecol' + (e === g.era ? ' now' : e < g.era ? ' past' : ' future') }, h('div', { class: 'ehead' }, h('span', { class: 'ek' }, ERAS[e].kanji), h('b', null, ERAS[e].short)));
-        for (const T of TECHS.filter(t => t.era === e).sort((a, b) => a.row - b.row)) {
-          const done = g.hasResearch(T.id), why = g.researchBlock(T.id), pts = g.techPts(T.id), full = pts >= T.pts;
-          const card = h('div', { class: 'tech' + (done ? ' done' : why ? ' locked' : full ? ' full' : '') + (T.key ? ' key' : '') },
-            h('b', null, (T.key ? '★ ' : '') + T.name), h('small', null, T.desc));
-          if (done) card.append(h('span', { class: 'pill' }, '✓ Learned'));
-          else if (why) card.append(h('small', { class: 'why' }, why));
-          else {
-            card.append(h('div', { class: 'bar' }, h('i', { style: `width:${pts / T.pts * 100}%` })), h('small', { class: 'sub' }, `${pts} / ${T.pts} Wisdom`));
-            if (!full) card.append(h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { if (g.investTech(T.id, 1)) render(); } }, '+1'), h('button', { class: 'btn small', onclick: () => { if (g.investTech(T.id)) render(); } }, icon('wisdom', 14), 'Invest')));
-            else card.append(h('div', { class: 'row' }, costChips(g, T.cost, this.live), h('button', { class: 'btn small', onclick: () => { if (g.completeTech(T.id)) render(); } }, 'Complete')));
-          }
-          col.append(card);
-        }
-        cols.append(col);
+    const g = this.game, NS = 'http://www.w3.org/2000/svg';
+    const ERA_W = 350, LANE_H = 88, NW = 160, NH = 64, GUT = 118, TOP = 84;
+    const W = GUT + 6 * ERA_W + 24, H = TOP + TECH_LANES.length * LANE_H + 26;
+    const laneIx = Object.fromEntries(TECH_LANES.map((l, i) => [l.id, i]));
+    // where every technology sits: its era column, its branch (lane), side by side when two share a spot
+    const pos = {};
+    for (let e = 1; e <= 6; e++) for (const L of TECH_LANES) {
+      const here = TECHS.filter(t => t.era === e && (TECH_LANE[t.id] || 'unit') === L.id);
+      here.forEach((t, k) => { pos[t.id] = { x: GUT + (e - 1) * ERA_W + (here.length === 1 ? (ERA_W - NW) / 2 : 12 + k * (NW + 14)), y: TOP + laneIx[L.id] * LANE_H + (LANE_H - NH) / 2, lane: L }; });
+    }
+    const state = t => g.hasResearch(t.id) ? 'done' : g.researchBlock(t.id) ? 'locked' : g.techPts(t.id) >= t.pts ? 'full' : 'open';
+    const body = h('div', { class: 'rtree' });
+    let sel = this.researchSel && TECHS.find(t => t.id === this.researchSel) || TECHS.find(t => state(t) === 'full') || TECHS.find(t => state(t) === 'open') || TECHS[0];
+    const wrap = h('div', { class: 'rt-wrap' }), detail = h('div', { class: 'rt-detail' });
+    const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+    const drawTree = () => {
+      wrap.textContent = '';
+      const canvas = h('div', { class: 'rt-canvas', style: `width:${W}px;height:${H}px` });
+      const svg = el('svg', { width: W, height: H, class: 'rt-svg' });
+      // paper, ink-wash mountains, era columns
+      const defs = el('defs', {});
+      const grad = el('linearGradient', { id: 'rtmist', x1: 0, y1: 0, x2: 0, y2: 1 }); grad.append(el('stop', { offset: '0', 'stop-color': '#5b5046', 'stop-opacity': '0.16' }), el('stop', { offset: '1', 'stop-color': '#5b5046', 'stop-opacity': '0' }));
+      defs.append(grad); svg.append(defs);
+      for (const [k, amp, base, op] of [[0, 60, H - 40, 0.9], [1, 90, H - 10, 0.6]]) {
+        let d = `M0 ${H} L0 ${base}`;
+        for (let x = 0; x <= W; x += 60) d += ` Q${x + 30} ${base - amp * (0.5 + 0.5 * Math.sin(x * 0.013 + k * 2))} ${x + 60} ${base - amp * 0.3 * (1 + Math.cos(x * 0.021 + k))}`;
+        svg.append(el('path', { d: d + ` L${W} ${H} Z`, fill: 'url(#rtmist)', opacity: op }));
       }
-      body.append(h('div', { class: 'ewrap' }, cols));
-      requestAnimationFrame(() => { const now = body.querySelector('.ecol.now'); const wrap = body.querySelector('.ewrap'); if (now && wrap && !this.researchScrolled) { wrap.scrollLeft = now.offsetLeft - 20; this.researchScrolled = true; } });
+      for (let e = 1; e <= 6; e++) {
+        const x0 = GUT + (e - 1) * ERA_W, cx = x0 + ERA_W / 2, now = e === g.era;
+        if (e > 1) svg.append(el('path', { d: `M${x0} ${TOP - 14} C${x0 + 6} ${H * 0.4} ${x0 - 5} ${H * 0.7} ${x0 + 2} ${H - 16}`, class: 'rt-sep' }));
+        if (now) svg.append(el('circle', { cx, cy: 36, r: 30, class: 'rt-sun' }));
+        const k = el('text', { x: cx, y: 50, class: 'rt-eraK' + (now ? ' now' : e < g.era ? ' past' : '') }); k.textContent = ERAS[e].kanji; svg.append(k);
+        const n = el('text', { x: cx, y: 72, class: 'rt-eraN' }); n.textContent = `${e} · ${ERAS[e].short}`; svg.append(n);
+      }
+      TECH_LANES.forEach((L, i) => {
+        const y = TOP + i * LANE_H + LANE_H / 2;
+        svg.append(el('line', { x1: GUT - 8, y1: y, x2: W - 10, y2: y, class: 'rt-lane' }));
+        const t = el('text', { x: 14, y: y + 5, class: 'rt-laneN' }); t.textContent = L.name; svg.append(t);
+        const s = el('text', { x: GUT - 30, y: y + 8, class: 'rt-laneK' }); s.textContent = L.seal; svg.append(s);
+      });
+      // the branches: tapered ink strokes from what you need to what it opens
+      for (const t of TECHS) for (const id of t.req || []) {
+        const a = pos[id], b = pos[t.id]; if (!a || !b) continue;
+        if (KEY_TECHS.includes(id) && !t.key && (t.req || []).length > 0 && TECH_LANE[t.id] !== 'key') continue;   // an era opening: shown by its column, not by a tangle of lines
+        const x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
+        const lit = g.hasResearch(id) && g.hasResearch(t.id) ? 'done' : g.hasResearch(id) ? 'open' : 'dim';
+        const d = `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`;
+        svg.append(el('path', { d, class: 'rt-br rt-br-back ' + lit }), el('path', { d, class: 'rt-br ' + lit }));
+        if (lit === 'done') {           // a plum blossom where the branch leaves a learned technology
+          const f = el('g', { transform: `translate(${x1 + 2} ${y1})`, class: 'rt-flower' });
+          for (let p = 0; p < 5; p++) { const an = p / 5 * Math.PI * 2; f.append(el('circle', { cx: Math.cos(an) * 4.2, cy: Math.sin(an) * 4.2, r: 3.4 })); }
+          f.append(el('circle', { cx: 0, cy: 0, r: 1.8, class: 'c' })); svg.append(f);
+        }
+      }
+      canvas.append(svg);
+      // the plaques
+      for (const t of TECHS) {
+        const P = pos[t.id]; if (!P) continue;
+        const st = state(t), frac = Math.min(1, g.techPts(t.id) / t.pts);
+        const node = h('button', { class: `rt-node ${st}${t.key ? ' key' : ''}${sel && sel.id === t.id ? ' sel' : ''}`, style: `left:${P.x}px;top:${P.y}px;width:${NW}px;height:${NH}px`, onclick: () => { sel = t; this.researchSel = t.id; drawTree(); drawDetail(); } },
+          h('span', { class: 'seal', style: `--p:${st === 'done' ? 1 : frac}` }, h('span', null, t.key ? '★' : P.lane.seal)),
+          h('span', { class: 'nm' }, h('b', null, t.name), h('small', null, st === 'done' ? 'Learned' : st === 'locked' ? 'Not yet' : st === 'full' ? 'Ready to complete' : `${g.techPts(t.id)} / ${t.pts} 智`)));
+        canvas.append(node);
+      }
+      wrap.append(canvas);
     };
-    this.researchScrolled = false;
-    render();
+    const drawDetail = () => {
+      detail.textContent = '';
+      const t = sel; if (!t) return;
+      const st = state(t), P = pos[t.id], pts = g.techPts(t.id), why = g.researchBlock(t.id);
+      const reqs = (t.req || []).map(id => { const r = g.researchNode(id).node; return h('span', { class: 'rq' + (g.hasResearch(id) ? ' ok' : '') }, (g.hasResearch(id) ? '✓ ' : '') + r.name); });
+      detail.append(h('div', { class: 'rd-seal ' + st }, t.key ? '★' : P.lane.seal),
+        h('div', { class: 'rd-text' },
+          h('div', { class: 'rd-head' }, h('b', null, t.name), h('small', null, `${ERAS[t.era].kanji} ${ERAS[t.era].name} · ${P.lane.name}`)),
+          h('p', null, t.desc),
+          reqs.length ? h('div', { class: 'rd-req' }, h('small', null, 'Grows from: '), ...reqs) : null),
+        h('div', { class: 'rd-act' },
+          st === 'done' ? h('span', { class: 'hanko' }, '学') :
+          st === 'locked' ? h('p', { class: 'why' }, why) :
+          [h('div', { class: 'bar' }, h('i', { style: `width:${Math.min(100, pts / t.pts * 100)}%` })), h('small', { class: 'sub' }, `${pts} / ${t.pts} Wisdom · you have ${Math.floor(g.state.wisdom)}`),
+            st === 'full' ? h('div', { class: 'row' }, costChips(g, t.cost, this.live), h('button', { class: 'btn', onclick: () => { if (g.completeTech(t.id)) { drawTree(); drawDetail(); drawHead(); } } }, 'Complete'))
+              : h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { if (g.investTech(t.id, 1)) { drawTree(); drawDetail(); drawHead(); } } }, '+1'), h('button', { class: 'btn', onclick: () => { if (g.investTech(t.id)) { drawTree(); drawDetail(); drawHead(); } } }, icon('wisdom', 15), 'Invest Wisdom'))]));
+    };
+    const head = h('div', { class: 'rt-head' });
+    const drawHead = () => {
+      head.textContent = '';
+      const E = ERAS[g.era], w = Math.floor(g.state.wisdom), cap = g.wisdomCap();
+      head.append(h('div', { class: 'rt-era' }, h('span', { class: 'ek' }, E.kanji), h('span', null, h('small', null, `Era ${g.era} of 6`), h('b', null, E.name))),
+        h('div', { class: 'rt-wis' }, icon('wisdom', 24), h('span', null, h('b', null, `${w} / ${cap} Wisdom`), h('small', null, `+${g.wisdomRate().toFixed(2)} a minute${w >= cap ? ' — full, spend it' : ''}`)), h('div', { class: 'brush' }, h('i', { style: `width:${Math.min(100, w / cap * 100)}%` }))),
+        ...(g.pavilionLevel() ? [] : [h('p', { class: 'why' }, 'Build a Scholars’ Pavilion (Village tab) — without it Wisdom only trickles in.')]));
+    };
+    drawHead(); drawTree(); drawDetail();
+    body.append(head, wrap, detail);
+    // drag the paper to look around (touch scrolls by itself)
+    let drag = null;
+    wrap.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' || e.target.closest('.rt-node')) return; drag = { x: e.clientX, y: e.clientY, l: wrap.scrollLeft, t: wrap.scrollTop }; wrap.classList.add('grab'); });
+    window.addEventListener('pointermove', e => { if (!drag) return; wrap.scrollLeft = drag.l - (e.clientX - drag.x); wrap.scrollTop = drag.t - (e.clientY - drag.y); });
+    window.addEventListener('pointerup', () => { drag = null; wrap.classList.remove('grab'); });
     this.openModal('Research', body, [{ label: 'Close' }], { wide: true });
-    this.modal.querySelector('.sheet').classList.add('xwide');
+    this.modal.querySelector('.sheet').classList.add('xwide', 'rt-sheet');
+    // start with the current era in view
+    requestAnimationFrame(() => { const p = pos[sel.id]; if (p) { wrap.scrollLeft = Math.max(0, p.x - wrap.clientWidth / 2 + NW / 2); wrap.scrollTop = Math.max(0, p.y - wrap.clientHeight / 2); } });
   }
 
   /* ---------- dialogs ---------- */

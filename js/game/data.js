@@ -231,6 +231,8 @@ export const BUILDINGS = {
                 desc: 'Unemployed villagers train here and graduate as Spearmen — or, once you research them, as Shield-bearers, Samurai, Ninja, Warrior monks or Cavalry.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
+  shoin:      { name: 'Scholars\u2019 Pavilion', kanji: '書院', cat: 'village', size: [3, 3], cost: { wood: 80, stone: 30 }, time: 50, h: 6, th: 1, unique: true, maxLevel: 5,
+                desc: 'Scholars copy scrolls and argue by the pond. This is where your clan does its research: Wisdom gathers here, faster and with more room at every level.' },
   strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true, maxLevel: 3,
                 desc: 'Scholars gather Wisdom here: more Wisdom every minute, and room to store much more of it. Upgrade it for more.' },
   // ---- Great Buildings (wonders) ----
@@ -310,7 +312,25 @@ export const ERAS = [
   { name: 'Shogunate', short: 'Shogunate', kanji: '幕府' },
 ];
 // Wisdom per minute and how much can be stored; the Strategy Hall and the Great Buddha add more
-export const WISDOM = { base: 1, perHall: 0.6, cap: 12, capPerHall: 10 };
+// Wisdom per minute: a trickle without a Scholars' Pavilion; the pavilion (and the Strategy Hall) add more
+export const WISDOM = { base: 0.25, pavilion: 0.75, perPavilion: 0.4, perHall: 0.6, cap: 8, capPavilion: 6, capPerPavilion: 6, capPerHall: 8 };
+// the branches of the research tree: where each technology grows
+export const TECH_LANES = [
+  { id: 'key', name: 'Eras', seal: '代' }, { id: 'eco', name: 'Harvest & trade', seal: '稲' }, { id: 'scout', name: 'Scouts & marches', seal: '道' },
+  { id: 'spear', name: 'Spears', seal: '槍' }, { id: 'bow', name: 'Bows', seal: '弓' }, { id: 'wall', name: 'Walls', seal: '壁' },
+  { id: 'siege', name: 'Siege', seal: '攻' }, { id: 'unit', name: 'Warriors', seal: '兵' }, { id: 'cmd', name: 'Commanders', seal: '将' },
+];
+export const TECH_LANE = {
+  keep2: 'key', keep3: 'key', keep4: 'key', keep5: 'key', mandate: 'key', realm: 'key',
+  agri: 'eco', carpentry: 'eco', trade1: 'eco', granary: 'eco', survey: 'eco',
+  log1: 'scout', log2: 'scout', log3: 'scout', log4: 'scout', log5: 'scout',
+  spear1: 'spear', spear2: 'spear', spear4: 'spear', spear3: 'spear', spear5: 'spear', spear6: 'spear',
+  arch1: 'bow', arch2: 'bow', arch3: 'bow', arch4: 'bow', arch5: 'bow', arch6: 'bow',
+  def1: 'wall', def2: 'wall', def3: 'wall', def4: 'wall', def5: 'wall',
+  siege1: 'siege', siege2: 'siege', siege3: 'siege', siege4: 'siege',
+  tate: 'unit', ninjutsu: 'unit', sohei: 'unit', bushido: 'unit', catapults: 'unit', taisho: 'unit', cmd6: 'unit',
+  horse: 'cmd', cmd1: 'cmd', oni: 'cmd', cmd2: 'cmd', cmd5: 'cmd', cmd3: 'cmd', cmd4: 'cmd',
+};
 export const KEY_TECHS = ['keep2', 'keep3', 'keep4', 'keep5', 'mandate'];
 
 export const TECHS = [

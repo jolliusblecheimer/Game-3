@@ -710,6 +710,11 @@ export class Views {
       box.append(h('p', { class: 'sub' }, 'Trainees already in the yard finish as whatever the dojo trains when they graduate.'));
       p.append(box);
     }
+    if (b.type === 'shoin' && b.done) {
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, 'Research')),
+        h('p', { class: 'sub' }, `Wisdom: +${g.wisdomRate().toFixed(2)} a minute, room for ${g.wisdomCap()}. Every level of the pavilion adds more.`),
+        h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, icon('wisdom', 16), 'Open the research tree')));
+    }
     if (b.type === 'strategy' && b.done) {
       p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, 'Scholars')),
         h('p', { class: 'sub' }, `Wisdom: +${g.wisdomRate().toFixed(1)} a minute, room for ${g.wisdomCap()}. Every level of the hall adds more.`),

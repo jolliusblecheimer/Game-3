@@ -14,7 +14,9 @@ export const GUIDE = [
   { text: 'Build a Minka House so new families can move in (Village tab)', done: g => count(g, 'house') >= 2 },
   { text: 'Build a Dojo and train your first spearman (Military tab)', done: g => soldiers(g) >= 1 },
   { text: 'Open the Map and send a scout into the clouds', done: g => (g.progress.stats.scouts || 0) >= 1 },
-  { text: 'Upgrade your Keep to level 2 — select the Keep', done: g => g.thLevel >= 2 },
+  { text: 'Build a Scholars\u2019 Pavilion (Village tab) \u2014 your clan\u2019s research gathers Wisdom there', done: g => count(g, 'shoin') > 0 },
+  { text: 'Research Clan Hall: tap Research at the top, invest Wisdom, complete it', done: g => g.hasResearch('keep2') },
+  { text: 'Upgrade your Keep to level 2 \u2014 select the Keep', done: g => g.thLevel >= 2 },
 ];
 
 // Task templates: each makes a task from where you stand now, or nothing if it doesn't fit

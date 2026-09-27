@@ -432,6 +432,65 @@ const MODELS = {
     backWindow(b, 0, 1.7, -(d - 0.9) / 2 - 0.02, 0.8, 0.45, PAPER);
     hangingLantern(b, -w / 2 + 0.5, 1.9, d / 2 - 0.15); if (L >= 3) hangingLantern(b, w / 2 - 0.5, 1.9, d / 2 - 0.15);
   },
+  // Scholars' Pavilion (shoin): a raised hall of dark timber and glowing shoji in a moss garden,
+  // a lotus pond, a cloud-pruned pine, a red maple, a stone lantern — and more with every level
+  shoin(b, w, d) {
+    const m = b.m, L = b.level || 1, BARK = '#6a4a3a', MOSSY = '#8fa35e';
+    m.box(w - 0.1, 0.1, d - 0.1, MOSSY, [0, 0.05, 0]);
+    for (let i = 0; i < 9; i++) m.box(0.5 + (i % 3) * 0.15, 0.03, 0.4, '#a3b56d', [-2.6 + (i * 1.37) % 5.2, 0.11, -2.5 + (i * 2.1) % 5], [0, i, 0]);   // moss patches
+    // the pond with lotus and a crane stone
+    m.box(2.4, 0.06, 2.0, '#3f7f9e', [-1.6, 0.12, 1.7]); m.box(2.6, 0.05, 2.2, '#77736a', [-1.6, 0.08, 1.7]);
+    for (const [x, z] of [[-2.3, 1.2], [-1.2, 2.2], [-0.9, 1.3]]) { m.cyl(0.24, 0.24, 0.02, 8, '#5f8a3e', [x, 0.16, z]); m.ball(0.09, '#f2b8c8', [x + 0.05, 0.24, z]); }
+    for (let i = 0; i < 4; i++) m.ball(0.2, '#9a968c', [-0.3 + i * 0.1, 0.12, 0.4 + i * 0.55], [1.3, 0.35, 1]);      // stepping stones
+    // raised floor on short posts, the veranda (engawa) all round
+    for (const x of [-0.5, 0.9, 2.3]) for (const z of [-2.2, -0.9, 0.4]) m.cyl(0.07, 0.07, 0.5, 5, WOOD_D, [x, 0.3, z]);
+    m.box(3.5, 0.18, 3.3, WOOD_L, [0.9, 0.62, -0.9]);
+    m.box(3.9, 0.08, 3.7, '#9c7048', [0.9, 0.52, -0.9]);
+    // the hall: dark frame, white shoji that glow at night, a round moon window
+    const hx = 0.9, hz = -0.9, hw = 3.0, hd = 2.8, hy = 0.71;
+    m.box(hw, 1.9, hd, PAPER, [hx, hy + 0.95, hz]);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(0.14, 1.95, 0.14, WOOD_D, [hx + sx * hw / 2, hy + 0.97, hz + sz * hd / 2]);
+    m.box(hw + 0.1, 0.14, hd + 0.1, WOOD_D, [hx, hy + 1.9, hz]); m.box(hw + 0.1, 0.1, hd + 0.1, WOOD_D, [hx, hy + 0.06, hz]);
+    for (let i = 1; i < 4; i++) { m.box(0.05, 1.8, 0.04, WOOD_D, [hx - hw / 2 + i * hw / 4, hy + 0.95, hz + hd / 2 + 0.01]); }
+    for (let r = 1; r < 5; r++) m.box(hw - 0.1, 0.025, 0.03, '#6b4a2e', [hx, hy + r * 0.38, hz + hd / 2 + 0.02]);
+    b.g.box(hw - 0.3, 1.5, 0.02, '#ffd9a0', [hx, hy + 0.95, hz + hd / 2 - 0.02]);                                   // warm light behind the paper
+    m.cyl(0.55, 0.55, 0.05, 20, WOOD_D, [hx - hw / 2 - 0.01, hy + 1.1, hz], [0, 0, Math.PI / 2]);                    // moon window
+    b.g.cyl(0.46, 0.46, 0.06, 20, '#ffd9a0', [hx - hw / 2 - 0.02, hy + 1.1, hz], [0, 0, Math.PI / 2]);
+    for (let i = -1; i <= 1; i++) m.box(0.02, 0.9, 0.03, WOOD_D, [hx - hw / 2 - 0.05, hy + 1.1, hz + i * 0.25]);
+    // veranda rail and a hanging name board
+    for (let i = 0; i <= 6; i++) m.box(0.05, 0.35, 0.05, WOOD_D, [hx - 1.75 + i * 0.58, 0.85, hz + 1.83]);
+    m.box(3.5, 0.05, 0.06, WOOD_D, [hx, 1.03, hz + 1.83]);
+    m.box(1.1, 0.35, 0.05, '#2a2320', [hx, hy + 2.25, hz + hd / 2 + 0.3]); m.box(0.8, 0.18, 0.02, GOLD, [hx, hy + 2.25, hz + hd / 2 + 0.33]);
+    // the roof: cypress bark, sweeping eaves, gilded ridge ends
+    m.roof(hw + 0.2, hd + 0.2, 1.6, BARK, hy + 1.97, { over: 0.75, ridge: 0.55, cx: hx, cz: hz, ridgeHex: '#3b2a20', ornaments: GOLD });
+    hangingLantern(b, hx - 1.3, hy + 1.6, hz + hd / 2 + 0.55); hangingLantern(b, hx + 1.3, hy + 1.6, hz + hd / 2 + 0.55);
+    // a cloud-pruned pine (niwaki): twisting trunk, flat pads of needles
+    const px = 2.2, pz = 1.9;
+    m.cyl(0.1, 0.16, 1.2, 6, '#5a3d2a', [px, 0.6, pz], [0, 0, 0.25]); m.cyl(0.07, 0.1, 1.0, 6, '#5a3d2a', [px - 0.35, 1.45, pz], [0, 0, -0.5]);
+    for (const [x, y, z, s] of [[px - 0.8, 1.8, pz, 0.55], [px + 0.2, 1.25, pz + 0.1, 0.5], [px - 0.2, 2.2, pz - 0.2, 0.45]]) m.ball(s, '#3b6f42', [x, y, z], [1.3, 0.38, 1.1]);
+    // a red maple by the pond, a stone lantern, a bamboo water spout
+    m.cyl(0.07, 0.1, 1.3, 5, '#4b3326', [-2.5, 0.65, -0.3]);
+    for (const [x, y, z, c] of [[-2.5, 1.6, -0.3, '#c8452b'], [-2.1, 1.35, -0.1, '#dc6a2f'], [-2.8, 1.35, -0.5, '#b8392a']]) m.ball(0.45, c, [x, y, z], [1.1, 0.8, 1]);
+    stoneLantern(b, -0.4, 2.6, 0.75);
+    m.cyl(0.05, 0.05, 0.9, 6, BAMBOO, [-2.7, 0.45, 2.5], [0, 0, 0.15]); m.cyl(0.04, 0.04, 0.5, 6, BAMBOO, [-2.55, 0.8, 2.3], [0.9, 0, 0]); m.cyl(0.25, 0.3, 0.2, 8, '#8a857a', [-2.4, 0.1, 2.0]);
+    // level 2: a scroll rack on the veranda and a red arched bridge over the pond
+    if (L >= 2) {
+      m.box(0.9, 0.9, 0.35, WOOD, [hx + 1.1, 1.15, hz + 1.55]);
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) m.cyl(0.05, 0.05, 0.3, 6, c % 2 ? '#e8dcc0' : '#d9c79a', [hx + 0.8 + c * 0.2, 0.88 + r * 0.26, hz + 1.55], [Math.PI / 2, 0, 0]);
+      for (let i = 0; i < 7; i++) { const t = i / 6, y = 0.25 + Math.sin(t * Math.PI) * 0.45; m.box(0.34, 0.06, 0.8, VERM, [-2.6 + t * 2.0, y, 1.75], [0, 0, -Math.cos(t * Math.PI) * 0.35]); }
+      for (const z of [1.35, 2.15]) for (let i = 0; i < 5; i++) { const t = i / 4; m.box(0.05, 0.32, 0.05, VERM, [-2.6 + t * 2.0, 0.38 + Math.sin(t * Math.PI) * 0.45, z]); }
+    }
+    // level 3: a two-storey library (bunko) with white walls behind
+    if (L >= 3) {
+      m.box(1.6, 2.2, 1.4, PLASTER, [-1.7, 1.15, -2.0]); m.box(1.66, 0.5, 1.46, DARK, [-1.7, 0.3, -2.0]);
+      m.roof(1.6, 1.4, 0.8, ROOF, 2.25, { over: 0.35, ridge: 0.5, cx: -1.7, cz: -2.0 });
+      m.box(0.5, 0.5, 0.05, WOOD_D, [-1.7, 1.6, -1.28]);
+    }
+    // level 4: a lantern path of glowing stones
+    if (L >= 4) for (let i = 0; i < 4; i++) { m.box(0.14, 0.4, 0.14, STONE, [0.2 + i * 0.7, 0.2, 2.85]); b.g.box(0.1, 0.1, 0.1, '#ffcf7a', [0.2 + i * 0.7, 0.46, 2.85]); }
+    // level 5: a golden finial and a bronze bell
+    if (L >= 5) { m.cyl(0.05, 0.05, 0.8, 6, GOLD, [hx, hy + 3.9, hz]); m.ball(0.14, GOLD, [hx, hy + 4.35, hz]); m.cyl(0.2, 0.28, 0.45, 10, '#6b5a3a', [hx + 1.9, 1.4, hz + 1.6]); m.box(0.06, 0.9, 0.06, WOOD_D, [hx + 1.9, 2.0, hz + 1.6]); }
+  },
   // ================= Great Buildings =================
   // Kinkaku-ji: the Golden Pavilion on its mirror pond
   kinkaku(b, w, d) {
@@ -906,7 +965,7 @@ export function buildModel(type, w, d, seed = 1, conn = null, level = 1) {
   b.level = level;
   MODELS[type](b, w, d, conn);
   // every upgrade leaves a visible mark: a clan banner, then lanterns
-  if (level >= 2 && !['wall', 'palisade', 'hedge', 'road', 'stoneroad', 'spikes', 'townhall', 'gate', 'tower', 'kinkaku', 'daibutsu', 'itsukushima', 'himeji', 'bell', 'inari', 'osaka', 'sanjusangendo', 'nijo'].includes(type)) {
+  if (level >= 2 && !['wall', 'palisade', 'hedge', 'road', 'stoneroad', 'spikes', 'townhall', 'gate', 'tower', 'kinkaku', 'daibutsu', 'itsukushima', 'himeji', 'bell', 'inari', 'osaka', 'sanjusangendo', 'nijo', 'shoin'].includes(type)) {
     const x = w / 2 - 0.25, z = d / 2 - 0.25;
     b.m.cyl(0.04, 0.04, 2.6, 5, WOOD_D, [x, 1.3, z]); b.m.box(0.04, 1.3, 0.45, level >= 4 ? GOLD : VERM, [x, 1.9, z - 0.25]); b.m.cyl(0.12, 0.12, 0.05, 10, '#f5efe0', [x + 0.03, 2.2, z - 0.25], [0, 0, Math.PI / 2]);
     if (level >= 3) hangingLantern(b, -w / 2 + 0.3, 1.3, d / 2 - 0.2);
