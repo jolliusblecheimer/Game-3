@@ -564,3 +564,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .rd-act { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
 .rd-act .row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .rd-act .hanko { align-self: flex-end; width: 64px; height: 64px; border: 3px solid #b8342a; color: #b8342a; border-radius: 10px; display: grid; place-items: center; font: 700 34px var(--mincho); transform: rotate(-10deg); opacity: .85; }
+
+/* a new version is ready */
+.updbanner { position: fixed; left: 50%; transform: translateX(-50%); top: calc(60px + env(safe-area-inset-top)); z-index: 40; display: flex; gap: 10px; align-items: center; background: #2b2118; color: #f4ecdb; padding: 10px 14px; border-radius: 14px; box-shadow: var(--shade); }
+.updbanner .btn.ghost { color: #f4ecdb; border-color: #6b5f52; }

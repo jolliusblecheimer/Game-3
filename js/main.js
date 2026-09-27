@@ -60,6 +60,17 @@ function boot() {
   };
   saveNow.block = () => { blocked = true; };
   hud.attach(input, cam, saveNow);
+  // a game left open for days still gets updates: look for a new version now and then
+  // (and whenever the tab comes back), and offer to update with one tap
+  const checkUpdate = async () => {
+    try {
+      const r = await fetch('version.json', { cache: 'no-store' }); if (!r.ok) return;
+      const { v } = await r.json(); let have = null; try { have = localStorage.getItem('tenka.ver'); } catch (_) { /* */ }
+      if (v && have && v !== have) hud.updateReady(() => { saveNow(); location.reload(); });
+    } catch (_) { /* offline */ }
+  };
+  setInterval(checkUpdate, 3 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 
   let away = null, failed = parseError;
   if (save && !parseError) {

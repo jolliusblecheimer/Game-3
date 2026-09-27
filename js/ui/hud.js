@@ -54,6 +54,12 @@ export class Hud {
     } else R.command(kind);
     this.toast({ charge: 'Charge!', wall: 'To the walls!', auto: 'They fight on their own again' }[kind]);
   }
+  // a new version is out: a small banner with an Update button (the game saves first)
+  updateReady(go) {
+    if (this.updBanner) return;
+    this.updBanner = h('div', { class: 'updbanner' }, h('b', null, 'A new version of Tenka is ready'), h('button', { class: 'btn small', onclick: go }, 'Update now'), h('button', { class: 'btn small ghost', onclick: () => { this.updBanner.remove(); } }, 'Later'));
+    this.root.append(this.updBanner);
+  }
   applyLayout() { this.root.classList.toggle('lefty', !!this.settings.lefty); this.layout(); }
   saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
@@ -843,6 +849,7 @@ export class Hud {
       toggle('Keep it smooth: lower the resolution automatically when the game slows down', () => this.settings.autoRes !== false, v => { this.settings.autoRes = v; this.saveSettings(); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept. There is no cloud save (the game has no server): to carry your village to another device, use a save file or a save code.'),
+      h('p', { class: 'sub' }, `Version ${(() => { try { return localStorage.getItem('tenka.ver') || '?'; } catch (_) { return '?'; } })()}`),
       h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' — it keeps its own save.')),
       [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
        { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
