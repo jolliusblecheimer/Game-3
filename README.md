@@ -434,3 +434,22 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Clicking fixed:**
   - A click made while a cut was still finishing could turn into a slow heavy strike. Now a quick click stays a quick cut.
   - If the browser refuses to capture the mouse, clicks now strike anyway (look around by dragging) instead of being swallowed.
+
+### First person — real opponents (M2 of plans/combat-and-command.md)
+- **Enemies fight by your rules.** They use the same combos, heavy overheads, blocks, counters, stamina and kicks as you. A small brain decides:
+  - It **blocks** your wind-up after its reaction time: 0.24 s on Easy, 0.15 s on Normal, 0.09 s on Hard. It sometimes misses, less often on Hard.
+  - It **counters** at once after a successful block.
+  - It **breaks your block** with a heavy overhead or a kick if you hold it too long.
+  - It **backs off** when out of breath, and **feints** on Normal and Hard.
+- **Two at a time:** only two may attack you at once (one on Easy, three on Hard). The rest circle and wait their turn.
+- **Sensei Kenji** in the training yard: **F** asks him for a **bout with wooden swords**. The bout ends when one of you has a fifth of your strength left, and the card keeps the score.
+- **The bandit camp** across the bridge, at the end of the trail:
+  - Tents, a campfire, stolen rice bales and a rough fence.
+  - Three swordsmen by the fire and an archer on watch, who keeps 12–30 m away and aims where you're going.
+  - They spot you at about 20 m (half that if you crouch), and one raises the alarm for all.
+  - Fallen bandits drop with a splash of ink. **Pause → Reset the bandits** to fight them again.
+- **On screen:**
+  - The name and health of the one you're fighting, at the top.
+  - The red or orange ring when anyone in reach winds up at you.
+  - **Red ink at the screen's edge** when you're struck from outside your view, by a blade or an arrow.
+  - A shield raised toward an archer catches his arrows.

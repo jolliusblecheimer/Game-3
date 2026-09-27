@@ -30,7 +30,10 @@ export class FPHud {
     this.vig = h('div', { class: 'fp-vig' }); this.flashEl = h('div', { class: 'fp-flash' });
     this.menuBtn = h('button', { class: 'fp-menubtn', title: 'Pause', onclick: () => fp.pause() }, '≡');
     this.pauseEl = h('div', { class: 'fp-pause', hidden: true });
-    this.root = h('div', { id: 'fp-ui', hidden: true }, this.vig, this.flashEl, this.cross, this.bars, this.card, this.hint, this.say, this.prompt, this.menuBtn, this.pauseEl);
+    // the one you're fighting: name and a brush stroke of health; red ink at the screen's edge when struck from outside your view
+    this.foeName = h('b'); this.foeHp = h('i'); this.foe = h('div', { class: 'fp-foe', hidden: true }, this.foeName, h('div', { class: 'fp-bar hp' }, this.foeHp));
+    this.edgeL = h('div', { class: 'fp-edge l' }); this.edgeR = h('div', { class: 'fp-edge r' }); this.edgeB = h('div', { class: 'fp-edge b' });
+    this.root = h('div', { id: 'fp-ui', hidden: true }, this.vig, this.flashEl, this.edgeL, this.edgeR, this.edgeB, this.cross, this.bars, this.card, this.foe, this.hint, this.say, this.prompt, this.menuBtn, this.pauseEl);
     document.body.append(this.root);
     this.sayT = 0; this.hurtA = 0; this.flashA = 0;
   }
@@ -81,6 +84,11 @@ export class FPHud {
     this.card.textContent = '';
     this.card.append(h('b', null, title), ...rows.map(r => h('div', { class: 'row' }, h('span', null, r[0]), h('em', null, String(r[1])))));
   }
+  setFoe(a) {
+    this.foe.hidden = !a; if (!a) return;
+    this.foeName.textContent = a.name; this.foeHp.style.width = `${Math.max(0, a.fighter.hp / a.fighter.maxHp * 100)}%`;
+  }
+  edge(side) { const el = side < -0.3 ? this.edgeL : side > 0.3 ? this.edgeR : this.edgeB; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
   setPrompt(text) { this.prompt.hidden = !text; if (text) this.prompt.textContent = text; }
   // the pause screen: who you fight as, continue, the settings for each device, and the way back
   renderPause() {
@@ -120,7 +128,7 @@ export class FPHud {
         toggle('Experimental: split-second parry (block just as the strike lands for a ×2 riposte)', !!S.parry, v => { S.parry = v; fp.applySettings(false); })),
       h('h3', null, 'Controls'),
       h('div', { class: 'fp-keys' }, ...HINTS[dev].map(([k, v]) => h('div', null, h('kbd', null, k), h('span', null, v)))),
-      h('div', { class: 'fp-actions' }, h('button', { class: 'btn ghost', onclick: () => fp.respawn() }, 'Back to the start'), h('button', { class: 'btn danger', onclick: () => fp.exit() }, 'Back to the village'))));
+      h('div', { class: 'fp-actions' }, h('button', { class: 'btn ghost', onclick: () => { fp.resetCamp(); this.renderPause(); } }, 'Reset the bandits'), h('button', { class: 'btn ghost', onclick: () => fp.respawn() }, 'Back to the start'), h('button', { class: 'btn danger', onclick: () => fp.exit() }, 'Back to the village'))));
   }
   showPause(on) { this.pauseEl.hidden = !on; if (on) this.renderPause(); }
 }

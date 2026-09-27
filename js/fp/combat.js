@@ -59,7 +59,7 @@ export class Fighter {
     if (this.state === 'guard') this.state = 'idle';
     if (now - this.lastStrikeEnd > COMBO_RESET) this.combo = 0;
     this.dir = this.combo % 2 ? 'r' : 'l';
-    this.state = 'windup'; this.t = 0; this.heavy = false; this.hold = true; this.hitDone = false;
+    this.state = 'windup'; this.t = 0; this.heavy = false; this.hold = true; this.hitDone = false; this.strikeId = (this.strikeId || 0) + 1;
     this.spend(this.w.light.st, now);
   }
   strikeUp() { this.hold = false; if (this.queued) this.queued.released = true; }   // a queued click that was let go stays a quick cut

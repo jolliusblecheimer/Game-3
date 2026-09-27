@@ -924,3 +924,13 @@ html.site-mobile .keys { display: none; }
 .fp-legend .lg.bow { border-color: #fff2c8; border-width: 2px; }
 .fp-btn.abil { right: 20px; bottom: 120px; width: 60px; height: 60px; background: rgba(201,150,47,.4); }
 .fp-btn.abil[hidden] { display: none; }
+.fp-foe { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: min(300px, 50vw); text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.fp-foe[hidden] { display: none; }
+.fp-foe b { font: 700 15px var(--mincho, serif); }
+.fp-foe .fp-bar { margin-top: 4px; }
+.fp-edge { position: absolute; opacity: 0; pointer-events: none; }
+.fp-edge.l { left: 0; top: 15%; bottom: 15%; width: 70px; background: linear-gradient(90deg, rgba(200,30,20,.75), rgba(200,30,20,0)); }
+.fp-edge.r { right: 0; top: 15%; bottom: 15%; width: 70px; background: linear-gradient(270deg, rgba(200,30,20,.75), rgba(200,30,20,0)); }
+.fp-edge.b { left: 20%; right: 20%; bottom: 0; height: 60px; background: linear-gradient(0deg, rgba(200,30,20,.75), rgba(200,30,20,0)); }
+.fp-edge.on { animation: fpEdge .7s ease-out; }
+@keyframes fpEdge { 0% { opacity: 1; } 100% { opacity: 0; } }

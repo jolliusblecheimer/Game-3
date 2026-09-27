@@ -39,6 +39,8 @@ export const LOOKS = {
   enemy_samurai:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#e8e2d0', crest: '#c9ced4', scale: 1.08 },
   enemy_cavalry:  { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#2c3a60', banner: '#2f4a7a', crest: '#c9ced4', horse: ['#3a3230', '#5a4a3a', '#6b6660'] },
   enemy_lord:     { robe: ['#1f2a44'], pants: '#161c2a', hat: 'kabuto', tool: 'katana', armor: '#1f2b4d', crest: '#e8c25a', cloak: '#2f4a7a', scale: 1.15 },
+  sensei:         { robe: ['#2b2f3a'], pants: '#1c1c22', hat: 'hachimaki', tool: 'bokken' },
+  bandit_archer:  { robe: ['#6b5a44', '#5a4a3a', '#4f5a3a'], pants: '#3a3228', hat: 'bandit', tool: 'yumi', quiver: true },
   bandit:         { robe: ['#6b5a44', '#5a4a3a', '#4f5a3a'], pants: '#3a3228', hat: 'bandit', tool: 'katana' },
 };
 

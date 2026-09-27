@@ -9,10 +9,10 @@ const STRAW = '#cdb27a', STRAW_D = '#a88a52', WOOD = '#5a3a28', WOOD_D = '#3b261
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3(), AX = new THREE.Vector3(1, 0, 0);
 
 // straw bits flying off a hit
-class Chaff {
-  constructor(parent) {
-    this.g = new THREE.BoxGeometry(0.03, 0.12, 0.02); this.items = [];
-    this.mat = new THREE.MeshStandardMaterial({ color: STRAW, roughness: 0.9 });
+export class Chaff {
+  constructor(parent, color = STRAW, size = 1) {
+    this.g = new THREE.BoxGeometry(0.03 * size, 0.12 * size, 0.02 * size); this.items = [];
+    this.mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
     for (let i = 0; i < 28; i++) { const m = new THREE.Mesh(this.g, this.mat); m.visible = false; parent.add(m); this.items.push({ m, v: new THREE.Vector3(), t: 0 }); }
     this.k = 0;
   }

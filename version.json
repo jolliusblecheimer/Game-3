@@ -1,8 +1,9 @@
 {
-"v": "20260927-141321",
+"v": "20260927-142217",
 "files": [
 "css/style.css",
 "js/audio/music.js",
+"js/fp/actors.js",
 "js/fp/classes.js",
 "js/fp/combat.js",
 "js/fp/controller.js",

@@ -5,6 +5,23 @@ import { HALF } from './terrain.js';
 
 let RADIUS = 0.35;
 
+// push a circle (x, z, radius) out of trees, rocks, walls and other circles; returns the new position
+export function pushOut(x, z, rad, colliders) {
+  for (const c of colliders) {
+    const dx = x - c.x, dz = z - c.z;
+    if (Math.abs(dx) > 8 || Math.abs(dz) > 8) continue;
+    if (c.r != null) { const d = Math.hypot(dx, dz), m = c.r + rad; if (d < m && d > 1e-4) { x = c.x + dx / d * m; z = c.z + dz / d * m; } continue; }
+    const ca = Math.cos(c.ang), sa = Math.sin(c.ang), lx = dx * ca - dz * sa, lz = dx * sa + dz * ca;
+    const px = clamp(lx, -c.hw, c.hw), pz = clamp(lz, -c.hd, c.hd), ox = lx - px, oz = lz - pz, d = Math.hypot(ox, oz);
+    if (d >= rad) continue;
+    let nlx, nlz;
+    if (d > 1e-4) { nlx = px + ox / d * rad; nlz = pz + oz / d * rad; }
+    else { const ex = c.hw - Math.abs(lx), ez = c.hd - Math.abs(lz); if (ex < ez) { nlx = Math.sign(lx || 1) * (c.hw + rad); nlz = lz; } else { nlx = lx; nlz = Math.sign(lz || 1) * (c.hd + rad); } }
+    x = c.x + nlx * ca + nlz * sa; z = c.z - nlx * sa + nlz * ca;
+  }
+  return [x, z];
+}
+
 export class Player {
   constructor(T) {
     this.T = T;
@@ -86,7 +103,7 @@ export class Player {
     return true;
   }
   collide() {
-    for (let pass = 0; pass < 2; pass++) for (const c of this.colliders) {
+    for (let pass = 0; pass < 2; pass++) for (const c of this.dynamic ? this.colliders.concat(this.dynamic) : this.colliders) {
       const dx = this.x - c.x, dz = this.z - c.z;
       if (Math.abs(dx) > 8 || Math.abs(dz) > 8) continue;
       if (c.r != null) {

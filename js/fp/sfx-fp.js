@@ -32,6 +32,8 @@ export class FPSound {
         this.noise(ac, out, t, 0.05, 4500, 4, 0.5);
         for (const [f, v] of [[2340, 0.2], [3120, 0.14], [4680, 0.08], [1170, 0.1]]) this.tone(ac, out, t, f, 0.9, v, 'sine');
         break;
+      case 'flesh':   // a blade finds its mark
+        this.noise(ac, out, t, 0.12, 500, 0.7, 0.8, 'lowpass', 150); this.noise(ac, out, t, 0.1, 1800, 2, 0.25, 'bandpass', 700); this.tone(ac, out, t, 110, 0.16, 0.35, 'sine', 60); break;
       case 'thud':    // a blade into straw
         this.noise(ac, out, t, 0.14, 700, 0.8, 0.7, 'lowpass', 200); this.noise(ac, out, t + 0.01, 0.2, 2400, 1.5, 0.2, 'bandpass', 900); break;
       case 'block': this.noise(ac, out, t, 0.1, 1400, 2, 0.5); this.tone(ac, out, t, 180, 0.12, 0.25, 'triangle', 90); break;

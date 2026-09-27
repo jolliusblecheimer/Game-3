@@ -151,8 +151,8 @@ Each enemy runs a small loop, 4–8 times a second, and chooses from what it see
 
 | Step | What you get | Done when… |
 |---|---|---|
-| **M2a** | **A sparring partner:** one AI swordsman in the yard who fights by your rules | A 1-v-1 is winnable but tense on Normal. Blocks, combos, heavies, counters and stamina all matter |
-| **M2b** | **Bandits in a clearing:** 3–5 bandits (one archer) across the river from the yard | The "two at a time" rule, the edge markers, knockdowns and deaths work; archers draw and shoot |
+| **M2a** ✅ | **A sparring partner:** one AI swordsman in the yard who fights by your rules | A 1-v-1 is winnable but tense on Normal. Blocks, combos, heavies, counters and stamina all matter |
+| **M2b** ✅ | **Bandits in a clearing:** 3–5 bandits (one archer) across the river from the yard | The "two at a time" rule, the edge markers, knockdowns and deaths work; archers draw and shoot |
 | **M3a** | **One squad:** 6 spearmen who follow you | Follow, Hold and Charge work; the line rotates tired men; morale rises and falls |
 | **M3b** | **Four squads, the wheel and the tactical view** | Shield wall, spear hedge, volleys and rallying a broken squad all work, on all three input setups |
 | **M4** | **Real enemy places** | The generator builds every place type from the village models |
