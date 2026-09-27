@@ -660,7 +660,7 @@ export class Views {
       const box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('soldier', 18), h('b', null, 'Commanders')));
       for (const [type, C] of Object.entries(COMMANDERS)) {
         const cur = [...g.villagers.values()].find(v => v.job === type);
-        if (!cur && g.thLevel < C.th) { box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name), h('small', null, `${C.ability}: ${C.abilityDesc}`)), h('span', { class: 'pill' }, `Keep level ${C.th}`))); continue; }
+        if (!cur && C.tech && !g.hasResearch(C.tech)) { box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name), h('small', null, `${C.ability}: ${C.abilityDesc}`)), h('button', { class: 'btn small ghost', onclick: () => this.hud.openResearch() }, `Research: ${g.researchNode(C.tech).node.name}`))); continue; }
         box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name + (cur ? ` — ${cur.name}` : '')), h('small', null, `${C.ability}: ${C.abilityDesc}`)),
           cur ? h('span', { class: 'pill' }, cur.away ? 'Away' : 'Ready') : h('button', { class: 'btn small', onclick: () => {
             const cand = g.soldiers().find(v => v.job === 'ashigaru') || g.idleVillagers()[0];
@@ -703,7 +703,7 @@ export class Views {
       // what the dojo trains: spearmen, shield-bearers (Keep 2) or samurai (Keep 4)
       const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));
       for (const [k, T] of Object.entries(DOJO_TRAINS)) {
-        const locked = !g.canTrain(k), why = g.thLevel < T.th ? `Keep level ${T.th}` : T.needs ? `Needs ${BUILDINGS[T.needs].name}` : '';
+        const locked = !g.canTrain(k), why = T.tech && !g.hasResearch(T.tech) ? `Research: ${g.researchNode(T.tech).node.name}` : T.needs ? `Needs ${BUILDINGS[T.needs].name}` : '';
         box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, title: JOBS[k].desc || '', onclick: () => { if (b.trainAs !== k) { b.trainAs = k; g.toast(`The dojo now trains ${JOBS[k].name}${k === 'cavalry' ? '' : 's'}`); } this.hud.renderPanel(); } },
           art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? why : `${T.time}s · ${this.costText(T.cost)}`))));
       }
@@ -732,7 +732,7 @@ export class Views {
         })));
       const cc = { wood: 260, stone: 120, gold: 60 }, ct = Math.round(80 * (1 - g.rb('ramBuild')));
       p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('ram', 22), h('b', null, 'Catapults'), this.hud.live(h('span', { class: 'count' }), el => { el.textContent = `${g.state.catapults || 0} ready`; })),
-        g.thLevel < 4 ? h('p', { class: 'sub' }, 'Unlocks with a Keep of level 4. A catapult throws boulders at walls and towers from 30 paces — out of reach of most archers.') : this.hud.live(h('div', null), el => {
+        !g.hasResearch('catapults') ? [h('p', { class: 'sub' }, 'Research \u201cSiege Engines\u201d (Daimy\u014d\u2019s Domain era) to build them. A catapult throws boulders at walls and towers from 30 paces \u2014 out of reach of most archers.'), h('button', { class: 'btn small ghost', onclick: () => this.hud.openResearch() }, 'Open Research')] : this.hud.live(h('div', null), el => {
           el.textContent = '';
           if (g.state.catBuild) { const left = g.state.catBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a catapult… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / ct) * 100}%` }))); }
           else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cc)) return g.toast('Not enough resources', 'warn'); g.pay(cc); g.state.catBuild = { done: g.state.clock + ct }; this.hud.renderPanel(); } }, `Build a catapult (${ct}s)`, costChips(g, cc)));

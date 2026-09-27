@@ -297,10 +297,11 @@ export class Hud {
   }
   onMoveMode(on) {
     this.moveBtn.classList.toggle('on', on);
+    if (this.sel) this.renderPanel();
     if (this.input.placing) return;
     this.hint.hidden = !on; if (!on) return;
     this.hint.textContent = '';
-    this.hint.append(h('b', null, 'Move mode'), h('span', null, ' — drag any building to a new spot'), h('small', null, '  R while dragging: rotate · G / Esc: finish'),
+    this.hint.append(h('b', null, 'Move mode'), h('span', null, ' — drag a building to move it, or tap it to demolish it'), h('small', null, '  R while dragging: rotate · G / Esc: finish'),
       h('button', { class: 'mini', onclick: () => this.input.setMoveMode(false) }, icon('close', 14), 'Done'));
   }
   placingHint(ok, why) {
@@ -367,10 +368,13 @@ export class Hud {
       if (d.line) { const seg = g.segmentOf(b.id); if (seg.length > 1) p.append(h('button', { class: 'btn ghost', title: 'Or double-click any piece', onclick: () => this.input.selectSegment(b.id) }, icon(d.road ? 'road' : 'wall', 16), `Select the whole ${d.road ? 'road' : b.type === 'wall' || b.type === 'palisade' ? 'wall' : 'line'} (${seg.length} pieces)`)); }
       if (b.type === 'townhall') this.keepSection(p, b);
       else this.upgradeSection(p, b);
-      const actions = h('div', { class: 'actions' });
-      actions.append(h('button', { class: 'btn ghost', title: 'Move', onclick: () => this.input.startPlacing(b.type, b.id) }, icon('move', 16), 'Move'));
-      if (b.type !== 'townhall') actions.append(h('button', { class: 'btn danger', title: 'Demolish (Delete)', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? 'Really demolish?' : 'Demolish'));
-      p.append(actions);
+      // moving and demolishing belong to Move mode (the Move button or G), not to every click
+      if (this.input.moveMode) {
+        const actions = h('div', { class: 'actions' });
+        actions.append(h('button', { class: 'btn ghost', title: 'Move', onclick: () => this.input.startPlacing(b.type, b.id) }, icon('move', 16), 'Move'));
+        if (b.type !== 'townhall') actions.append(h('button', { class: 'btn danger', title: 'Demolish (Delete)', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? 'Really demolish?' : 'Demolish'));
+        p.append(actions);
+      }
       if (this.extraPanel) this.extraPanel(p, b);
     } else {
       const v = g.villagers.get(sel.id); if (!v) { p.hidden = true; return; }
@@ -427,7 +431,7 @@ export class Hud {
       U.why ? h('p', { class: 'why' }, U.why) : null));
     else if (U.why && U.why !== 'Nothing to upgrade') p.append(h('p', { class: 'why' }, U.why));
     p.append(h('p', { class: 'sub' }, 'Tip: double-click any piece of wall, fence, hedge or road to select the whole line.'),
-      h('div', { class: 'actions' }, h('button', { class: 'btn danger', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? `Really demolish all ${list.length}?` : `Demolish all ${list.length}`)));
+      this.input.moveMode ? h('div', { class: 'actions' }, h('button', { class: 'btn danger', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? `Really demolish all ${list.length}?` : `Demolish all ${list.length}`)) : null);
   }
   upgradeSection(p, b) {
     const g = this.game, u = g.upgradeInfo(b);
@@ -858,6 +862,6 @@ export class Hud {
     if (k === ' ') { this.paused = !this.paused; return this.tick(); }
     if (k === 'f') return this.cycleSpeed();
     if (k === 'm') return this.onMap && this.onMap();
-    if (k === 'delete' || k === 'backspace') return this.demolishSelected();
+    if ((k === 'delete' || k === 'backspace') && I.moveMode) return this.demolishSelected();
   }
 }

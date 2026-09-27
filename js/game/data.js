@@ -85,12 +85,12 @@ export const CLANS = {
 
 // What a Dojo can train (chosen in its panel). Better troops need a bigger Keep, more time and more gold.
 export const DOJO_TRAINS = {
-  ashigaru:  { th: 1, time: 90,  cost: { wheat: 20, gold: 8 } },
-  shieldman: { th: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
-  samurai:   { th: 4, time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
-  ninja:     { th: 3, time: 150, cost: { wheat: 20, gold: 35 } },
-  sohei:     { th: 3, time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
-  cavalry:   { th: 3, time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
+  ashigaru:  { time: 90,  cost: { wheat: 20, gold: 8 } },
+  shieldman: { tech: 'tate', time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
+  samurai:   { tech: 'bushido', time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
+  ninja:     { tech: 'ninjutsu', time: 150, cost: { wheat: 20, gold: 35 } },
+  sohei:     { tech: 'sohei', time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
+  cavalry:   { tech: 'horse', time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
 };
 
 // Difficulty (per save): how big raids and counter-attacks get, and how hard enemy soldiers are.
@@ -112,8 +112,8 @@ export const rankOf = v => { const x = xpOf(v); let r = 0; RANKS.forEach((R, i) 
 
 // Commanders are appointed at the Keep.
 export const COMMANDERS = {
-  berserker: { th: 4, cost: { gold: 200, wheat: 150 }, ability: 'Scale the Wall', abilityDesc: 'Climbs straight over walls to a spot you choose and draws every enemy’s fire for 10s while taking half damage.' },
-  taisho:    { th: 5, cost: { gold: 320, wood: 200 }, ability: 'Rally Banner', abilityDesc: 'Nearby troops heal 30% and move and strike 40% faster for 8s.' },
+  berserker: { tech: 'oni', cost: { gold: 200, wheat: 150 }, ability: 'Scale the Wall', abilityDesc: 'Climbs straight over walls to a spot you choose and draws every enemy’s fire for 10s while taking half damage.' },
+  taisho:    { tech: 'taisho', cost: { gold: 320, wood: 200 }, ability: 'Rally Banner', abilityDesc: 'Nearby troops heal 30% and move and strike 40% faster for 8s.' },
 };
 
 // Battle stats (per unit). range in world units; dps = dmg / cd.
@@ -228,7 +228,7 @@ export const BUILDINGS = {
   market:     { name: 'Market', kanji: '市場', cat: 'village', size: [3, 3], cost: { wood: 140, stone: 60, gold: 30 }, time: 70, jobs: 1, job: 'merchant', h: 3.5, th: 2, maxLevel: 3, unique: true,
                 desc: 'Trade goods for gold and back. Travelling merchants stop here with special offers. Better prices at higher levels.' },
   dojo:       { name: 'Dojo', kanji: '道場', cat: 'military', size: [3, 3], cost: { wood: 150, stone: 80, gold: 30 }, time: 70, jobs: 2, job: 'trainee', trains: 'ashigaru', trainTime: 90, trainCost: { wheat: 20, gold: 8 }, h: 5, th: 1, maxLevel: 4, limit: [1, 1, 2, 2, 3], grow: { 3: [4, 3] },
-                desc: 'Unemployed villagers train here and graduate as Spearmen — or, with a bigger Keep, as Shield-bearers or Samurai.' },
+                desc: 'Unemployed villagers train here and graduate as Spearmen — or, once you research them, as Shield-bearers, Samurai, Ninja, Warrior monks or Cavalry.' },
   kyudojo:    { name: 'Kyūdō Range', kanji: '弓道場', cat: 'military', size: [3, 4], cost: { wood: 180, stone: 50, gold: 45 }, time: 80, jobs: 2, job: 'trainee_archer', trains: 'archer', trainTime: 110, trainCost: { wood: 25, gold: 8 }, h: 4, th: 2, maxLevel: 4, walkable: true, limit: [0, 1, 1, 2, 2], grow: { 3: [4, 4] },
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
   strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true, maxLevel: 3,
@@ -327,6 +327,7 @@ export const TECHS = [
   { id: 'spear4', era: 2, row: 3, req: ['spear1', 'keep2'], name: 'Veteran Ashigaru', desc: 'Spearmen move and strike 15% faster.', pts: 10, cost: { gold: 160, wheat: 150 }, fx: { spearFast: 0.15 } },
   { id: 'log2', era: 2, row: 4, req: ['log1', 'keep2'], name: 'Mountain Paths', desc: 'Armies march 25% faster.', pts: 8, cost: { gold: 100, wheat: 100 }, fx: { marchSpeed: 1 } },
   { id: 'trade1', era: 2, row: 5, req: ['keep2'], name: 'Merchant Guilds', desc: 'Better prices at the market and 15% more from trade routes.', pts: 10, cost: { gold: 60, wood: 80 }, fx: { tradeBoost: 0.15 } },
+  { id: 'tate', era: 2, row: 7, req: ['keep2'], unit: true, name: 'Tate Shields', desc: 'The Dojo can train Shield-bearers: a heavy wooden shield turns most arrows aside.', pts: 10, cost: { wood: 100, gold: 40 }, fx: {} },
   { id: 'keep3', era: 2, row: 6, key: true, req: ['def1', 'arch1'], name: 'Castle Architecture', desc: 'Opens the era of the Castle Town: the Keep can grow to level 3, and the first Great Buildings can be raised.', pts: 16, cost: { wood: 300, stone: 250, gold: 80 }, fx: {} },
   // era 3: the castle town
   { id: 'arch2', era: 3, row: 0, req: ['arch1', 'keep3'], name: 'Barbed Arrows', desc: 'Arrows do 20% more damage.', pts: 14, cost: { gold: 120, wood: 120 }, fx: { archDmg: 0.2 } },
@@ -337,6 +338,9 @@ export const TECHS = [
   { id: 'spear5', era: 3, row: 5, req: ['spear4', 'keep3'], name: 'Dojo Masters', desc: 'Trainees at the Dojo and Kyūdō Range learn 30% faster.', pts: 14, cost: { gold: 180, wood: 120 }, fx: { trainFast: 0.3 } },
   { id: 'siege1', era: 3, row: 6, req: ['keep3'], name: 'Hide Roof', desc: 'Rams have 50% more health and shrug off dropped stones.', pts: 12, cost: { gold: 100, wood: 150 }, fx: { ramHp: 0.5 } },
   { id: 'log3', era: 3, row: 7, req: ['log2', 'keep3'], name: 'Spy Network', desc: 'Scouts see much further around them.', pts: 12, cost: { gold: 140, wheat: 120 }, fx: { scoutSight: 1 } },
+  { id: 'ninjutsu', era: 3, row: 9, req: ['keep3'], unit: true, name: 'Ninjutsu', desc: 'The Dojo can train Ninja: hard to see, deadly from behind, climbing walls with a hook.', pts: 16, cost: { gold: 120, wheat: 80 }, fx: {} },
+  { id: 'sohei', era: 3, row: 10, req: ['keep3'], unit: true, name: 'Warrior Monks', desc: 'The Dojo can train Warrior monks (with a Shrine in the village): sweeping naginata, healing hands.', pts: 14, cost: { gold: 100, wheat: 100 }, fx: {} },
+  { id: 'horse', era: 3, row: 11, req: ['keep3'], unit: true, name: 'Horse Breeding', desc: 'The Dojo can train Cavalry (with Stables in the village): fast, and a charge hits very hard.', pts: 16, cost: { wheat: 150, gold: 80 }, fx: {} },
   { id: 'keep4', era: 3, row: 8, key: true, req: ['arch2', 'def2', 'spear3'], name: 'Seat of a Daimyō', desc: 'Opens the era of the Daimyō’s Domain: the Keep can grow to level 4.', pts: 26, cost: { wood: 500, stone: 500, gold: 200 }, fx: {} },
   // era 4: the domain
   { id: 'arch4', era: 4, row: 0, req: ['arch3', 'keep4'], name: 'Hawk Eyes', desc: 'Archers spot hidden enemies from further away; towers shoot 4 further.', pts: 22, cost: { gold: 220, wheat: 150 }, fx: { archEyes: 1 } },
@@ -347,6 +351,9 @@ export const TECHS = [
   { id: 'siege2', era: 4, row: 5, req: ['siege1', 'keep4'], name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', pts: 22, cost: { gold: 200, stone: 150 }, fx: { ramDmg: 0.4 } },
   { id: 'siege3', era: 4, row: 6, req: ['siege1', 'keep4'], name: 'Carpenters’ Guild', desc: 'Rams and catapults are built 40% faster.', pts: 20, cost: { gold: 150, wood: 200 }, fx: { ramBuild: 0.4 } },
   { id: 'log4', era: 4, row: 7, req: ['log3', 'keep4'], name: 'Supply Lines', desc: 'Marches cost half the wheat.', pts: 22, cost: { gold: 260, wheat: 200 }, fx: { supply: 1 } },
+  { id: 'bushido', era: 4, row: 9, req: ['tate', 'keep4'], unit: true, name: 'Bushid\u014d', desc: 'The Dojo can train Samurai: sworn warriors in lacquered armour, twice as tough as a spearman.', pts: 22, cost: { gold: 200, iron: 30 }, fx: {} },
+  { id: 'oni', era: 4, row: 10, req: ['keep4'], unit: true, name: 'Oni Captains', desc: 'You can appoint a Berserker commander at the Keep: he climbs walls and draws the enemy\u2019s fire.', pts: 24, cost: { gold: 200, wheat: 150 }, fx: {} },
+  { id: 'catapults', era: 4, row: 11, req: ['siege1', 'keep4'], unit: true, name: 'Siege Engines', desc: 'The Siege Workshop can build catapults that smash walls and towers from afar.', pts: 24, cost: { wood: 300, gold: 150 }, fx: {} },
   { id: 'keep5', era: 4, row: 8, key: true, req: ['def5', 'cmd1', 'siege2'], name: 'The Great Keep', desc: 'Opens the era of the Contender: the Keep can grow to level 5.', pts: 36, cost: { wood: 800, stone: 900, gold: 400 }, fx: {} },
   // era 5: contender for the realm
   { id: 'spear6', era: 5, row: 0, req: ['spear3', 'spear5', 'keep5'], name: 'Way of the Yari', desc: 'Spearmen hit another 20% harder.', pts: 32, cost: { gold: 380, wheat: 250 }, fx: { spearDmg: 0.2 } },
@@ -356,6 +363,7 @@ export const TECHS = [
   { id: 'siege4', era: 5, row: 4, req: ['siege2', 'siege3', 'keep5'], name: 'Swinging Crew', desc: 'Rams hit another 30% harder.', pts: 32, cost: { gold: 320, stone: 200 }, fx: { ramDmg: 0.3 } },
   { id: 'log5', era: 5, row: 5, req: ['log4', 'keep5'], name: 'Mountain Guides', desc: 'Scouts travel another 25% faster.', pts: 28, cost: { gold: 200, wheat: 150 }, fx: { scoutSpeed: 1 } },
   { id: 'granary', era: 5, row: 6, req: ['keep5'], name: 'Rice Tax Registers', desc: 'Your storehouses and Keep hold 25% more.', pts: 30, cost: { gold: 300, wood: 300 }, fx: { storageBoost: 0.25 } },
+  { id: 'taisho', era: 5, row: 8, req: ['oni', 'keep5'], unit: true, name: 'The Taish\u014d', desc: 'You can appoint a Taish\u014d commander at the Keep: his banner makes nearby troops fight harder.', pts: 30, cost: { gold: 320, wood: 200 }, fx: {} },
   { id: 'mandate', era: 5, row: 7, key: true, req: ['spear6', 'arch6', 'cmd5'], name: 'Imperial Mandate', desc: 'Opens the Shogunate era: the last Great Buildings — and the Emperor’s leave to march on the Shogun’s castle and rule the realm.', pts: 48, cost: { gold: 1000, sake: 100, iron: 100 }, fx: {} },
   // era 6: the shogunate
   { id: 'cmd3', era: 6, row: 0, req: ['cmd2', 'mandate'], name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', pts: 45, cost: { gold: 360, wheat: 200 }, fx: { bloodlust: 1 } },

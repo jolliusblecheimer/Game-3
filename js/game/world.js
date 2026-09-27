@@ -152,7 +152,7 @@ export class Game {
     return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
   }
   // can the dojo train this class now? (Keep level, and some need a building: Stables for cavalry, a Shrine for monks)
-  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && this.thLevel >= T.th && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
+  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && (!T.tech || this.hasResearch(T.tech)) && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
   // veterans: kills and battles raise a soldier's rank
   credit(v, kills = 0, battles = 0) {
     if (!v) return;
@@ -700,7 +700,7 @@ export class Game {
     const vs = [...this.villagers.values()];
     this.setJob(vs[0], 'farmer', farm.id); this.setJob(vs[1], 'farmer', farm.id);
     this.computeLinks(); for (const b of [...this.buildings.values()]) if (!b.linked) this.autoRoad(b, true);
-    this.state.settings.roadIntro = true;
+    this.state.settings.roadIntro = true; this.state.settings.unitTechs = true;
     this.toast('Welcome, lord. Your people await your command.');
   }
   serialize() {
@@ -783,6 +783,8 @@ export class Game {
     S.wisdom = typeof s.wisdom === 'number' ? s.wisdom : 6; S.blueprints = s.blueprints || {};
     // (old saves: a Keep that already grew counts as having reached those eras)
     for (let L = 2; L <= this.thLevel; L++) if (!S.research.done.includes('keep' + L)) S.research.done.push('keep' + L);
+    // (old saves: troops that used to come with the Keep level stay available)
+    if (!S.settings.unitTechs) { S.settings.unitTechs = true; for (const [id, th] of [['tate', 2], ['ninjutsu', 3], ['sohei', 3], ['horse', 3], ['bushido', 4], ['oni', 4], ['catapults', 4], ['taisho', 5]]) if (this.thLevel >= th && !S.research.done.includes(id)) S.research.done.push(id); }
     S.rams = +s.rams || 0; S.ramBuild = s.ramBuild || null; S.catapults = +s.catapults || 0; S.catBuild = s.catBuild || null;
     try { this.country.load(s.country); } catch (e) { console.warn('Country map could not be loaded', e); }
     try { this.life.load(s.life); this.clans.load(s.clans); this.clans.init(); this.progress.load(s.progress, false); } catch (e) { console.warn('Clans / progress could not be loaded', e); }

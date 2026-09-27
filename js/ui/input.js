@@ -343,6 +343,7 @@ export class Input {
         else this.hud.toast(this.hud.lastWhy || 'Can’t move it there', 'warn');
       }
       this.cancelPlacing();
+      if (!D.drag) { const b = this.game.buildings.get(D.grab); if (b) this.select({ kind: 'building', id: b.id }); }
       return;
     }
     if (D && D.draw && D.drag && this.placing) { this.commitPlacing(false); return; }
