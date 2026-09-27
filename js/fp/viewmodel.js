@@ -37,8 +37,8 @@ const CLUB = { ...BLADE, rest: P(0.32, -0.4, -0.6, -0.35, 0.1, -0.35), guard: P(
 // string hand at the cheek (kai); on release the bow spins in the hand (yugaeri) and the hand flies back (zanshin)
 const BOW = {
   rest: P(-0.2, -0.5, -0.6, -0.1, 0.25, 0.32),
-  raise: P(-0.17, 0.06, -0.78, 0.05, 0.05, 0.1),
-  kai: P(-0.19, -0.12, -0.7, 0, 0.1, 0.12),
+  raise: P(-0.05, 0.06, -0.78, 0.05, 0.05, 0.05),
+  kai: P(-0.035, -0.1, -0.68, 0, 0.04, 0.06),
   kick: P(-0.34, -0.62, -0.5, 0, 0.3, 0.6),
   anchor: [0.085, -0.13, -0.06],      // the string hand at full draw: by the right cheek
   zanshin: [0.36, -0.1, 0.02],        // where it flies after the release
@@ -290,7 +290,6 @@ export class ViewModel {
     if (this.arrow.visible) {
       const rest = this._d.set(0.022, 0.1, -0.01).applyMatrix4(rig.matrix).applyMatrix4(L.matrix);
       const dir = rest.clone().sub(onString).normalize();
-      if (F.state === 'aim') { const k = smoothstep(0.3, 1, F.quick ? 1 : F.draw); dir.lerp(new THREE.Vector3(0, -0.02, -40).sub(onString).normalize(), k).normalize(); }
       this.arrow.position.copy(onString); this.arrow.quaternion.setFromUnitVectors(FWD, dir);
     }
     this.trailPts.length = 0; this.drawTrail();

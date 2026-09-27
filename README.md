@@ -434,7 +434,3 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Clicking fixed:**
   - A click made while a cut was still finishing could turn into a slow heavy strike. Now a quick click stays a quick cut.
   - If the browser refuses to capture the mouse, clicks now strike anyway (look around by dragging) instead of being swallowed.
-- **Longbow:**
-  - At full draw the bow sits at the left, so the middle of the view stays clear, and the arrow points where the crosshair is.
-  - Arrows fly about 110 m/s at full draw with little drop: aiming dead centre hits the 7-ring at 20 m and the bullseye at 40 m.
-  - A full draw is very accurate. A half draw or a quick shot from the hip still scatters.
