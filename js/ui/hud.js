@@ -186,9 +186,11 @@ export class Hud {
         el.classList.toggle('attn', R.active || t < 60);
       }),
       this.live(h('button', { class: 'crow link2', title: 'How your villagers feel', onclick: () => this.openMood() }, icon('people', 20), h('span', null, 'Mood'), h('b')), el => { const m = g.life.mood(); el.lastChild.textContent = `${m}%${g.life.festival ? ' 🏮' : ''}`; el.classList.toggle('attn', m < 30); }),
-      this.live(h('button', { class: 'crow link2 tasks', title: 'Tasks and the guide', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Tasks'), h('b')), el => {
-        const P = g.progress, guide = P.guide < GUIDE.length; el.lastChild.textContent = guide ? `Guide ${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length); el.classList.toggle('attn', guide);
-        el.title = guide ? 'Guide: ' + GUIDE[P.guide].text : 'Tasks with rewards';
+      this.live(h('button', { class: 'crow link2 tasks', title: 'Quests and tasks', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Quests'), h('b')), el => {
+        const P = g.progress, n = P.toClaim(), Q = GUIDE[P.guide];
+        el.lastChild.textContent = n ? `${n} to claim!` : Q ? `${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length);
+        el.classList.toggle('attn', n > 0); el.classList.toggle('claim', n > 0);
+        el.title = Q ? `Quest: ${Q.title} \u2014 ${Q.text}` : 'Tasks with rewards';
       }),
       this.live(h('button', { class: 'crow link2', title: 'Harmony: see where it comes from', onclick: () => this.openHarmony() }, icon('sakura', 20), h('span', null, 'Harmony'), h('b')), el => { el.lastChild.textContent = `+${g.harmony()}%`; }),
     );
@@ -642,15 +644,28 @@ export class Hud {
     this.openModal('Mood of the village', body, [{ label: 'Close' }]);
   }
   /* ---------- tasks, guide, chronicle ---------- */
+  // quests and tasks: what to do next, and the rewards waiting to be claimed
   openTasks() {
     const g = this.game, P = g.progress, body = h('div', { class: 'tasks' });
-    if (P.guide < GUIDE.length) body.append(h('div', { class: 'upgrade' }, h('b', null, `Guide — step ${P.guide + 1} of ${GUIDE.length}`), h('p', null, GUIDE[P.guide].text),
-      h('div', { class: 'bar' }, h('i', { style: `width:${P.guide / GUIDE.length * 100}%` }))));
-    body.append(h('h3', null, 'Tasks'));
-    if (!P.tasks.length) body.append(h('p', { class: 'sub' }, 'New tasks will come soon.'));
-    for (const t of P.tasks) body.append(h('div', { class: 'irow task' }, icon('flag', 18), h('span', null, t.text), h('span', { class: 'rt' }, costChips(g, t.reward))));
-    body.append(h('p', { class: 'sub' }, P.won ? `The land is unified (day ${P.stats.wonDay}). Rule on as long as you like.` : 'The goal: unify the land (Tenka) — take the Shogun\u2019s castle, or break every rival clan.'));
-    this.openModal('Tasks', body, [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) }, { label: 'Close' }]);
+    const render = () => {
+      body.textContent = '';
+      const Q = GUIDE[P.guide];
+      if (Q) body.append(h('div', { class: 'quest' + (P.questReady ? ' ready' : '') },
+        h('div', { class: 'q-top' }, h('span', { class: 'q-no' }, `${P.guide + 1}/${GUIDE.length}`), h('span', null, h('small', null, 'Main quest'), h('b', null, Q.title))),
+        h('p', { class: 'q-text' }, Q.text),
+        h('p', { class: 'q-hint' }, icon('info', 14), ` ${Q.hint}`),
+        h('div', { class: 'row' }, h('span', { class: 'q-rew' }, h('small', null, 'Reward: '), costChips(g, Q.reward), Q.wisdom ? h('span', { class: 'c' }, icon('wisdom', 15), String(Q.wisdom)) : null),
+          P.questReady ? h('button', { class: 'btn claim', onclick: () => { P.claimQuest(); render(); } }, 'Claim') : h('span', { class: 'q-state' }, 'In progress…')),
+        h('div', { class: 'bar' }, h('i', { style: `width:${P.guide / GUIDE.length * 100}%` }))));
+      else body.append(h('p', { class: 'sub' }, 'Every quest of the main story is done.'));
+      body.append(h('h3', null, 'Side tasks'));
+      if (!P.tasks.length) body.append(h('p', { class: 'sub' }, 'New tasks will come soon.'));
+      for (const t of P.tasks) body.append(h('div', { class: 'irow task' + (t.ready ? ' ready' : '') }, icon('flag', 18), h('span', null, t.text),
+        h('span', { class: 'rt' }, costChips(g, t.reward), t.ready ? h('button', { class: 'btn small claim', onclick: () => { P.claimTask(t.id); render(); } }, 'Claim') : h('small', { class: 'sub' }, 'not yet'))));
+      body.append(h('p', { class: 'sub' }, P.won ? `The land is unified (day ${P.stats.wonDay}). Rule on as long as you like.` : 'The goal: unify the land (Tenka) — take the Shogun’s castle, or break every rival clan.'));
+    };
+    render();
+    this.openModal('Quests & tasks', body, [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) }, { label: 'Close' }]);
   }
   openChronicle(tab = 'log') {
     const g = this.game, P = g.progress, S = P.stats, body = h('div', { class: 'chron' });

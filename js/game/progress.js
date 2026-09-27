@@ -6,18 +6,32 @@ const soldiers = g => g.soldiers(true).length;
 const count = (g, t) => g.countType(t);
 const jobs = (g, j) => g.countJob(j);
 
-// The guide: the first steps for a new lord, one at a time
-export const GUIDE = [
-  { text: 'Build a Lumber Camp near the trees (Resources tab)', done: g => count(g, 'lumber') > 0 },
-  { text: 'Give it two woodcutters: select the camp and press +', done: g => jobs(g, 'woodcutter') >= 2 },
-  { text: 'Build a Stone Quarry (Resources tab)', done: g => count(g, 'quarry') > 0 },
-  { text: 'Build a Minka House so new families can move in (Village tab)', done: g => count(g, 'house') >= 2 },
-  { text: 'Build a Dojo and train your first spearman (Military tab)', done: g => soldiers(g) >= 1 },
-  { text: 'Open the Map and send a scout into the clouds', done: g => (g.progress.stats.scouts || 0) >= 1 },
-  { text: 'Build a Scholars\u2019 Pavilion (Village tab) \u2014 your clan\u2019s research gathers Wisdom there', done: g => count(g, 'shoin') > 0 },
-  { text: 'Research Clan Hall: tap Research at the top, invest Wisdom, complete it', done: g => g.hasResearch('keep2') },
-  { text: 'Upgrade your Keep to level 2 \u2014 select the Keep', done: g => g.thLevel >= 2 },
+// The main quest: the story of your rise, one step at a time. Each says what to do and where to find it;
+// when it's done you claim the reward, and the next step appears.
+export const QUESTS = [
+  { title: 'Timber', text: 'Build a Lumber Camp near the trees.', hint: 'Build menu → Resources → Lumber Camp', done: g => count(g, 'lumber') > 0, reward: { wood: 60, wheat: 40 } },
+  { title: 'Hands at work', text: 'Give the Lumber Camp two woodcutters.', hint: 'Select the camp and press +', done: g => jobs(g, 'woodcutter') >= 2, reward: { wood: 60 } },
+  { title: 'Stone', text: 'Build a Stone Quarry.', hint: 'Build menu → Resources → Stone Quarry', done: g => count(g, 'quarry') > 0, reward: { wood: 50, stone: 40 } },
+  { title: 'Roads home', text: 'Connect every building to the Keep with roads.', hint: 'A red 道 sign means no road — Dirt Road is free (Village tab)', done: g => (g.unlinked || 0) === 0 && g.buildings.size > 3, reward: { stone: 40, gold: 20 } },
+  { title: 'Room for families', text: 'Build a second Minka House so new families can move in.', hint: 'Build menu → Village → Minka House', done: g => count(g, 'house') >= 2, reward: { wood: 80, wheat: 60 } },
+  { title: 'Scholars', text: 'Build a Scholars’ Pavilion — your clan’s research happens there.', hint: 'Build menu → Village → Scholars’ Pavilion', done: g => count(g, 'shoin') > 0, reward: { gold: 30 }, wisdom: 3 },
+  { title: 'A Clan Hall', text: 'Research “Clan Hall”: put Wisdom into it, then complete it.', hint: 'Research button at the top', done: g => g.hasResearch('keep2'), reward: { wood: 100, stone: 60 } },
+  { title: 'A bigger Keep', text: 'Upgrade your Keep to level 2.', hint: 'Select the Keep → Upgrade', done: g => g.thLevel >= 2, reward: { gold: 60, stone: 80 } },
+  { title: 'The first spear', text: 'Build a Dojo and train your first spearman.', hint: 'Build menu → Military → Dojo, then give it trainees', done: g => soldiers(g) >= 1, reward: { wheat: 80, gold: 40 } },
+  { title: 'Eyes on the hills', text: 'Open the Map and send a scout into the clouds.', hint: 'Map button (bottom right) → click the land', done: g => (g.progress.stats.scouts || 0) >= 1, reward: { wheat: 60, gold: 20 } },
+  { title: 'Watchtower', text: 'Build a Yagura Tower and put archers on it.', hint: 'Build a Kyūdō Range for archers — they climb the tower by themselves', done: g => g.soldiers().some(v => v.post), reward: { stone: 100, gold: 40 } },
+  { title: 'Hold the village', text: 'Beat off a raid on your village.', hint: 'When raiders come: select your soldiers and send them, or let them fight', done: g => (g.state.stats.raidsBeaten || 0) >= 1, reward: { gold: 80 }, wisdom: 4 },
+  { title: 'First blood abroad', text: 'Win a battle on the map — a bandit camp is a good start.', hint: 'Map → click a place → Raid', done: g => (g.progress.stats.battlesWon || 0) >= 1, reward: { gold: 100, wood: 100 } },
+  { title: 'Castle Town', text: 'Research “Castle Architecture” and raise your Keep to level 3.', hint: 'Research → era 2 → ★ Castle Architecture', done: g => g.thLevel >= 3, reward: { gold: 150, stone: 150 }, wisdom: 5 },
+  { title: 'Our banner abroad', text: 'Take a place on the map and hold it with a garrison.', hint: 'Win a battle there and choose “Hold it”', done: g => Object.keys(g.country.holds).length >= 1, reward: { gold: 120, wheat: 150 } },
+  { title: 'A wonder of the age', text: 'Gather 5 blueprints and build a Great Building.', hint: 'Blueprints come from battles, raids you beat off and temples — Wonders tab', done: g => [...g.buildings.values()].some(b => b.def.wonder && b.done), reward: { gold: 200 }, wisdom: 8 },
+  { title: 'Seat of a Daimyō', text: 'Raise your Keep to level 4.', hint: 'Research era 3 → ★ Seat of a Daimyō, then upgrade the Keep', done: g => g.thLevel >= 4, reward: { gold: 250, stone: 250 } },
+  { title: 'A commander', text: 'Build a Strategy Hall and appoint your first commander.', hint: 'Research “Oni Captains”, build the Strategy Hall, appoint at the Keep', done: g => g.villagers && [...g.villagers.values()].some(v => v.job === 'berserker' || v.job === 'taisho'), reward: { gold: 200, wheat: 200 }, wisdom: 6 },
+  { title: 'Contender', text: 'Raise your Keep to level 5.', hint: 'Research era 4 → ★ The Great Keep', done: g => g.thLevel >= 5, reward: { gold: 400, stone: 300 } },
+  { title: 'The Emperor’s leave', text: 'Research the Imperial Mandate.', hint: 'Research → era 5 → ★ Imperial Mandate', done: g => g.hasResearch('mandate'), reward: { gold: 500 }, wisdom: 10 },
+  { title: 'Tenka', text: 'Unify the land: take the Shogun’s castle — or break every rival clan.', hint: 'Map → the Shogun’s castle, or Clans & diplomacy', done: g => !!g.progress.won, reward: { gold: 1000 } },
 ];
+export const GUIDE = QUESTS;   // (older code and saves called it the guide)
 
 // Task templates: each makes a task from where you stand now, or nothing if it doesn't fit
 const TASKS = [
@@ -86,28 +100,34 @@ export class Progress {
     this.t += dt; if (this.t < 1) return; this.t = 0;
     const g = this.game;
     this.stats.maxPop = Math.max(this.stats.maxPop || 0, g.pop);
-    // the guide
-    if (this.guide < GUIDE.length && GUIDE[this.guide].done(g)) {
-      this.guide++;
-      g.toast(this.guide < GUIDE.length ? `Well done! Next: ${GUIDE[this.guide].text}` : 'You know the basics now, lord. Tasks will keep coming — see the Tasks button.');
-      g.emit('guide');
-    }
-    // tasks: keep three going; pay out the finished ones
+    // the main quest: done → ready to claim
+    const Q = QUESTS[this.guide];
+    let qd = false; try { qd = Q && Q.done(g); } catch (e) { }
+    if (Q && !this.questReady && qd) { this.questReady = true; g.sfx('coin'); g.toast(`Quest complete: ${Q.title}! Claim your reward (Tasks).`); g.emit('guide'); }
+    // side tasks: keep three going; finished ones wait for you to claim them
     this.fillTasks();
-    for (const t of this.tasks.slice()) if (t.check(g)) {
-      for (const r in t.reward) g.add(r, t.reward[r]);
-      if (t.wisdom) g.gainWisdom(t.wisdom);
-      g.toast(`Task done: ${t.text}! Reward: ${Object.entries(t.reward).map(([r, n]) => `${n} ${r}`).join(', ')}`);
-      this.log(`Task done: ${t.text}.`, 'task');
-      this.tasks = this.tasks.filter(x => x !== t); this.fillTasks(t.id); g.emit('tasks');
-    }
+    for (const t of this.tasks) if (!t.ready && t.check(g)) { t.ready = true; g.toast(`Task complete: ${t.text} \u2014 claim your reward (Tasks).`); g.emit('tasks'); }
     this.check();
+  }
+  toClaim() { return (this.questReady ? 1 : 0) + this.tasks.filter(t => t.ready).length; }
+  pay(reward, wisdom) { const g = this.game; for (const r in reward) g.add(r, reward[r]); if (wisdom) g.gainWisdom(wisdom); g.sfx('fanfare'); }
+  claimQuest() {
+    const Q = QUESTS[this.guide]; if (!Q || !this.questReady) return false;
+    this.pay(Q.reward, Q.wisdom); this.log(`Quest done: ${Q.title}.`, 'task');
+    this.guide++; this.questReady = false;
+    const N = QUESTS[this.guide]; this.game.toast(N ? `Next quest: ${N.title} \u2014 ${N.text}` : 'Every quest is done. The land is yours.');
+    this.game.emit('guide'); return true;
+  }
+  claimTask(id) {
+    const t = this.tasks.find(t => t.id === id); if (!t || !t.ready) return false;
+    this.pay(t.reward, t.wisdom); this.log(`Task done: ${t.text}.`, 'task');
+    this.tasks = this.tasks.filter(x => x !== t); this.fillTasks(t.id); this.game.emit('tasks'); return true;
   }
   fillTasks(skip) {
     const g = this.game, have = new Set(this.tasks.map(t => t.id));
     for (const make of TASKS.slice().sort(() => Math.random() - 0.5)) {
       if (this.tasks.length >= 3) break;
-      const t = make(g); if (!t || have.has(t.id) || t.id === skip || t.check(g)) continue;
+      const t = make(g); if (!t || have.has(t.id) || t.id === skip || t.check(g)) continue;   // (already done: not a task)
       this.tasks.push(t); have.add(t.id);
     }
   }
@@ -129,13 +149,16 @@ export class Progress {
     this.game.emit('victory', how);
   }
 
-  serialize() { return { chronicle: this.chronicle, stats: this.stats, ach: this.ach, tasks: this.tasks.map(t => t.id), guide: this.guide, won: this.won }; }
+  serialize() { return { chronicle: this.chronicle, stats: this.stats, ach: this.ach, tasks: this.tasks.map(t => t.id), ready: this.tasks.filter(t => t.ready).map(t => t.id), guide: this.guide, questReady: this.questReady, quests: 2, won: this.won }; }
   load(o, isNew) {
     if (!o) { this.guide = isNew ? 0 : GUIDE.length; return; }   // older saves: no guide
     this.chronicle = Array.isArray(o.chronicle) ? o.chronicle : []; this.stats = o.stats || {}; this.ach = o.ach || {};
-    this.guide = typeof o.guide === 'number' ? o.guide : GUIDE.length; this.won = o.won || null;
+    this.guide = typeof o.guide === 'number' ? o.guide : GUIDE.length; this.won = o.won || null; this.questReady = !!o.questReady;
+    // saves from before the quest line: start at the first step not yet done
+    if (o.quests !== 2) { this.guide = 0; this.questReady = false; try { while (this.guide < QUESTS.length && QUESTS[this.guide].done(this.game)) this.guide++; } catch (e) { } }
     // tasks are rebuilt from their templates; the ones that no longer fit are replaced
     const ids = new Set(o.tasks || []);
-    for (const make of TASKS) { const t = make(this.game); if (t && ids.has(t.id)) this.tasks.push(t); }
+    const ready = new Set(o.ready || []);
+    for (const make of TASKS) { const t = make(this.game); if (t && ids.has(t.id)) { if (ready.has(t.id)) t.ready = true; this.tasks.push(t); } }
   }
 }

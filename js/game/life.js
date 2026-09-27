@@ -87,15 +87,18 @@ export class Life {
   takeOffer(i) {
     const g = this.g, o = this.merchant && this.merchant.offers[i]; if (!o || o.done) return false;
     if (!g.canAfford(o.give)) { g.toast('You can’t pay for that', 'warn'); return false; }
-    g.pay(o.give); for (const r in o.get) g.add(r, o.get[r]); o.done = true; g.toast('A deal! The merchant bows.'); g.emit('merchant'); return true;
+    g.pay(o.give); for (const r in o.get) g.add(r, o.get[r]); this.merchant.offers[i] = this.makeOffer(); g.toast('A deal! The merchant bows \u2014 and brings out something new.'); g.emit('merchant'); return true;
+  }
+  // one good deal: goods for other goods, worth a quarter to a half more than market price
+  makeOffer() {
+    const g = this.g, R = Object.keys(VALUE), pick = () => R[Math.floor(g.rand() * R.length)];
+    const a = pick(); let b = pick(); if (b === a) b = 'gold';
+    const give = { [a]: Math.round(40 + g.rand() * 80) }, worth = give[a] * VALUE[a] * (1.25 + g.rand() * 0.25);
+    return { give, get: { [b]: Math.max(5, Math.round(worth / (VALUE[b] || 1))) } };
   }
   newMerchant() {
-    const g = this.g, R = Object.keys(VALUE), pick = () => R[Math.floor(g.rand() * R.length)], offers = [];
-    for (let i = 0; i < 3; i++) {
-      const a = pick(); let b = pick(); if (b === a) b = 'gold';
-      const give = { [a]: Math.round(40 + g.rand() * 80) }, worth = give[a] * VALUE[a] * (1.25 + g.rand() * 0.35);   // a good deal
-      offers.push({ give, get: { [b]: Math.max(5, Math.round(worth / (VALUE[b] || 1))) } });
-    }
+    const g = this.g, offers = [];
+    for (let i = 0; i < 3; i++) offers.push(this.makeOffer());
     offers.push({ give: { sake: 30 }, get: { gold: 140 + Math.round(g.rand() * 40) } });
     this.merchant = { until: this.S.clock + DAY * 0.8, offers };
     g.toast('A merchant caravan has stopped at your market! See the Market for their offers.');

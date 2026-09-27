@@ -737,3 +737,50 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .wr-games .cost .c { color: #e9dcc0; }
 .wr-tier { position: absolute; left: 0; width: 100%; text-align: center; font: 700 11px var(--mincho); letter-spacing: .2em; color: #c9962f; }
 .wr-tier.shut { color: #6e6352; }
+
+/* quests */
+.quest { background: #fbf4e4; border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.quest.ready { border-color: #c9962f; box-shadow: 0 0 0 3px rgba(233, 196, 106, .35); }
+.q-top { display: flex; align-items: center; gap: 10px; }
+.q-top small { display: block; color: #7a6b58; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.q-top b { font: 700 19px var(--mincho); }
+.q-no { background: #b8342a; color: #fff; border-radius: 8px; padding: 4px 8px; font: 700 13px var(--mincho); }
+.q-text { margin: 0; font-size: 15px; }
+.q-hint { margin: 0; color: #6b5f52; font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.q-rew { display: flex; align-items: center; gap: 6px; }
+.q-state { color: #7a6b58; font-size: 13px; }
+.quest .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn.claim { background: #c9962f; color: #fff; border-color: #a87a1c; animation: rtglow 1.8s ease-in-out infinite; }
+.irow.task.ready { background: #fff3d6; border-radius: 8px; }
+.crow.claim b { color: #b8342a; }
+
+/* diplomacy */
+.dip-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.dip-tab { flex: 1 1 140px; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: #f6efdf; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.dip-tab > span:last-child { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.dip-tab.on { background: #fffaf0; border-color: #b8342a; box-shadow: 0 0 0 2px rgba(184,52,42,.25); }
+.dip-tab.fallen { opacity: .55; }
+.dip-tab .mon { width: 30px; height: 30px; font-size: 15px; }
+.dip-means { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; border-left: 4px solid; }
+.dip-means.bad { background: #f8e3de; border-color: #c2412d; } .dip-means.mid { background: #f4ecd6; border-color: #c9962f; } .dip-means.good { background: #e3efd8; border-color: #5f8a3e; }
+.dip-road { display: flex; gap: 2px; font-size: 12px; }
+.dip-road .step { flex: 1; text-align: center; padding: 4px 2px; background: #eee3cc; color: #8a7b66; }
+.dip-road .step:first-child { border-radius: 8px 0 0 8px; } .dip-road .step:last-child { border-radius: 0 8px 8px 0; }
+.dip-road .step.at { background: #b8342a; color: #fff; font-weight: 700; }
+.dip-feel { display: flex; flex-direction: column; gap: 4px; }
+.dip-feelhead { display: flex; justify-content: space-between; align-items: baseline; }
+.dip-bar { position: relative; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #c2412d, #e0c79a 50%, #5f8a3e); margin-bottom: 14px; }
+.dip-bar i { position: absolute; top: -4px; width: 6px; height: 20px; margin-left: -3px; background: #2b2118; border-radius: 3px; box-shadow: 0 0 0 2px #fff; }
+.dip-bar em { position: absolute; top: 12px; font: 10px/1.6 sans-serif; font-style: normal; color: #6b5f52; transform: translateX(-50%); white-space: nowrap; border-left: 1px solid #6b5f52; padding-left: 2px; }
+.dip-ends { display: flex; justify-content: space-between; color: #7a6b58; }
+.dip-next { background: #fff3d6; border: 1px dashed #c9962f; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; }
+.dip-next small { color: #8a6a24; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+.dip-act { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.dip-act > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.dip-act small { color: var(--ink-2); }
+.dip-act.off small { color: #a0503f; }
+.dip-act .rt { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.dip h3 { margin: 6px 0 0; }
+.irow.task { align-items: center; }
+.irow.task > span:nth-child(2) { flex: 1; min-width: 0; }
+.irow.task .rt { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }

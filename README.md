@@ -307,3 +307,36 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Skills cost 1, 2 or 3 points by tier.
 - The Hall's level opens the tiers: level 2 opens tier II, level 3 opens tier III. Its scholars still add Wisdom.
 - Commander skills are no longer part of the era research. Anything already researched carries over.
+
+## Quests, claims and diplomacy
+- **Main quest line:** 21 steps that guide you through the whole game.
+  - The steps run from the first Lumber Camp to unifying the land.
+  - Each step says what to do and where to find it.
+  - When a step is done, you **claim** its reward yourself in the Quests window. Then the next step appears.
+- **Side tasks** don't pay out on their own any more. They wait with a **Claim** button.
+  - The Quests row in the clan panel lights up when a reward is waiting.
+- **Dojo classes need a bigger Dojo** as well as the research:
+  - Shield bearer: level 2.
+  - Ninja, sōhei and cavalry: level 3.
+  - Samurai: level 4.
+- **The Strategy Hall** opens at **Keep level 4**, with your first commander.
+- **Deals:**
+  - The travelling merchant brings out a new offer each time you take one.
+  - Market towns with a trade route have a **Deal of the day** that changes after every deal.
+- **Gathering is fairer:**
+  - Wheat is slower: 6 per harvest.
+  - Stone, gold and iron are faster: stonecutter 8 every 12 s, miners 6 and 5 every 14 s.
+- **Diplomacy window, redone:**
+  - One tab per clan.
+  - A plain explanation of what your current standing means.
+  - The road from war to marriage.
+  - A labelled feelings bar with the alliance (40) and marriage (65) marks.
+  - The **best next step**.
+  - Every action with its cost and the reason when you can't do it yet.
+- **Ground detail:**
+  - Raked sand on the Kyūdō Range, Dojo yard and Strategy Hall garden.
+  - Chips, cracks, rock strata and drill holes at the Stone Quarry.
+  - Soot and a coal heap at the smithy.
+  - Straw and a trough in the stable.
+  - Sawdust and timber at the workshop.
+  - Makiwara straw targets.

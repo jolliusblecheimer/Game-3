@@ -54,11 +54,11 @@ export const MAX_TH = 5;
 // Jobs. `work` = seconds of work per trip, `amount` = goods carried back.
 export const JOBS = {
   idle:           { name: 'Villager',        look: 'villager', desc: 'Unemployed. Free villagers build, upgrade, repair and clear land on their own — or give them a job at a workplace.' },
-  farmer:         { name: 'Farmer',          look: 'farmer',      res: 'wheat', work: 12, amount: 8 },
+  farmer:         { name: 'Farmer',          look: 'farmer',      res: 'wheat', work: 12, amount: 6 },
   woodcutter:     { name: 'Woodcutter',      look: 'woodcutter',  res: 'wood',  work: 10, amount: 7 },
-  stonecutter:    { name: 'Stonecutter',     look: 'stonecutter', res: 'stone', work: 13, amount: 6 },
-  miner:          { name: 'Miner',           look: 'miner',       res: 'gold',  work: 16, amount: 4 },
-  ironminer:      { name: 'Iron miner',      look: 'miner',       res: 'iron',  work: 16, amount: 3 },
+  stonecutter:    { name: 'Stonecutter',     look: 'stonecutter', res: 'stone', work: 12, amount: 8 },
+  miner:          { name: 'Miner',           look: 'miner',       res: 'gold',  work: 14, amount: 6 },
+  ironminer:      { name: 'Iron miner',      look: 'miner',       res: 'iron',  work: 14, amount: 5 },
   brewer:         { name: 'Brewer',          look: 'brewer', desc: 'turns 6 wheat into 3 sake' },
   smith:          { name: 'Blacksmith',      look: 'smith', desc: 'forges iron into blades: while the forge burns, your soldiers hit harder and last longer' },
   merchant:       { name: 'Merchant',        look: 'merchant', desc: 'runs the trading counter and brings gold' },
@@ -86,11 +86,11 @@ export const CLANS = {
 // What a Dojo can train (chosen in its panel). Better troops need a bigger Keep, more time and more gold.
 export const DOJO_TRAINS = {
   ashigaru:  { time: 90,  cost: { wheat: 20, gold: 8 } },
-  shieldman: { tech: 'tate', time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
-  samurai:   { tech: 'bushido', time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
-  ninja:     { tech: 'ninjutsu', time: 150, cost: { wheat: 20, gold: 35 } },
-  sohei:     { tech: 'sohei', time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
-  cavalry:   { tech: 'horse', time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
+  shieldman: { tech: 'tate', dojo: 2, time: 110, cost: { wheat: 20, wood: 25, gold: 12, iron: 6 } },
+  samurai:   { tech: 'bushido', dojo: 4, time: 200, cost: { wheat: 40, gold: 45, iron: 12 } },
+  ninja:     { tech: 'ninjutsu', dojo: 3, time: 150, cost: { wheat: 20, gold: 35 } },
+  sohei:     { tech: 'sohei', dojo: 3, time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
+  cavalry:   { tech: 'horse', dojo: 3, time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
 };
 
 // Difficulty (per save): how big raids and counter-attacks get, and how hard enemy soldiers are.
@@ -233,7 +233,7 @@ export const BUILDINGS = {
                 desc: 'Trainees practise the way of the bow on the shooting line and become Archers.' },
   shoin:      { name: 'Scholars\u2019 Pavilion', kanji: '書院', cat: 'village', size: [3, 3], cost: { wood: 80, stone: 30 }, time: 50, h: 6, th: 1, unique: true, maxLevel: 5,
                 desc: 'Scholars copy scrolls and argue by the pond. This is where your clan does its research: Wisdom gathers here, faster and with more room at every level.' },
-  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true, maxLevel: 3,
+  strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 4, unique: true, maxLevel: 3,
                 desc: 'The war room of your clan: your commanders learn their skills here with the command points they earn in battle. Each level opens a deeper tier of skills — and its scholars add Wisdom.' },
   // ---- Great Buildings (wonders) ----
   kinkaku:  { name: 'Kinkaku-ji', kanji: '金閣寺', cat: 'wonder', size: [4, 4], cost: { wood: 400, stone: 250, gold: 300 }, time: 150, h: 9, th: 3, unique: true, wonder: { era: 3, bonus: 'mood' },

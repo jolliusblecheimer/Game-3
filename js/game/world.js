@@ -150,11 +150,11 @@ export class Game {
   jobSlots(b) { return b.def.jobs ? b.def.jobs + (b.level - 1) : 0; }
   // what a training building turns its trainees into, how long it takes and what it costs each
   trainInfo(b) {
-    if (b.type === 'dojo') { const k = this.canTrain(b.trainAs) ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
+    if (b.type === 'dojo') { const k = this.canTrain(b.trainAs, b) ? b.trainAs : 'ashigaru'; const T = DOJO_TRAINS[k]; return { to: k, time: T.time, cost: T.cost }; }
     return { to: b.def.trains, time: b.def.trainTime, cost: b.def.trainCost };
   }
   // can the dojo train this class now? (Keep level, and some need a building: Stables for cavalry, a Shrine for monks)
-  canTrain(k) { const T = DOJO_TRAINS[k]; return !!T && (!T.tech || this.hasResearch(T.tech)) && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
+  canTrain(k, dojo = null) { const T = DOJO_TRAINS[k]; return !!T && (!T.tech || this.hasResearch(T.tech)) && (!dojo || !T.dojo || dojo.level >= T.dojo) && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
   // veterans: kills and battles raise a soldier's rank
   credit(v, kills = 0, battles = 0) {
     if (!v) return;

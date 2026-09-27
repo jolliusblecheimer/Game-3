@@ -184,6 +184,15 @@ export class Country {
     g.toast(`A trade route to ${s.name} is open: caravans will bring gold every minute.`); g.progress.log(`Opened a trade route to ${s.name}.`, 'life');
     g.emit('country'); return true;
   }
+  // the market town's deal of the day: take it, and they come up with another
+  townDeal(s) { const I = this.info(s); if (!I.deal) I.deal = this.game.life.makeOffer(); return I.deal; }
+  takeTownDeal(s) {
+    const g = this.game, I = this.info(s), d = this.townDeal(s);
+    if (!I.route) { g.toast('Open a trade route with them first', 'warn'); return false; }
+    if (!g.canAfford(d.give)) { g.toast('Not enough for that deal', 'warn'); return false; }
+    g.pay(d.give); for (const r in d.get) g.add(r, d.get[r]); I.deal = g.life.makeOffer(); g.sfx('coin');
+    g.toast(`A deal with ${s.name}! They already have a new offer.`); g.emit('country'); return true;
+  }
   hireRonin(s) {
     const g = this.game, I = this.info(s), cost = { gold: 150 };
     if ((I.hireT || 0) > this.clock) return g.toast('No more r\u014dnin in town for now', 'warn');

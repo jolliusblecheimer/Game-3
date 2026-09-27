@@ -96,6 +96,36 @@ function roadTile(m, conn, stone) {
     for (let i = 0; i < 4; i++) m.box(0.1, 0.05, 0.1, '#9d978b', [(r(i, 5) - 0.5) * 1.0, 0.08, (r(i, 6) - 0.5) * 1.0], [0, r(i, 7) * 3, 0]);
   }
 }
+// surface detail for a floor (w×d centred on cx,cz, top at y): raked sand, gravel, straw, soot, stone chips or sawdust
+function texture(m, w, d, kind, y, cx = 0, cz = 0, seed = 1) {
+  let r = seed * 9301 + 49297; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+  const at = () => [cx + (rnd() - 0.5) * w, cz + (rnd() - 0.5) * d];
+  if (kind === 'rake') {   // raked lines along z, with a ring raked round a stone
+    const n = Math.max(3, Math.round(w / 0.28));
+    for (let i = 0; i < n; i++) m.box(0.035, 0.012, d - 0.1, '#cfc4aa', [cx - w / 2 + (i + 0.5) * w / n, y + 0.006, cz]);
+    for (let i = 0; i < 6; i++) { const [x, z] = at(); m.box(0.06 + rnd() * 0.06, 0.02, 0.05 + rnd() * 0.05, '#b9ae97', [x, y + 0.01, z], [0, rnd() * 3, 0]); }
+  }
+  if (kind === 'gravel' || kind === 'chips') {
+    const cols = kind === 'chips' ? ['#b8b2a6', '#a39d91', '#c9c3b6', '#7f7a70'] : ['#9a958a', '#827d73', '#aaa498', '#6f6a61'];
+    for (let i = 0; i < (kind === 'chips' ? 55 : 45); i++) { const [x, z] = at(), s = 0.05 + rnd() * (kind === 'chips' ? 0.16 : 0.09); m.box(s, s * 0.45, s * (0.6 + rnd() * 0.6), cols[i % 4], [x, y + s * 0.2, z], [rnd() * 0.3, rnd() * 3, rnd() * 0.3]); }
+    if (kind === 'chips') for (let i = 0; i < 7; i++) { const [x, z] = at(); m.box(0.4 + rnd() * 0.6, 0.012, 0.025, '#6a655c', [x, y + 0.006, z], [0, rnd() * 3, 0]); }   // cracks
+  }
+  if (kind === 'straw') {
+    for (let i = 0; i < 60; i++) { const [x, z] = at(); m.box(0.26 + rnd() * 0.2, 0.015, 0.025, i % 3 ? '#d6bd7e' : '#b89a5a', [x, y + 0.01, z], [0, rnd() * 3.1, 0]); }
+    for (let i = 0; i < 5; i++) { const [x, z] = at(); m.box(0.5 + rnd() * 0.4, 0.012, 0.4 + rnd() * 0.3, '#5f4a34', [x, y + 0.004, z], [0, rnd() * 3, 0]); }   // trodden, darker earth
+  }
+  if (kind === 'soot') {
+    for (let i = 0; i < 7; i++) { const [x, z] = at(); m.box(0.5 + rnd() * 0.7, 0.012, 0.4 + rnd() * 0.6, i % 2 ? '#4a4038' : '#3a332d', [x, y + 0.005, z], [0, rnd() * 3, 0]); }
+    for (let i = 0; i < 40; i++) { const [x, z] = at(), s = 0.04 + rnd() * 0.07; m.box(s, s * 0.6, s, i % 4 ? '#1f1c1a' : '#6f7378', [x, y + s * 0.3, z], [0, rnd() * 3, 0]); }   // coal and iron scraps
+  }
+  if (kind === 'sawdust') {
+    for (let i = 0; i < 8; i++) { const [x, z] = at(); m.box(0.4 + rnd() * 0.6, 0.012, 0.3 + rnd() * 0.5, '#c9a978', [x, y + 0.005, z], [0, rnd() * 3, 0]); }
+    for (let i = 0; i < 40; i++) { const [x, z] = at(); m.box(0.12 + rnd() * 0.12, 0.02, 0.04, i % 2 ? '#e0c592' : '#b58d5a', [x, y + 0.012, z], [0, rnd() * 3.1, rnd() * 0.4]); }
+  }
+  if (kind === 'grass') {
+    for (let i = 0; i < 40; i++) { const [x, z] = at(); m.cone(0.07 + rnd() * 0.05, 0.14 + rnd() * 0.12, 4, i % 3 ? '#6f9a45' : '#5a8238', [x, y + 0.06, z]); }
+  }
+}
 function bush(m, x, z, s = 1, hex = '#4f7d3a') { m.ball(0.55 * s, hex, [x, 0.4 * s, z], [1.2, 0.9, 1.1]); }
 
 const MODELS = {
@@ -285,9 +315,17 @@ const MODELS = {
   quarry(b, w, d) {
     const m = b.m, L = b.level || 1;
     m.box(w - 0.2, 0.1, d - 0.2, '#8b8578', [0, 0.05, 0]);
+    texture(m, w - 0.4, d - 0.4, 'chips', 0.1, 0, 0, 7);
     // terraced rock face with chisel marks
     for (let i = 0; i < 3; i++) m.box(w * 0.7 - i * 0.6, 0.9, 1.2, i % 2 ? STONE_D : STONE, [-0.4 + i * 0.1, 0.45 + i * 0.85, -d / 2 + 0.8 + i * 0.25]);
     for (let i = 0; i < 6; i++) m.box(0.05, 0.6, 0.05, '#5d5850', [-1.4 + i * 0.5, 1.4, -d / 2 + 1.42]);
+    for (let i = 0; i < 3; i++) {   // strata lines and drill holes along each terrace
+      const tw = w * 0.7 - i * 0.6, x0 = -0.4 + i * 0.1, fz = -d / 2 + 0.8 + i * 0.25 + 0.61, y0 = 0.45 + i * 0.85;
+      for (const dy of [-0.22, 0.12]) m.box(tw - 0.1, 0.04, 0.03, i % 2 ? '#5a554d' : '#77726a', [x0, y0 + dy, fz]);
+      for (let k = 0; k < 5; k++) m.box(0.06, 0.06, 0.02, '#4a463f', [x0 - tw / 2 + 0.3 + k * (tw - 0.6) / 4, y0 + 0.33, fz + 0.01]);
+      m.box(tw, 0.03, 0.12, '#a9a397', [x0, y0 + 0.46, fz - 0.05]);   // pale fresh-cut edge
+    }
+    for (let i = 0; i < 4; i++) m.box(0.08, 0.05, 0.22, '#6f7378', [-w / 2 + 1.6 + i * 0.1, 0.13 + (i % 2) * 0.05, d / 2 - 0.5], [0, 0.3 * i, 0]);   // iron wedges
     m.add(new THREE.DodecahedronGeometry(1.0, 0), STONE, [-w / 2 + 0.9, 0.7, 0.2], [0.2, 0.4, 0], [1.1, 0.9, 1]);
     m.add(new THREE.DodecahedronGeometry(0.7, 0), '#9a958a', [w / 2 - 0.9, 0.5, -0.5], [0, 1, 0]);
     // squared blocks ready to go, a cart and tools
@@ -377,6 +415,8 @@ const MODELS = {
   blacksmith(b, w, d) {
     const m = b.m, L = b.level || 1;
     m.box(w - 0.1, 0.12, d - 0.1, DIRT, [0, 0.06, 0]);
+    texture(m, w - 0.3, d - 0.3, 'soot', 0.12, 0, 0, 13);
+    for (let i = 0; i < 9; i++) m.add(new THREE.DodecahedronGeometry(0.12 + (i % 3) * 0.04, 0), '#1f1c1a', [-w / 2 + 0.45 + (i % 3) * 0.16, 0.16 + Math.floor(i / 3) * 0.1, 0.3 + (i % 2) * 0.12], [i, i * 2, 0]);   // coal heap
     posts(m, w - 0.4, d - 0.4, 2.5, 0, WOOD_D, 0.12);
     m.box(w - 0.4, 2.3, 0.14, WOOD, [0, 1.25, -d / 2 + 0.25]);                               // back wall
     m.roof(w - 0.4, d - 0.4, 1.2, '#4a4038', 2.5, { over: 0.4, ridge: 0.5, ridgeHex: WOOD_D });
@@ -652,6 +692,8 @@ const MODELS = {
   stable(b, w, d) {
     const m = b.m;
     m.box(w - 0.1, 0.12, d - 0.1, DIRT, [0, 0.06, 0]);
+    texture(m, w - 0.3, d - 0.3, 'straw', 0.12, 0, 0, 17);
+    m.box(1.2, 0.3, 0.35, WOOD, [-w / 2 + 1.0, 0.27, d / 2 - 0.35]); m.box(1.1, 0.02, 0.25, '#2e4a58', [-w / 2 + 1.0, 0.41, d / 2 - 0.35]);   // water trough
     m.box(w - 0.3, 2.2, 0.14, WOOD, [0, 1.2, -d / 2 + 0.3]);
     for (const x of [-w / 2 + 0.22, w / 2 - 0.22]) m.box(0.14, 2.2, d - 0.8, WOOD, [x, 1.2, -0.1]);
     posts(m, w - 0.3, d - 0.5, 2.3, 0, WOOD_D, 0.12);
@@ -664,6 +706,8 @@ const MODELS = {
   dojo(b, w, d) {
     const m = b.m;
     m.box(w - 0.2, 0.08, d - 0.2, SAND, [0, 0.04, 0]);
+    texture(m, w - 0.4, 1.6, 'rake', 0.08, 0, d / 2 - 1.0, 11); texture(m, w - 0.4, d - 0.4, 'gravel', 0.08, 0, 0, 12);
+    for (const x of [-0.7, -0.2]) { m.box(0.12, 1.1, 0.12, WOOD_D, [x, 0.6, 1.95]); m.box(0.16, 0.35, 0.08, THATCH, [x, 0.95, 2.02]); }   // makiwara striking posts
     m.box(4.8, 0.6, 3.6, STONE, [0, 0.3, -0.9]);
     m.box(4.4, 2.4, 3.2, WOOD_L, [0, 0.6 + 1.2, -0.9]);
     posts(m, 4.5, 3.3, 2.4, 0.6, WOOD_D, 0.14);
@@ -694,6 +738,9 @@ const MODELS = {
     const m = b.m, L = b.level || 1;
     m.box(w - 0.2, 0.06, d - 0.2, '#86ad57', [0, 0.03, 0]);
     m.box(w - 1.2, 0.07, d - 3.4, SAND, [0, 0.06, 0.5]);                       // sand range (yamichi)
+    texture(m, w - 1.4, d - 3.6, 'rake', 0.095, 0, 0.5, 3);
+    for (const sx of [-1, 1]) texture(m, 0.4, d - 3.6, 'grass', 0.06, sx * (w / 2 - 0.4), 0.5, 5 + sx);
+    m.box(w - 1.2, 0.02, 0.35, '#9a958a', [0, 0.1, -d / 2 + 2.65]); texture(m, w - 1.3, 0.3, 'gravel', 0.1, 0, -d / 2 + 2.65, 4);
     // shooting hall (shajo): raised wooden floor, open towards the targets
     m.box(w - 0.4, 0.4, 2.3, WOOD_L, [0, 0.2, -d / 2 + 1.35]);
     for (let i = 0; i < 10; i++) m.box(w - 0.4, 0.02, 0.2, i % 2 ? '#9a6e48' : '#8b5e3c', [0, 0.41, -d / 2 + 0.3 + i * 0.22]); // floorboards
@@ -707,6 +754,8 @@ const MODELS = {
     for (let i = 0; i < 4; i++) { m.box(0.03, 1.6, 0.03, '#3a2418', [-w / 2 + 0.7 + i * 0.4, 1.2, -d / 2 + 0.5], [0.08, 0, 0]); }
     for (const x of [w / 2 - 0.8, w / 2 - 1.3]) { m.cyl(0.1, 0.12, 0.7, 6, '#4a3222', [x, 0.75, -d / 2 + 0.7]); for (let k = 0; k < 4; k++) m.box(0.02, 0.35, 0.02, '#e9e4d8', [x - 0.04 + k * 0.03, 1.2, -d / 2 + 0.7]); }
     m.box(0.5, 0.9, 0.04, '#f5efe0', [0, 1.6, -d / 2 + 0.33]); m.box(0.06, 0.6, 0.02, DARK, [0, 1.6, -d / 2 + 0.36]); // calligraphy scroll
+    m.box(0.12, 0.9, 0.12, WOOD_D, [w / 2 - 2.1, 0.85, -d / 2 + 1.2]); m.cyl(0.2, 0.2, 0.45, 10, THATCH, [w / 2 - 2.1, 1.15, -d / 2 + 1.2], [Math.PI / 2, 0, 0]);   // makiwara
+    for (const o of [-0.12, 0.12]) m.cyl(0.21, 0.21, 0.03, 10, '#8f7040', [w / 2 - 2.1, 1.15, -d / 2 + 1.2 + o], [Math.PI / 2, 0, 0]);
     // target mound (azuchi) with its own little roof and three mato targets
     m.frustum(w - 0.6, 1.6, w - 0.8, 0.8, 1.3, '#6c5a3f', [0, 0, d / 2 - 0.9]);
     m.box(w - 0.4, 0.1, 1.5, THATCH, [0, 2.0, d / 2 - 0.9], [-0.25, 0, 0]);
@@ -735,6 +784,8 @@ const MODELS = {
     // Strategy Hall: a two-storey study hall with a war table, scroll racks and clan banners
     const m = b.m;
     m.box(w - 0.2, 0.08, d - 0.2, SAND, [0, 0.04, 0]);
+    texture(m, w - 0.4, 1.4, 'rake', 0.08, 0, d / 2 - 0.9, 23);
+    for (let i = 0; i < 4; i++) m.cyl(0.24, 0.26, 0.06, 8, '#9a958a', [-0.3 + (i % 2) * 0.2, 0.1, 1.45 + i * 0.36]);   // stepping stones
     m.box(4.6, 0.6, 3.8, STONE, [0, 0.3, -0.6]); courses(m, 4.6, 3.8, 4.6, 3.8, 0.6, 0, 1);
     m.box(4.2, 2.0, 3.4, PLASTER, [0, 1.6, -0.6]); posts(m, 4.3, 3.5, 2.0, 0.6, WOOD, 0.13);
     m.box(4.35, 0.16, 3.55, WOOD, [0, 1.3, -0.6]);
@@ -760,6 +811,8 @@ const MODELS = {
   workshop(b, w, d) {
     const m = b.m;
     m.box(w - 0.2, 0.08, d - 0.2, DIRT, [0, 0.04, 0]);
+    texture(m, w - 0.4, d - 0.4, 'sawdust', 0.08, 0, 0, 19);
+    for (let i = 0; i < 5; i++) m.cyl(0.14, 0.14, 1.6, 7, i % 2 ? '#8b6a44' : '#7a5438', [w / 2 - 0.5 - (i % 3) * 0.28 - (i >= 3 ? 0.14 : 0), 0.22 + (i >= 3 ? 0.26 : 0), -0.4], [Math.PI / 2, 0, 0]);   // timber
     posts(m, w - 0.8, d - 1.2, 2.8, 0, WOOD, 0.15);
     m.roof(w - 0.8, d - 1.2, 1.4, '#6b4c35', 2.8, { over: 0.5, ridge: 0.7, ridgeHex: WOOD_D });
     // a ram half-built under the roof

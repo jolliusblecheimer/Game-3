@@ -231,31 +231,78 @@ export class Views {
         h('div', { class: 'row' }, costChips(g, { gold: 100, wood: 60 }), h('button', { class: 'btn small', onclick: () => { C.openRoute(s); re(); } }, 'Open it')));
       if (danger.length) act.append(h('p', { class: 'why' }, `Unsafe road: ${danger.map(d => d.name).join(', ')} ${danger.length > 1 ? 'lie' : 'lies'} close to it. Caravans may be robbed and earn less — take or burn ${danger.length > 1 ? 'those places' : 'it'} to make the road safe.`));
       else act.append(h('p', { class: 'sub' }, 'The road is safe.'));
+      if (I.route) { const D = C.townDeal(s); act.append(h('div', { class: 'irow' }, icon('gold', 18), h('span', null, h('b', null, 'Deal of the day'), h('small', { class: 'sub' }, ' \u2014 a new one after every deal'))),
+        h('div', { class: 'row' }, costChips(g, D.give), h('span', null, '\u2192'), costChips(g, D.get), h('button', { class: 'btn small', onclick: () => { C.takeTownDeal(s); re(); } }, 'Deal'))); }
       act.append(h('div', { class: 'irow' }, icon('katana', 18), h('span', null, h('b', null, 'Hire two r\u014dnin'), h('small', { class: 'sub' }, hwait > 0 ? ` — more in ${fmtTime(hwait)}` : ' — masterless samurai looking for a lord'))),
         h('div', { class: 'row' }, costChips(g, { gold: 150 }), h('button', { class: 'btn small', disabled: hwait > 0 ? true : null, onclick: () => { C.hireRonin(s); re(); } }, 'Hire')));
     }
     P.append(act);
   }
   /* ---------- the rival clans ---------- */
-  openClans() {
-    const g = this.game, K = g.clans, body = h('div', { class: 'clans' });
-    const statusName = { rivals: 'Rivals', war: 'At war', truce: 'Truce', allied: 'Allied', married: 'Bound by marriage', fallen: 'Destroyed' };
+  // Clans & diplomacy: pick a clan, see where you stand with them, what that means, and what you can do next
+  openClans(pick) {
+    const g = this.game, K = g.clans, body = h('div', { class: 'clans dip' }), keys = Object.keys(CLANS);
+    let cur = pick && CLANS[pick] ? pick : keys.find(k => K.status[k] !== 'fallen') || keys[0];
+    const NAME = { rivals: 'Rivals', war: 'At war', truce: 'Truce', allied: 'Allies', married: 'Married', fallen: 'Destroyed' };
+    const MEANS = {
+      rivals: ['They don’t trust you. From Keep level 4 they may raid your village and they attack places you hold.', 'bad'],
+      war: ['At war: they raid you more often and go after every place you hold. You can attack their places freely.', 'bad'],
+      truce: ['A truce: no raids and no attacks from them until it runs out. Use the time to win their friendship.', 'mid'],
+      allied: ['Allies: they never raid you, send you gifts now and then, and you can see their lands.', 'good'],
+      married: ['Bound by marriage: an alliance that lasts for good, with richer gifts.', 'good'],
+      fallen: ['This clan is broken. Its places are free to take.', 'mid'],
+    };
+    const mood = r => r <= -60 ? 'They hate you' : r <= -20 ? 'They dislike you' : r < 20 ? 'Cool, wary' : r < 40 ? 'They like you' : r < 65 ? 'Friendly' : 'Close friends';
+    const next = (k, st, rel) => {
+      if (st === 'fallen') return 'Nothing left to do here.';
+      if (st === 'married') return 'Nothing more to do — enjoy the gifts.';
+      if (st === 'allied') return rel >= 65 ? 'Arrange a marriage to make the alliance last forever.' : `Send gifts until their feelings reach 65 (now ${rel}), then arrange a marriage.`;
+      if (rel >= 40) return 'They like you enough: propose an alliance!';
+      if (st === 'war' && rel < -40) return 'They are too angry for peace. Send gifts, or beat them in battle.';
+      if (st === 'war' || (st === 'rivals' && rel < -20)) return 'Offer a truce to stop the raids, then send gifts.';
+      return `Send gifts until their feelings reach 40 (now ${rel}), then propose an alliance.`;
+    };
     const render = () => {
       body.textContent = '';
-      body.append(h('p', { class: 'sub' }, 'Three clans hold the land around you. Rivals and clans at war raid you (from Keep level 4) and attack the places you hold; allies never do, and send gifts. Take or break every clan — or storm the Shogun\u2019s castle — to unify the land.'));
-      for (const [k, c] of Object.entries(CLANS)) {
-        const st = K.status[k], rel = Math.round(K.rel[k]), places = K.sitesOf(k).length;
-        const card = h('div', { class: 'clancard' + (st === 'fallen' ? ' fallen' : '') },
-          h('div', { class: 'clanhead' }, h('span', { class: 'mon', style: `background:${c.color}` }, c.name[0]), h('div', null, h('b', null, `${c.name} clan`), h('small', null, c.desc)), h('span', { class: 'pill ' + st }, statusName[st])),
-          st === 'fallen' ? null : h('div', { class: 'relrow' }, h('small', null, 'Feelings'), h('div', { class: 'relbar' }, h('i', { style: `left:50%;width:${Math.abs(rel) / 2}%;${rel < 0 ? `transform:translateX(-100%);background:#c2412d` : 'background:#5f8a3e'}` })), h('small', null, String(rel))),
-          st === 'fallen' ? null : h('small', { class: 'sub' }, `${places} place${places === 1 ? '' : 's'}${K.spied[k] || K.friendly(k) ? ` · about ${Math.round(K.power[k])} soldiers` : ' · strength unknown (send a spy)'}`));
-        if (st !== 'fallen') {
-          const acts = h('div', { class: 'clanacts' });
-          for (const o of K.options(k)) acts.append(h('button', { class: 'btn small ' + (o.id === 'war' || o.id === 'demand' ? 'danger' : 'ghost'), disabled: o.why ? true : null, title: o.why || o.desc, onclick: () => { if (K.act(k, o.id)) render(); } }, o.label, Object.keys(o.cost).length ? costChips(g, o.cost) : null));
-          card.append(acts);
-        }
-        body.append(card);
+      // the clans, as tabs
+      const tabs = h('div', { class: 'dip-tabs' });
+      for (const k of keys) {
+        const c = CLANS[k], st = K.status[k];
+        tabs.append(h('button', { class: 'dip-tab' + (k === cur ? ' on' : '') + (st === 'fallen' ? ' fallen' : ''), onclick: () => { cur = k; render(); } },
+          h('span', { class: 'mon', style: `background:${c.color}` }, c.name[0]), h('span', null, h('b', null, c.name), h('small', { class: 'pill ' + st }, NAME[st]))));
       }
+      body.append(tabs);
+      const k = cur, c = CLANS[k], st = K.status[k], rel = Math.round(K.rel[k]), places = K.sitesOf(k).length;
+      const card = h('div', { class: 'clancard' + (st === 'fallen' ? ' fallen' : '') });
+      card.append(h('div', { class: 'clanhead' }, h('span', { class: 'mon', style: `background:${c.color}` }, c.name[0]), h('div', null, h('b', null, `The ${c.name} clan`), h('small', null, c.desc))));
+      // what the status means
+      let means = MEANS[st][0];
+      if (st === 'truce' && K.truceUntil[k]) means += ` (about ${Math.max(1, Math.ceil((K.truceUntil[k] - K.clock) / 720))} day(s) left)`;
+      card.append(h('div', { class: 'dip-means ' + MEANS[st][1] }, h('b', null, NAME[st]), h('span', null, means)));
+      if (st !== 'fallen') {
+        // the road from rivals to marriage
+        const steps = ['war', 'rivals', 'truce', 'allied', 'married'], at = steps.indexOf(st);
+        card.append(h('div', { class: 'dip-road' }, steps.map((x, n) => h('span', { class: 'step' + (n === at ? ' at' : n < at ? ' past' : '') }, NAME[x]))));
+        // feelings: -100 .. 100 with the marks that matter
+        const pct = v => (v + 100) / 2;
+        card.append(h('div', { class: 'dip-feel' },
+          h('div', { class: 'dip-feelhead' }, h('small', null, 'How they feel about you'), h('b', null, `${mood(rel)} (${rel > 0 ? '+' : ''}${rel})`)),
+          h('div', { class: 'dip-bar' }, h('i', { style: `left:${pct(rel)}%` }),
+            h('em', { style: `left:${pct(40)}%` }, 'alliance 40'), h('em', { style: `left:${pct(65)}%` }, 'marriage 65')),
+          h('div', { class: 'dip-ends' }, h('small', null, 'Hostile −100'), h('small', null, 'Friendly +100'))));
+        card.append(h('div', { class: 'irow' }, icon('flag', 18), h('span', null, `${places} place${places === 1 ? '' : 's'} on the map · ${K.spied[k] || K.friendly(k) ? `about ${Math.round(K.power[k])} soldiers (you have ${g.soldiers(true).length})` : 'strength unknown — send a spy'}`)));
+        card.append(h('div', { class: 'dip-next' }, h('small', null, 'Best next step'), h('b', null, next(k, st, rel))));
+        // what you can do: friendly and hostile
+        const opts = K.options(k), row = o => h('div', { class: 'dip-act' + (o.why ? ' off' : '') },
+          h('span', null, h('b', null, o.label), h('small', null, o.why ? `✖ ${o.why}` : o.desc)),
+          h('span', { class: 'rt' }, Object.keys(o.cost).length ? costChips(g, o.cost) : null,
+            h('button', { class: 'btn small ' + (['war', 'demand'].includes(o.id) ? 'danger' : ''), disabled: o.why ? true : null, onclick: () => { if (K.act(k, o.id)) render(); } }, o.why ? 'Not yet' : 'Do it')));
+        const kind = o => ['war', 'demand'].includes(o.id);
+        card.append(h('h3', null, 'Win them over'), ...opts.filter(o => !kind(o)).map(row));
+        card.append(h('h3', null, 'Threaten them'), ...opts.filter(kind).map(row));
+      }
+      body.append(card);
+      body.append(h('p', { class: 'sub' }, 'Unify the land by breaking every clan (take their castles) or by storming the Shogun’s castle. Allies don’t need to be beaten.'));
     };
     render();
     this.hud.openModal('Clans & diplomacy', body, [{ label: 'Close' }], { wide: true });
@@ -703,7 +750,7 @@ export class Views {
       // what the dojo trains: spearmen, shield-bearers (Keep 2) or samurai (Keep 4)
       const cur = g.trainInfo(b).to, box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'Train as')));
       for (const [k, T] of Object.entries(DOJO_TRAINS)) {
-        const locked = !g.canTrain(k), why = T.tech && !g.hasResearch(T.tech) ? `Research: ${g.researchNode(T.tech).node.name}` : T.needs ? `Needs ${BUILDINGS[T.needs].name}` : '';
+        const locked = !g.canTrain(k, b), why = T.tech && !g.hasResearch(T.tech) ? `Research: ${g.researchNode(T.tech).node.name}` : T.dojo && b.level < T.dojo ? `Upgrade the Dojo to level ${T.dojo}` : T.needs ? `Needs ${BUILDINGS[T.needs].name}` : '';
         box.append(h('button', { class: 'jobcard' + (k === cur ? ' on' : ''), disabled: locked ? true : null, title: JOBS[k].desc || '', onclick: () => { if (b.trainAs !== k) { b.trainAs = k; g.toast(`The dojo now trains ${JOBS[k].name}${k === 'cavalry' ? '' : 's'}`); } this.hud.renderPanel(); } },
           art('person', JOBS[k].look, null, 'face'), h('span', null, h('b', null, JOBS[k].name), h('small', null, locked ? why : `${T.time}s · ${this.costText(T.cost)}`))));
       }
