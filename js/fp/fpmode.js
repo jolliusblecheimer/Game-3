@@ -174,10 +174,10 @@ export class FPMode {
     if (this.arrows <= 0) { this.hud.message('No arrows left — refill them at the armoury by the gate (F).', 2.4, 'bad'); this.sound.play('tired'); return false; }
     this.arrows--; this.stats.shots++;
     const { pos, dir } = this.aim(), P = this.player, r = P.right;
-    const spread = quick ? 0.05 : 0.004 + (1 - power) * 0.02;
+    const spread = quick ? 0.035 : 0.0012 + (1 - power) * 0.02;   // a full draw is very accurate
     dir.x += (Math.random() - 0.5) * spread * 2; dir.y += (Math.random() - 0.5) * spread * 2; dir.z += (Math.random() - 0.5) * spread * 2; dir.normalize();
-    pos.x += r.x * 0.12 + dir.x * 0.5; pos.y += -0.08 + dir.y * 0.5; pos.z += r.z * 0.12 + dir.z * 0.5;
-    const p = this.proj.fire('arrow', pos, dir.multiplyScalar(20 + 38 * power)); p.dmg = Math.round(10 + 34 * power);
+    pos.x += dir.x * 0.5; pos.y += -0.03 + dir.y * 0.5; pos.z += dir.z * 0.5;   // from the eye line, so it goes where the crosshair is
+    const p = this.proj.fire('arrow', pos, dir.multiplyScalar(30 + 80 * power)); p.dmg = Math.round(10 + 38 * power); p.grav = 0.5;   // fast and flat: a longbow
     this.sound.play('swish', 0.7);
     return true;
   }
