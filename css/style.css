@@ -483,3 +483,8 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .techtree .tech .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .wonderbox .wbonus { font-weight: 700; margin: 0; }
 .wonderbox .wbonus small { font-weight: normal; color: var(--ink-2, #6b5f52); }
+
+/* the Research button in the top bar */
+.res.research { cursor: pointer; border: 1px solid var(--line); display: inline-flex; flex-direction: row; align-items: center; gap: 5px; white-space: nowrap; }
+.res.research.full { border-color: #d9a441; box-shadow: 0 0 0 2px #f3dc9a; }
+@media (max-width: 900px) { .res.research b { display: none; } }

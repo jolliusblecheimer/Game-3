@@ -83,7 +83,7 @@ export class Hud {
       el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${sea.kanji} ${sea.name}${L.weather !== 'clear' ? ' · ' + L.weather : ''} · ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
-    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
+    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), this.live(h('button', { class: 'res research', title: 'Research: new technologies and eras (paid with Wisdom)', onclick: () => this.openResearch() }, icon('wisdom', 20), h('b', null, 'Research'), h('small')), el => { const w = Math.floor(g.state.wisdom), c = g.wisdomCap(); el.lastChild.textContent = ` ${w}/${c}`; el.classList.toggle('full', w >= c); }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
     this.renderMute();
     // raid warnings under the top bar
     const rbTitle = h('b'), rbSub = h('small'), rbIcon = h('span');
@@ -446,7 +446,8 @@ export class Hud {
         h('div', { class: 'jrow' }, icon('castle', 20), h('b', null, `Keep level ${L + 1}`), u && !u.busy ? h('span', { class: 'sub' }, fmtTime(u.time)) : null),
         h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + (L + 1 === 4 ? '. From now on the warlords’ castles send real soldiers to raid you instead of bandits' : '') ),
         u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
-          u.why ? h('p', { class: 'why' }, u.why) : null] : null));
+          u.why ? h('p', { class: 'why' }, u.why) : null,
+          u.why && u.why.startsWith('Research') ? h('button', { class: 'btn small', onclick: () => this.openResearch() }, icon('wisdom', 15), 'Open Research') : null] : null));
     } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));
   }
   bar2(frac, cls = '') { const i = h('i'); return this.live(h('div', { class: 'bar ' + cls }, i), () => { i.style.width = Math.min(100, Math.max(0, (frac() || 0) * 100)).toFixed(1) + '%'; }); }
