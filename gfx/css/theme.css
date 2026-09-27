@@ -1,0 +1,156 @@
+/* Tenka — the ink & lacquer theme.
+   Washi paper with fibres, sumi-ink double rules, black urushi lacquer with gold hairlines, vermilion seals.
+   Layered over style.css: it restyles the same elements, so the game's structure stays as it is. */
+:root {
+  --washi: #f3ead6;
+  --washi-2: #e8dcc2;
+  --sumi: #1e1813;
+  --sumi-2: #4a3f33;
+  --urushi: #1a1310;
+  --urushi-2: #2a1f19;
+  --kin: #c3a05a;           /* gold leaf */
+  --kin-d: #8c7038;
+  --shu: #b33a2b;           /* vermilion */
+  --ai: #2e3f5c;            /* indigo */
+  --mincho: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", Georgia, serif;
+  --sans: "Zen Kaku Gothic New", -apple-system, system-ui, "Hiragino Sans", sans-serif;
+  /* washi: a warm paper with fine grain and long fibres */
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .33  0 0 0 0 .26  0 0 0 0 .16  0 0 0 .10 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --fibre: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.012 .22' numOctaves='2' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .47  0 0 0 0 .33  0 0 0 .5 -.18'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  /* seigaiha (the wave pattern), faint gold on lacquer */
+  --waves: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'><g fill='none' stroke='%23c3a05a' stroke-opacity='.13' stroke-width='1'><circle cx='20' cy='20' r='18'/><circle cx='20' cy='20' r='13'/><circle cx='20' cy='20' r='8'/><circle cx='0' cy='10' r='18'/><circle cx='0' cy='10' r='13'/><circle cx='0' cy='10' r='8'/><circle cx='40' cy='10' r='18'/><circle cx='40' cy='10' r='13'/><circle cx='40' cy='10' r='8'/></g></svg>");
+  --paper-bg: var(--fibre), var(--grain), linear-gradient(#f6eedc, #efe4cc);
+  --lacquer-bg: var(--waves), linear-gradient(180deg, #2a1f18, #150f0b);
+  --frame: inset 0 0 0 1px rgba(30, 24, 19, .55), inset 0 0 0 4px rgba(243, 234, 214, .9), inset 0 0 0 5px rgba(30, 24, 19, .18);
+  --lift: 0 10px 28px rgba(12, 8, 4, .38), 0 2px 6px rgba(12, 8, 4, .25);
+}
+body { font-family: var(--sans); letter-spacing: .01em; }
+h1, h2, h3 { font-family: var(--mincho); letter-spacing: .04em; }
+
+/* ---------- the top: two lacquer plaques instead of a row of bubbles ---------- */
+.top { gap: 10px; padding-top: calc(10px + env(safe-area-inset-top)); }
+.brand { background: none; padding: 0; gap: 8px; margin-right: 2px; }
+.brand .kanji { writing-mode: vertical-rl; background: var(--shu); color: #fbecd8; border-radius: 3px; padding: 6px 3px; font: 800 13px/1 var(--mincho); letter-spacing: .1em; box-shadow: inset 0 0 0 2px rgba(251, 236, 216, .35), 0 3px 8px rgba(0, 0, 0, .35); }
+.brand .word { color: #f6ecd6; font: 700 19px var(--mincho); letter-spacing: .18em; text-shadow: 0 1px 4px rgba(0, 0, 0, .7); }
+.resbar { gap: 0; background: var(--lacquer-bg); border-radius: 4px; padding: 3px 4px; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); }
+.resbar .res { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 5px 12px; color: #f3e7cf; position: relative; min-height: 34px; }
+.resbar .res + .res::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 1px; background: linear-gradient(transparent, var(--kin), transparent); opacity: .6; }
+.res b { font: 700 16px var(--mincho); letter-spacing: .02em; }
+.resbar .res small { color: #a8966f; }
+.resbar .res.full b { color: #ffd98a; }
+.resbar .res.full { box-shadow: none; }
+.resbar .res.empty b { color: #ff8a73; }
+.resbar .res.wis { color: #f3e7cf; }
+/* the right-hand tokens: quests, the day, sound, menu */
+.top > .res { background: var(--lacquer-bg); color: #f3e7cf; border: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); min-height: 40px; }
+.top > .res small { color: #b9a67c; }
+.top > .res.clock b { font-family: var(--mincho); }
+.res.quests.claim { box-shadow: inset 0 0 0 1px #ffd98a, 0 0 0 2px rgba(255, 217, 138, .45), var(--lift); }
+.res.quests.claim small { color: #ffb4a4; }
+.top > .res.menu, .top > .res.mute { width: 40px; min-width: 40px; padding: 0; justify-content: center; }
+
+/* ---------- washi surfaces: panels, cards, sheets, the clan scroll ---------- */
+.panel, .sheet, .info, .clan, .buildbar .cards, .hint.paper { background: var(--paper-bg); }
+.panel, .sheet, .info { border: 0; border-radius: 3px; box-shadow: var(--frame), var(--lift); }
+.btn { border-radius: 3px; background: var(--urushi-2); color: #f3e7cf; box-shadow: inset 0 0 0 1px var(--kin-d); font-family: var(--sans); letter-spacing: .03em; }
+.btn:hover { background: #3a2b22; }
+.btn.ghost { background: rgba(243, 234, 214, .6); color: var(--sumi); border: 0; box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .45); }
+.btn.ghost:hover { background: #fff6e6; }
+.btn.danger { background: var(--shu); color: #fff3e6; box-shadow: inset 0 0 0 1px #7f2217; }
+.btn.gold { background: linear-gradient(#d9b56a, #b38d45); color: #2a1d02; box-shadow: inset 0 0 0 1px #7a5e28; }
+.chip, .pill { border-radius: 2px; background: rgba(30, 24, 19, .07); box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .16); }
+.irow { font-size: 14px; }
+
+/* the building panel on the right: a hanging scroll with rods, narrower */
+.panel { width: 300px; right: 14px; top: calc(66px + env(safe-area-inset-top)); padding-top: 22px; padding-bottom: 22px; overflow-x: hidden; }
+.panel::before, .panel::after { content: ''; position: sticky; display: block; left: 0; right: 0; height: 9px; margin: -22px -1px 13px; background: linear-gradient(#5a3d2a, #2e1e14); border-radius: 2px; box-shadow: 0 2px 4px rgba(0, 0, 0, .3); z-index: 2; top: -22px; }
+.panel::after { margin: 13px -1px -22px; bottom: -22px; top: auto; }
+.panel h2 { font-size: 21px; letter-spacing: .06em; padding-bottom: 6px; background: linear-gradient(90deg, rgba(30, 24, 19, .75), rgba(30, 24, 19, .05)) no-repeat left bottom / 70% 2px; }
+.panel .x { top: 16px; right: 10px; background: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .35); width: 30px; height: 30px; }
+.panel .x:hover { background: var(--shu); color: #fff; box-shadow: none; }
+
+/* ---------- the clan: a small hanging scroll that folds up ---------- */
+.clan { width: 214px; border: 0; border-radius: 2px; padding: 14px 10px 12px; box-shadow: var(--frame), var(--lift); }
+.clan::before, .clan::after { content: ''; position: absolute; left: -6px; right: -6px; height: 8px; background: linear-gradient(#5a3d2a, #2a1b12); border-radius: 4px; box-shadow: 0 2px 4px rgba(0, 0, 0, .35); }
+.clan::before { top: -4px; } .clan::after { bottom: -4px; }
+.clan .crest { background: none; color: var(--sumi); padding: 2px 0 6px; font: 700 16px var(--mincho); letter-spacing: .05em; border-bottom: 1px solid rgba(30, 24, 19, .25); border-radius: 0; width: 100%; }
+.clan .crest .kanji { background: var(--shu); color: #fbecd8; border-radius: 2px; font: 800 12px/1 var(--mincho); padding: 5px 5px; box-shadow: inset 0 0 0 1.5px rgba(251, 236, 216, .4); }
+.crow { font-size: 13.5px; padding: 3px 2px; border-radius: 2px; }
+.crow span { color: var(--sumi-2); }
+.crow b { font-family: var(--mincho); font-size: 15px; }
+.crow.link2:hover { background: rgba(30, 24, 19, .06); }
+.clan-fold { display: block; margin: 6px auto -4px; border: 0; background: none; color: var(--sumi-2); font: 700 11px var(--sans); letter-spacing: .12em; padding: 2px 10px; cursor: pointer; opacity: .75; }
+.clan-fold:hover { opacity: 1; color: var(--shu); }
+.clan.mini .crow:not(.always):not(.attn):not(.claim) { display: none; }
+
+/* ---------- the build menu: a lacquer tray; the goods on washi ---------- */
+.buildbar { background: var(--lacquer-bg); border: 0; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); overflow: hidden; }
+.tabs { background: none; border-bottom: 0; padding: 4px 6px 0; gap: 0; }
+.tab { color: #cdb98e; border-radius: 0; font: 700 13.5px var(--sans); letter-spacing: .04em; min-height: 38px; padding: 7px 12px; position: relative; }
+.tab:hover { color: #f3e7cf; }
+.tab.on { background: none; color: #fbf0d8; box-shadow: none; }
+.tab.on::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 3px; height: 3px; border-radius: 3px; background: var(--shu); box-shadow: 0 0 6px rgba(179, 58, 43, .7); }
+.tab.toggle { background: none; color: #f3e7cf; }
+.buildbar.closed .tab.toggle { font: 700 14px var(--mincho); letter-spacing: .12em; }
+.buildbar .cards { margin: 4px 6px 6px; border-radius: 2px; box-shadow: var(--frame); padding: 10px; gap: 8px; }
+.card { width: 116px; min-height: 104px; border-radius: 2px; border: 0; background: rgba(255, 250, 238, .7); box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .28); transition: box-shadow .12s, transform .1s; }
+.card:hover { box-shadow: inset 0 0 0 1px var(--kin-d), 0 4px 12px rgba(30, 24, 19, .18); }
+.card.on { box-shadow: inset 0 0 0 2px var(--shu); }
+.card .nm { font: 700 12.5px var(--mincho); letter-spacing: .02em; }
+.card .limit, .card .lock { border-radius: 2px; }
+.card .infobtn { border-radius: 50%; background: rgba(255, 250, 238, .9); }
+.card .art { border-radius: 2px; }
+
+/* ---------- the tools on the right: round lacquer seals; the map: a vermilion seal ---------- */
+.camtools { gap: 10px; }
+.ctool { width: 50px; height: 50px; border-radius: 50%; border: 0; background: var(--lacquer-bg); color: #f3e7cf; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); }
+.ctool small { color: #c9b58a; font-size: 9px; letter-spacing: .06em; }
+.ctool.on { background: var(--shu); box-shadow: inset 0 0 0 1px #ffd9a8, var(--lift); }
+.mapbig { width: 96px; height: 96px; border-radius: 50%; border: 0; background: radial-gradient(circle at 40% 35%, #c9493a, #9c2d20 70%); color: #fbecd8; box-shadow: inset 0 0 0 3px rgba(251, 236, 216, .5), inset 0 0 0 5px #9c2d20, inset 0 0 0 6px rgba(251, 236, 216, .35), var(--lift); gap: 0; }
+.mapbig svg { display: none; }
+.mapbig::before { content: '地図'; font: 800 30px/1 var(--mincho); letter-spacing: .05em; margin-bottom: 2px; }
+.mapbig b { font: 700 11px var(--sans); color: #fbecd8; letter-spacing: .3em; text-transform: uppercase; }
+
+/* ---------- messages and dialogs ---------- */
+.toast { background: var(--lacquer-bg); color: #f3e7cf; border-radius: 2px; border-left: 0; box-shadow: inset 3px 0 0 var(--kin), inset 0 0 0 1px var(--kin-d), var(--lift); font-size: 14px; padding: 8px 14px 8px 16px; }
+.toast.warn { box-shadow: inset 3px 0 0 #e0b04a, inset 0 0 0 1px var(--kin-d), var(--lift); }
+.toast.bad { box-shadow: inset 3px 0 0 #e0584a, inset 0 0 0 1px var(--kin-d), var(--lift); }
+.modal { background: rgba(16, 11, 7, .5); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.sheet { padding: 26px 26px 22px; }
+.sheet h2 { display: flex; align-items: center; gap: 10px; letter-spacing: .06em; }
+.sheet h2::before { content: ''; flex: 0 0 12px; height: 12px; background: var(--shu); border-radius: 1px; box-shadow: 0 0 0 2px rgba(179, 58, 43, .2); transform: rotate(45deg); }
+.info { border-top: 0; box-shadow: inset 0 3px 0 var(--shu), var(--frame), var(--lift); }
+.hint { background: var(--lacquer-bg); border-radius: 3px; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); }
+.raidbanner { border-radius: 3px; }
+.keys { opacity: .6; }
+
+/* ---------- details ---------- */
+.top > .res { white-space: nowrap; }
+.top > .res.clock small { font-size: 11px; }
+* { scrollbar-width: thin; scrollbar-color: rgba(140, 112, 56, .55) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-thumb { background: rgba(140, 112, 56, .55); border-radius: 3px; } ::-webkit-scrollbar-track { background: transparent; }
+/* the building panel: wooden rods at the top and bottom of the scroll */
+.panel::before, .panel::after { content: none; }
+.panel { border-top: 8px solid #3a2618; border-bottom: 8px solid #3a2618; padding-top: 16px; padding-bottom: 16px; }
+.upgrade, .jobs { border: 0 !important; border-radius: 2px !important; background: rgba(255, 250, 238, .55) !important; box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .22); }
+.upgrade.keepup, .upgrade:has(.btn:not([disabled])) { box-shadow: inset 3px 0 0 var(--shu), inset 0 0 0 1px rgba(179, 58, 43, .35); }
+.tab.toggle { position: sticky; right: 0; background: linear-gradient(90deg, rgba(26, 19, 16, 0), var(--urushi) 30%) !important; padding-left: 22px; }
+.bar i, .bar2 i { border-radius: 1px; }
+.sheet .row .btn.small.ghost { background: rgba(243, 234, 214, .5); }
+.quest { border: 0; border-radius: 2px; background: rgba(255, 250, 238, .6); box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .25); }
+.quest.ready { box-shadow: inset 0 0 0 1px var(--kin), 0 0 0 3px rgba(195, 160, 90, .3); }
+.q-no { border-radius: 2px; background: var(--shu); font-family: var(--mincho); }
+.bar { border-radius: 1px; background: rgba(30, 24, 19, .12); }
+.bar i { border-radius: 1px; background: linear-gradient(90deg, #8c2a1e, var(--shu)); }
+.clancard, .dip-tab, .fp-class { border-radius: 2px; }
+.dip-means, .dip-next { border-radius: 2px; }
+.brand { background: var(--lacquer-bg); padding: 4px 12px 4px 4px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--kin-d), var(--lift); }
+.brand .word { text-shadow: none; }
+#ui.mode-map .mapbig::before { content: '村'; font-size: 34px; }
+.mapside { background: var(--paper-bg) !important; border: 0 !important; border-radius: 2px !important; box-shadow: var(--frame), var(--lift) !important; }
+.maplabel { border-radius: 2px !important; box-shadow: inset 0 0 0 1px rgba(30, 24, 19, .35), 0 3px 8px rgba(0, 0, 0, .25) !important; font-family: var(--mincho); }
+.maplabel.mine, .maplabel.home { background: var(--lacquer-bg) !important; }
+.maphint { border-radius: 3px !important; background: var(--lacquer-bg) !important; box-shadow: inset 0 0 0 1px var(--kin-d) !important; }
+.mapbig { width: 96px !important; height: 96px !important; }
+@media (max-width: 1000px) { html:not(.site-pc) .mapbig { width: 84px !important; height: 84px !important; } html:not(.site-pc) .mapbig::before { font-size: 26px; } }
+html.site-mobile .mapbig { width: 84px !important; height: 84px !important; }
