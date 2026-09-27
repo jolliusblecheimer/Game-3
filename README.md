@@ -270,12 +270,15 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - It's where your clan does its research. Without it, Wisdom only trickles in (0.25 a minute).
   - With it you get 1 a minute, and each of its 5 levels adds more Wisdom and more room to store it. The Strategy Hall adds a little more on top.
   - It's a raised hall of dark timber and glowing shoji in a moss garden, with a lotus pond, a cloud-pruned pine, a red maple and a stone lantern. Each level adds more: a scroll rack and a red arched bridge, then a two-storey library, a lantern path, and a golden finial and a bell.
-- **Research is a hanging scroll (kakejiku):**
-  - Wooden rollers with gold ends, a silk border and washi paper. It opens at the era you're in.
-  - Each era is a chapter: its name in vertical calligraphy with a red seal, its own ink-wash painting (the mountains grow taller as your clan climbs, from a village with a footbridge up to a great castle), and one sentence on what the era is about.
-  - Its technologies are plain cards:
-    - Each card shows **Learned**, **Study** (you can put Wisdom in now), **Ready!** (pay to complete) or **Not yet** (with what it needs).
-    - The buttons are right on the card.
-    - The era's key technology comes last: it's the way to the next era.
+- **Research: one scroll for each era**, ink and gold:
+  - Six rolled-up scrolls at the top: finished eras carry a red mark, and you can peek at the ones ahead. The scroll for the era you're in opens by itself.
+  - The tree reads from top to bottom. It grows from what you mastered before (the previous era's key technology), down golden branches through each path of the era (Spears, Bows, Walls…), with a medallion for every technology.
+  - All paths meet at the bottom in the era's ★ key technology. Complete it and the scroll rolls up while the next era's scroll unrolls.
+  - The medallions:
+    - **Learned:** glow vermilion.
+    - **Can study now:** glow gold, with a ring that fills as you put Wisdom in.
+    - **Locked:** carry a small lock.
+    - **Branches:** light up gold once the step before is learned.
+  - Tap a medallion to see what it does and what it needs, then invest Wisdom or complete it.
 - **Troops come from research:** shield-bearers, ninja, warrior monks, cavalry, samurai, both commanders and catapults.
 - **Move mode:** Move and Demolish only show up in Move mode. Press Move or G, then drag a building, or tap it to demolish it.
