@@ -40,7 +40,7 @@ export class Projectiles {
       if (p.life <= 0) { this.parent.remove(p.mesh); this.list.splice(i, 1); continue; }
       if (p.stuck) continue;
       const from = p.pos.clone();
-      p.vel.y -= G * dt;
+      p.vel.y -= G * (p.grav ?? 1) * dt;
       p.pos.addScaledVector(p.vel, dt);
       const r = hit(p, from, p.pos);
       if (r) { if (r.at) p.pos.copy(r.at); p.stuck = true; p.life = r.stick ? 20 : 0.01; p.mesh.position.copy(p.pos); continue; }
