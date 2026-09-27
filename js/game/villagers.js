@@ -102,11 +102,20 @@ function goHome(game, v, status) {
   return goTo(game, v, game.door(home, 0.5), () => inside(v, game.raids.alarmed ? 4 : 20, null, status), game.raids.alarmed ? 'Running inside to hide' : 'Heading home for the night');
 }
 
-// a festival: gather at the keep to pray, sit, dance and drink
+// a festival: at the Town Square, dance the Bon Odori round the yagura (or share sake at the edge);
+// without a square, gather by the Keep to pray, sit and dance
 function celebrate(game, v) {
+  const sq = game.life.square;
+  if (sq) {
+    const c = game.center(sq);
+    if (v.id % 5 === 0) { const a = v.id * 1.3; return goTo(game, v, { x: c.x + Math.cos(a) * 3.6, z: c.z + Math.sin(a) * 3.6 }, () => act(v, 12, 'sit', null, 'Sharing sake by the square', c), 'Off to the festival'); }
+    v.danceA = (v.danceA ?? v.id * 0.9) + 0.45; const r = 2.3 + (v.id % 2) * 0.9;
+    const spot = { x: c.x + Math.cos(v.danceA) * r, z: c.z + Math.sin(v.danceA) * r }, ahead = { x: c.x + Math.cos(v.danceA + 0.5) * r, z: c.z + Math.sin(v.danceA + 0.5) * r };
+    return goTo(game, v, spot, () => act(v, 2.4, 'dance', null, 'Dancing the Bon Odori round the yagura', ahead), 'Joining the dance');
+  }
   const keep = game.keep, c = keep ? game.door(keep, 4 + game.rand() * 5) : { x: 0, z: 8 };
   const spot = { x: c.x + (game.rand() - 0.5) * 16, z: c.z + (game.rand() - 0.5) * 8 }, what = game.rand();
-  return goTo(game, v, spot, () => act(v, 10 + game.rand() * 10, what < 0.35 ? 'train' : what < 0.65 ? 'sit' : 'pray', null, what < 0.35 ? 'Dancing at the festival' : what < 0.65 ? 'Sharing sake at the festival' : 'Praying for a good year'), 'Off to the festival');
+  return goTo(game, v, spot, () => act(v, 10 + game.rand() * 10, what < 0.35 ? 'dance' : what < 0.65 ? 'sit' : 'pray', null, what < 0.35 ? 'Dancing at the festival' : what < 0.65 ? 'Sharing sake at the festival' : 'Praying for a good year'), 'Off to the festival');
 }
 // walk a stretch of wall walkway: climb up at one end, patrol along the top, climb down
 function wallPatrol(game, v) {
@@ -191,7 +200,9 @@ export function thinkVillager(game, v) {
     v.aid = false; setLook(v, J.look); game.toast(`${v.name} is done helping and goes back to work`); game.emit('job', v);
   }
   if (v.job !== 'idle') setLook(v, J.look);
-  if (game.life.festival && !J.soldier && !v.carry && Math.random() < 0.55) return celebrate(game, v);
+  if (game.life.festival && !J.soldier && !v.carry && v.job !== 'child' && Math.random() < 0.9) return celebrate(game, v);
+  // night: most go to bed; a few work the night shift (the same ones each night)
+  if (game.isNight() && !J.soldier && v.id % 4 !== 0 && !['child', 'idle'].includes(v.job)) return goHome(game, v, 'Asleep at home');
   if (work && !work.done) return act(v, 3, 'idle', null, `Waiting for the ${work.def.name} to be built`);
   if (work && !game.works(work)) return act(v, 4, 'idle', null, `Idle — the ${work.def.name} has no road to the Keep`);
   const mult = game.workMult() * game.levelMult(work);
@@ -240,7 +251,7 @@ export function thinkVillager(game, v) {
       // market fees: every round at the stalls brings in gold, more at a bigger market
       return goTo(game, v, game.spotAround(work, 0.4), () => act(v, 12 + game.rand() * 6, game.rand() < 0.5 ? 'work' : 'idle', () => game.add('gold', Math.max(2, Math.round((2 + work.level) * mult))), game.life.merchant ? 'Haggling with the travelling merchants' : 'Collecting market fees', game.center(work)), 'Opening the stalls');
     case 'child': {
-      const night = game.state.time < 0.22 || game.state.time > 0.8;
+      const night = game.isNight() && !game.life.festival;
       if (night) return goHome(game, v, 'Asleep at home');
       const base = game.keep ? game.door(game.keep, 5) : { x: 0, z: 8 };
       if (game.rand() < 0.3) return act(v, 4 + game.rand() * 4, 'sit', null, ['Playing with pebbles', 'Watching the ants', 'Drawing in the dirt'][Math.floor(game.rand() * 3)]);
@@ -269,6 +280,7 @@ export function thinkVillager(game, v) {
     }
     case 'archer':
       if (v.post && v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) leaveTower(game, v);
+      if (game.isNight() && v.id % 3 !== 0 && v.hpf == null) { if (v.post) leaveTower(game, v); return goHome(game, v, 'Off duty \u2014 sleeping'); }
       if (v.post) {
         const b = game.buildings.get(v.post.b);
         if (b && b.done) {
@@ -282,6 +294,7 @@ export function thinkVillager(game, v) {
       if (!(v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].some(b => b.def.heals && b.done)) && climbTower(game, v)) return;
     // eslint-disable-next-line no-fallthrough
     case 'ashigaru': case 'shieldman': case 'samurai': case 'berserker': case 'taisho': case 'ninja': case 'sohei': case 'cavalry': {
+      if (game.isNight() && v.id % 3 !== 0 && v.hpf == null) { if (v.post) { v.post = null; v.elev = 0; } return goHome(game, v, 'Off duty \u2014 sleeping'); }
       // wounded soldiers rest at the Healer's House
       const healer = v.hpf != null && v.hpf < 0.9 && [...game.buildings.values()].find(b => b.def.heals && b.done);
       if (healer) {
@@ -301,7 +314,7 @@ export function thinkVillager(game, v) {
       if (w && w.b) { setLook(v, 'builder'); return doBuild(game, v, w.b); }
       if (w && w.m) { setLook(v, 'builder'); return doClear(game, v, w.m); }
       setLook(v, JOBS[v.job].look);
-      const night = game.state.time < 0.22 || game.state.time > 0.8;
+      const night = game.isNight() && !game.life.festival;
       if (night) return goHome(game, v, 'Sleeping at home');
       const spots = [...game.buildings.values()].filter(b => b.done && b.def.relax);
       if (spots.length && game.rand() < 0.45) {

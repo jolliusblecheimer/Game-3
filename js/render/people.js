@@ -206,6 +206,11 @@ export class Person {
       case 'sit': { lL.rotation.x = -1.5; lR.rotation.x = -1.5; bodyY = -0.5; aL.rotation.x = -0.5; aR.rotation.x = -0.4 + Math.sin(t * 0.7) * 0.2; break; }
       case 'train': { const s = Math.sin(t * 6); aR.rotation.x = -2.2 + s * 1.3; aL.rotation.x = -2.0 + s * 1.2; lL.rotation.x = 0.3; lR.rotation.x = -0.4; bodyRX = s * 0.1; break; }
       case 'shoot': { aL.rotation.x = -1.5; aL.rotation.z = -0.1; aR.rotation.x = -1.4 + Math.max(0, Math.sin(t * 2)) * 0.4; aR.rotation.z = 0.5; break; }
+      case 'dance': {   // Bon Odori: hands raised and swept in turn, a step and a clap
+        const s = Math.sin(t * 3.2), c = Math.cos(t * 3.2);
+        aL.rotation.x = -2.3 + s * 0.6; aL.rotation.z = -0.35 - c * 0.2; aR.rotation.x = -1.3 - s * 0.7; aR.rotation.z = 0.35 + c * 0.2;
+        lL.rotation.x = Math.max(0, s) * 0.55; lR.rotation.x = Math.max(0, -s) * 0.55; bodyY = Math.abs(s) * 0.06; bodyRX = 0.05 + c * 0.05; break;
+      }
       case 'guard': { aR.rotation.x = -0.25; aL.rotation.x = -0.1; bodyY = Math.sin(t * 1.5) * 0.01; break; }
       default: { aL.rotation.x = Math.sin(t * 1.2) * 0.05; aR.rotation.x = -Math.sin(t * 1.2) * 0.05; bodyY = Math.sin(t * 1.6) * 0.012; }
     }

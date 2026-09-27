@@ -133,6 +133,7 @@ export class Game {
 
   /* ---------- derived numbers ---------- */
   get pop() { return this.villagers.size; }
+  isNight() { const t = this.state.time; return t < 0.22 || t > 0.8; }
   get keep() { for (const b of this.buildings.values()) if (b.type === 'townhall') return b; return null; }
   get thLevel() { const k = this.keep; return k ? k.level : 1; }
   housing() {
@@ -676,7 +677,8 @@ export class Game {
   update(dt) {
     const S = this.state;
     S.clock += dt;
-    S.time += dt / ECON.dayLength;
+    // the night (0.8 → 0.22 of the clock) passes faster than the day, so there's less waiting in the dark
+    S.time += dt / ECON.dayLength * (this.isNight() ? 0.42 / ECON.nightShare : 0.58 / (1 - ECON.nightShare));
     if (S.time >= 1) { S.time -= 1; S.day++; this.life.newDay(); this.emit('day'); }
     S.eatAcc += dt * this.pop / ECON.eatEvery;
     if (S.eatAcc >= 1) { const n = Math.floor(S.eatAcc); S.eatAcc -= n; S.res.wheat = Math.max(0, S.res.wheat - n); if (S.res.wheat === 0) this.emit('hungry'); this.emit('res'); }

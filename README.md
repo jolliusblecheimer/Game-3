@@ -356,3 +356,18 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Research is opened **only at the Scholars' Pavilion**. Clicking the Wisdom counter takes you there.
 - **The Castle Gate is 3 cells wide.** It has guard walls on both sides and a road running under the middle. Gates from older saves stay 2 wide until you move them.
 - **Seasons:** a season now lasts 2 days (24 minutes) instead of 3. Days (and so seasons) also advance while you are away; before, the time away never counted as days.
+
+## Town Square, sleeping at night, distinct mines
+- **Town Square** (Harmony tab, one per village):
+  - Stone paving, a festival tower (yagura) with a taiko drum, strings of lanterns, benches and a stall.
+  - Villagers can walk across it and relax there.
+- **Festivals are held in the evening, after work.**
+  - A festival you hold starts at about 15:30 that day, or the next day if it's already late.
+  - With a Town Square, the villagers dance the **Bon Odori** in a circle round the yagura, with a few sharing sake at the edge. The mood lift is +25 instead of +15.
+- **Night:**
+  - Most villagers go to bed. About one in four keep working the night shift, always the same ones.
+  - About a third of the soldiers stay on watch and patrol, and the rest sleep. Raids wake everyone.
+  - The night now passes in a quarter of the day (3 of the 12 minutes), so there's less waiting in the dark.
+- **Mines:**
+  - The gold mine has warm sandstone with glinting gold veins, a washing sluice with a pan, and a strongbox of nuggets.
+  - The iron mine has dark rock with rust-red ore streaks, charcoal heaps, a bellows shed and a furnace with a glowing chimney.

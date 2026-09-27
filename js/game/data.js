@@ -32,6 +32,7 @@ export const ECON = {
   eatEvery: 70,              // each villager eats 1 wheat this often
   hungryWork: 0.5,           // work speed when out of wheat
   dayLength: 720,            // seconds for a full day–night cycle at 1×
+  nightShare: 0.25,          // the night (20:00–05:00) passes in a quarter of that; the day takes the rest
   refund: 0.5,               // share of cost returned when demolishing
   offlineCapHours: 4,
   offlineEfficiency: 0.6,    // share of normal output earned while away
@@ -283,6 +284,8 @@ export const BUILDINGS = {
                 desc: 'Raked sand and quiet stones. A place to rest the mind.' },
   pond:       { name: 'Koi Pond', kanji: '鯉池', cat: 'beauty', size: [3, 3], cost: { stone: 60, gold: 15 }, time: 50, beauty: 5, relax: 'sit', h: 1, th: 3, limit: [0, 0, 1, 1, 2],
                 desc: 'Koi drift beneath lily pads. Villagers love to sit here.' },
+  hiroba:     { name: 'Town Square', kanji: '広場', cat: 'beauty', size: [4, 4], cost: { stone: 120, wood: 80, gold: 30 }, time: 70, beauty: 5, relax: 'sit', h: 3.5, th: 1, limit: [1, 1, 1, 1, 1], unique: true, walkable: true,
+                desc: 'A paved square with a festival tower (yagura). On festival evenings, after the day\u2019s work, the villagers dance the Bon Odori round it \u2014 and the festival lifts their mood much more.' },
   teahouse:   { name: 'Tea House', kanji: '茶屋', cat: 'beauty', size: [2, 2], cost: { wood: 75, stone: 30, gold: 15 }, time: 55, beauty: 4, relax: 'sit', h: 4, th: 2, limit: [0, 1, 1, 2, 2],
                 desc: 'A quiet hut for the tea ceremony.' },
   sakura:     { name: 'Sakura Tree', kanji: '桜', cat: 'beauty', size: [1, 1], cost: { wheat: 30, wood: 10 }, time: 20, beauty: 2, h: 5, th: 1, limit: [3, 4, 6, 8, 10],

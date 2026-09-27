@@ -23,7 +23,10 @@ export class Life {
   get S() { return this.game.state; }
   get season() { return Math.floor((this.S.day - 1) / DAYS_PER_SEASON) % 4; }
   get seasonInfo() { return SEASONS[this.season]; }
-  get festival() { return this.S.clock < this.festivalUntil; }
+  // the festival: the evening of its day (from about 15:30 until 21:00), after the day's work
+  get festival() { return this.festDay === this.S.day && this.S.time >= 0.64 && this.S.time < 0.88; }
+  get festivalPlanned() { return this.festDay != null && (this.festDay > this.S.day || (this.festDay === this.S.day && this.S.time < 0.64)); }
+  get square() { return [...this.g.buildings.values()].find(b => b.type === 'hiroba' && b.done) || null; }
   farmMult() { return this.seasonInfo.farm * (this.weather === 'rain' ? 1.1 : 1) * (this.S.clock < this.badHarvestUntil ? 0.5 : 1); }
 
   /* ---------- mood ---------- */
@@ -58,6 +61,7 @@ export class Life {
   festivalCost() { const f = 1 - 0.05 * this.g.wonderLevel('itsukushima'), c = (this.S.res.sake || 0) >= 20 ? { wheat: 100, sake: 20 } : { wheat: 120, gold: 60 }; for (const k in c) c[k] = Math.round(c[k] * f); return c; }
   festivalBlock() {
     if (this.festival) return 'A festival is on right now';
+    if (this.festivalPlanned) return 'A festival is already planned for this evening';
     const left = this.lastFestival + DAY * 3 - this.S.clock; if (left > 0) return `The next festival can be held in ${Math.ceil(left / DAY)} day${left > DAY ? 's' : ''}`;
     if (this.g.raids.alarmed) return 'Not during a raid!';
     if (!this.g.canAfford(this.festivalCost())) return 'Not enough for the feast';
@@ -67,8 +71,11 @@ export class Life {
     const why = this.festivalBlock(); if (why) { this.g.toast(why, 'warn'); return false; }
     this.g.pay(this.festivalCost());
     this.g.sfx('drum');
-    this.festivalUntil = this.S.clock + DAY * 0.35; this.lastFestival = this.S.clock; this.moodBoost = Math.max(this.moodBoost, 15);
-    this.g.toast('The festival begins! Lanterns rise, drums play and the sake flows.');
+    this.festDay = this.S.time < 0.84 ? this.S.day : this.S.day + 1; this.lastFestival = this.S.clock;
+    this.moodBoost = Math.max(this.moodBoost, this.square ? 25 : 15);
+    const now = this.festival;
+    this.g.toast(now ? 'The festival begins! Lanterns rise, drums play and the sake flows.' : `A festival ${this.festDay === this.S.day ? 'this' : 'tomorrow'} evening! When the day\u2019s work is done, the village gathers${this.square ? ' at the Town Square to dance' : ' by the Keep'}.`);
+    if (!this.square) setTimeout(() => this.g.toast('Tip: build a Town Square \u2014 the villagers dance round its festival tower, and festivals lift the mood even more.'), 2500);
     this.g.progress.log('A festival was held in the village.', 'life'); this.g.progress.add('festivals');
     for (const v of this.g.villagers.values()) v.reset = true;
     this.g.emit('festival'); return true;
@@ -201,6 +208,6 @@ export class Life {
     g.pay({ gold: 60 }); const v = g.spawnVillager({ job: 'samurai' }); g.toast(`${v.name}, a masterless samurai, swears to serve your clan.`); g.progress.log(`The rōnin ${v.name} joined the clan.`, 'life'); return true;
   }
 
-  serialize() { return { weather: this.weather, festivalUntil: this.festivalUntil, lastFestival: this.lastFestival, moodBoost: this.moodBoost, grief: this.grief, badHarvestUntil: this.badHarvestUntil, merchant: this.merchant }; }
-  load(o) { if (!o) return; Object.assign(this, { weather: o.weather || 'clear', festivalUntil: o.festivalUntil || 0, lastFestival: o.lastFestival ?? -1e9, moodBoost: o.moodBoost || 0, grief: o.grief || 0, badHarvestUntil: o.badHarvestUntil || 0, merchant: o.merchant || null }); }
+  serialize() { return { weather: this.weather, festivalUntil: this.festivalUntil, festDay: this.festDay ?? undefined, lastFestival: this.lastFestival, moodBoost: this.moodBoost, grief: this.grief, badHarvestUntil: this.badHarvestUntil, merchant: this.merchant }; }
+  load(o) { if (!o) return; Object.assign(this, { weather: o.weather || 'clear', festivalUntil: o.festivalUntil || 0, festDay: o.festDay ?? null, lastFestival: o.lastFestival ?? -1e9, moodBoost: o.moodBoost || 0, grief: o.grief || 0, badHarvestUntil: o.badHarvestUntil || 0, merchant: o.merchant || null }); }
 }

@@ -36,6 +36,7 @@ function mineModel(b, w, d, ore) { const save = MODELS._mine; return save(b, w, 
 function ironWorks(b, w, d) {
   const m = b.m;
   m.frustum(1.0, 1.0, 0.6, 0.6, 1.8, STONE_D, [w / 2 - 0.9, 0, d / 2 - 0.9]); b.g.box(0.3, 0.3, 0.1, '#ff7a2a', [w / 2 - 0.9, 0.5, d / 2 - 0.42]);
+  m.box(0.5, 0.9, 0.5, '#3a3230', [w / 2 - 0.9, 2.2, d / 2 - 0.9]); b.g.box(0.3, 0.05, 0.3, '#ff9a4a', [w / 2 - 0.9, 2.66, d / 2 - 0.9]);   // chimney mouth glowing
   for (let i = 0; i < 4; i++) m.box(0.5, 0.12, 0.3, '#6a7078', [-w / 2 + 0.7, 0.1 + i * 0.12, d / 2 - 0.5]);   // stacked iron bars
 }
 // latticed window with a glowing pane on a wall facing -z
@@ -346,11 +347,25 @@ const MODELS = {
   mine(b, w, d) { return mineModel(b, w, d, GOLD); },
   ironmine(b, w, d) { mineModel(b, w, d, '#5a6068'); ironWorks(b, w, d); },
   _mine(b, w, d, ore = GOLD) {
-    const m = b.m, L = b.level || 1;
-    m.box(w - 0.2, 0.1, d - 0.2, '#7a6a55', [0, 0.05, 0]);
-    m.add(new THREE.DodecahedronGeometry(2.6, 1), '#7d756a', [0, 1.1, -0.9], [0, 0.3, 0], [1.1, 0.75, 0.9]);
-    m.add(new THREE.DodecahedronGeometry(1.4, 0), '#6d665c', [-1.8, 0.9, 0.2], [0.3, 0, 0]);
-    m.ball(0.9, '#8a7a62', [1.9, 0.3, 1.2], [1.3, 0.5, 1]); // spoil heap
+    const m = b.m, L = b.level || 1, gold = ore === GOLD;
+    const rockA = gold ? '#a39377' : '#5a4b48', rockB = gold ? '#8f8068' : '#473b3a', ground = gold ? '#8a7858' : '#5e4e44';
+    m.box(w - 0.2, 0.1, d - 0.2, ground, [0, 0.05, 0]);
+    m.add(new THREE.DodecahedronGeometry(2.6, 1), rockA, [0, 1.1, -0.9], [0, 0.3, 0], [1.1, gold ? 0.75 : 0.9, 0.9]);
+    m.add(new THREE.DodecahedronGeometry(1.4, 0), rockB, [-1.8, 0.9, 0.2], [0.3, 0, 0]);
+    m.ball(0.9, gold ? '#b5a27a' : '#6b4a3a', [1.9, 0.3, 1.2], [1.3, 0.5, 1]); // spoil heap
+    if (gold) {
+      // glinting gold veins in the rock, and a sluice where the washers pan the gravel
+      for (const [x, y, z, r] of [[-1.0, 1.8, 0.35, 0.6], [0.9, 2.1, 0.1, -0.4], [0.2, 2.9, -0.5, 0.2], [-2.1, 1.3, 0.6, 0.9], [1.7, 1.2, 0.5, -0.8]]) b.g.box(0.5, 0.06, 0.08, '#ffd560', [x, y, z], [0, 0, r]);
+      m.box(0.5, 0.2, 2.2, WOOD_L, [-w / 2 + 0.7, 0.55, 0.9], [0.12, 0, 0]); m.box(0.36, 0.04, 2.1, WATER, [-w / 2 + 0.7, 0.66, 0.9], [0.12, 0, 0]);
+      for (const z of [0.1, 1.7]) for (const x of [-0.18, 0.18]) m.box(0.06, 0.5 + (z < 1 ? 0.25 : 0), 0.06, WOOD_D, [-w / 2 + 0.7 + x, 0.3, z]);
+      m.cyl(0.28, 0.2, 0.08, 12, '#3a2c20', [-w / 2 + 1.3, 0.14, 2.1]); m.ball(0.06, GOLD, [-w / 2 + 1.3, 0.2, 2.1]);   // a washing pan
+      m.box(0.7, 0.45, 0.5, '#6b4a33', [w / 2 - 0.7, 0.33, -0.2]); m.box(0.6, 0.06, 0.4, GOLD, [w / 2 - 0.7, 0.58, -0.2]);   // strongbox of nuggets
+    } else {
+      // rust-red streaks of ore in the dark rock, heaps of charcoal and a shed over the bellows
+      for (const [x, y, z, r] of [[-1.0, 1.8, 0.35, 0.6], [0.9, 2.2, 0.1, -0.4], [0.2, 3.0, -0.5, 0.2], [-2.1, 1.3, 0.6, 0.9], [1.6, 1.4, 0.5, -0.8]]) m.box(0.6, 0.1, 0.1, '#8a4a2e', [x, y, z], [0, 0, r]);
+      m.cone(0.7, 0.6, 7, '#1f1c1a', [-w / 2 + 0.8, 0.3, 1.9]); m.cone(0.5, 0.45, 7, '#2a2522', [-w / 2 + 1.5, 0.25, 2.2]);
+      for (const x of [-w / 2 + 0.5, -w / 2 + 1.7]) m.box(0.1, 1.6, 0.1, WOOD_D, [x, 0.8, 1.2]); m.box(1.5, 0.08, 0.9, THATCH_D, [-w / 2 + 1.1, 1.62, 1.55], [0.2, 0, 0]);
+    }
     // timbered entrance with a little roof and lanterns
     m.box(1.5, 1.7, 0.4, '#141312', [0, 0.95, 1.2]);
     m.box(0.22, 2.0, 0.22, WOOD, [-0.85, 1.0, 1.35]); m.box(0.22, 2.0, 0.22, WOOD, [0.85, 1.0, 1.35]); m.box(2.1, 0.26, 0.3, WOOD, [0, 2.05, 1.35]);
@@ -985,6 +1000,36 @@ const MODELS = {
       const km = k.mesh(MAT.flat, false, false); km.position.y = 0.13; koi.push({ mesh: km, r: 0.5 + i * 0.28, s: 0.4 + i * 0.12, a: i * 1.7 });
     }
     b.extra = { water, koi };
+  },
+  // Town Square: stone paving, a festival tower (yagura) with a taiko drum, strings of lanterns and benches
+  hiroba(b, w, d) {
+    const m = b.m, g = b.g;
+    m.box(w - 0.1, 0.1, d - 0.1, '#b9b1a1', [0, 0.05, 0]);
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) m.box(w / 8 - 0.08, 0.03, d / 8 - 0.08, (i + j) % 3 ? '#c8c0af' : '#aaa292', [-w / 2 + (i + 0.5) * w / 8, 0.115, -d / 2 + (j + 0.5) * d / 8]);
+    m.box(w - 0.1, 0.14, 0.14, STONE_D, [0, 0.07, d / 2 - 0.07]); m.box(w - 0.1, 0.14, 0.14, STONE_D, [0, 0.07, -d / 2 + 0.07]);
+    m.box(0.14, 0.14, d - 0.1, STONE_D, [w / 2 - 0.07, 0.07, 0]); m.box(0.14, 0.14, d - 0.1, STONE_D, [-w / 2 + 0.07, 0.07, 0]);
+    // the yagura: four posts, a platform with a red-and-white skirt, a railing and the drum
+    posts(m, 2.2, 2.2, 2.0, 0.1, WOOD, 0.12);
+    m.box(2.5, 0.16, 2.5, WOOD_L, [0, 2.1, 0]);
+    for (let k = 0; k < 12; k++) { const side = k % 4, t = -1.05 + Math.floor(k / 4) * 1.05, col = k % 2 ? '#f4efe4' : VERM;
+      if (side < 2) m.box(0.9, 0.55, 0.03, col, [t, 1.75, side ? 1.26 : -1.26]); else m.box(0.03, 0.55, 0.9, col, [side === 2 ? 1.26 : -1.26, 1.75, t]); }
+    for (const sx of [-1, 1]) { m.box(2.5, 0.06, 0.06, WOOD_D, [0, 2.6, sx * 1.2]); m.box(0.06, 0.06, 2.5, WOOD_D, [sx * 1.2, 2.6, 0]); }
+    for (const [x, z] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) m.box(0.08, 0.6, 0.08, WOOD_D, [x, 2.4, z]);
+    m.cyl(0.42, 0.42, 0.55, 12, '#8a3a2a', [0, 2.55, 0], [Math.PI / 2, 0, 0]); m.cyl(0.4, 0.4, 0.57, 12, '#efe3c4', [0, 2.55, 0], [Math.PI / 2, 0, 0]);
+    m.box(0.8, 0.1, 0.5, WOOD_D, [0, 2.24, 0]);
+    // a ladder up, and a tall pole with a banner
+    for (const x of [-0.3, 0.3]) m.box(0.06, 2.2, 0.06, WOOD, [x, 1.1, 1.55], [-0.3, 0, 0]); for (let i = 0; i < 5; i++) m.box(0.6, 0.05, 0.05, WOOD, [0, 0.35 + i * 0.4, 1.47 + i * 0.12]);
+    m.cyl(0.05, 0.05, 4.2, 6, WOOD_D, [0, 3.1, 0]);
+    // lantern strings from the pole to the four corners
+    for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const X = cx * (w / 2 - 0.3), Z = cz * (d / 2 - 0.3);
+      m.cyl(0.05, 0.05, 3.0, 5, WOOD_D, [X, 1.5, Z]);
+      for (let i = 1; i < 12; i++) { const f = i / 12, y = 5.0 + (3.0 - 5.0) * f - Math.sin(f * Math.PI) * 0.5; m.box(0.03, 0.03, 0.03, '#3b2619', [X * f, y, Z * f]); if (i % 2 === 0) g.ball(0.13, i % 4 ? '#ff6a4a' : '#ffe2a0', [X * f, y - 0.18, Z * f], [1, 1.3, 1]); }
+    }
+    // benches, a stall and a sake barrel at the edges
+    for (const [x, z, r] of [[-w / 2 + 0.6, 0, 1], [w / 2 - 0.6, 0.6, 1], [0.8, -d / 2 + 0.6, 0]]) { m.box(r ? 0.35 : 1.3, 0.08, r ? 1.3 : 0.35, WOOD_L, [x, 0.45, z]); for (const o of [-0.45, 0.45]) m.box(0.3, 0.4, 0.3, WOOD_D, [x + (r ? 0 : o), 0.2, z + (r ? o : 0)]); }
+    m.cyl(0.3, 0.3, 0.6, 10, WOOD, [-w / 2 + 0.6, 0.4, -d / 2 + 0.7]); m.cyl(0.31, 0.31, 0.06, 10, VERM, [-w / 2 + 0.6, 0.55, -d / 2 + 0.7]);
+    m.box(1.2, 0.8, 0.6, WOOD, [w / 2 - 1.0, 0.5, -d / 2 + 0.6]); m.box(1.5, 0.08, 0.9, '#c2412d', [w / 2 - 1.0, 1.6, -d / 2 + 0.6], [0.15, 0, 0]); for (const x of [w / 2 - 1.6, w / 2 - 0.4]) m.box(0.06, 1.2, 0.06, WOOD_D, [x, 1.0, -d / 2 + 0.35]);
   },
   teahouse(b) {
     const m = b.m;
