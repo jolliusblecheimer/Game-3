@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { CountryMap, MAP_ORIGIN } from '../render/countrymap.js';
 import { Battle, BATTLE_ORIGIN, makeLayout } from '../game/battle.js';
 import { RTSCamera } from './camera.js';
-import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS, BUILDINGS, RANKS, rankOf, WONDER_MAX, wonderLevelCost } from '../game/data.js';
+import { SITES, JOBS, UNITS, COMMANDERS, WAR, RES, DOJO_TRAINS, CLANS, BUILDINGS, RANKS, rankOf, ARMOUR, WONDER_MAX, wonderLevelCost } from '../game/data.js';
 
 // abilities you can trigger in battle (R)
 const ABIL = { ...COMMANDERS, ninja: { ability: 'Grappling Hook', abilityDesc: 'Climbs silently over a wall to a spot you choose.', point: true }, sohei: { ability: 'Prayer of Iron', abilityDesc: 'Everyone within 10 takes half damage for 6s.' } };
@@ -707,7 +707,7 @@ export class Views {
       const box = h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('soldier', 18), h('b', null, 'Commanders')));
       for (const [type, C] of Object.entries(COMMANDERS)) {
         const cur = [...g.villagers.values()].find(v => v.job === type);
-        if (!cur && C.tech && !g.hasResearch(C.tech)) { box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name), h('small', null, `${C.ability}: ${C.abilityDesc}`)), h('button', { class: 'btn small ghost', onclick: () => this.hud.openResearch() }, `Research: ${g.researchNode(C.tech).node.name}`))); continue; }
+        if (!cur && C.tech && !g.hasResearch(C.tech)) { box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name), h('small', null, `${C.ability}: ${C.abilityDesc}`)), h('button', { class: 'btn small ghost', onclick: () => this.hud.gotoPavilion() }, `At the Pavilion: ${g.researchNode(C.tech).node.name}`))); continue; }
         box.append(h('div', { class: 'cmdrow' }, art('person', JOBS[type].look, null, 'face'), h('div', null, h('b', null, JOBS[type].name + (cur ? ` — ${cur.name}` : '')), h('small', null, `${C.ability}: ${C.abilityDesc}`)),
           cur ? h('span', { class: 'pill' }, cur.away ? 'Away' : 'Ready') : h('button', { class: 'btn small', onclick: () => {
             const cand = g.soldiers().find(v => v.job === 'ashigaru') || g.idleVillagers()[0];
@@ -777,17 +777,36 @@ export class Views {
         b.level < WONDER_MAX ? [h('div', { class: 'bar' }, h('i', { style: `width:${have / need * 100}%` })), h('small', { class: 'sub' }, `${have} / ${need} Wisdom to level ${b.level + 1} · you have ${Math.floor(g.state.wisdom)}`),
           h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { g.investWonder(b, 1); this.hud.renderPanel(); } }, '+1'), h('button', { class: 'btn small', onclick: () => { g.investWonder(b); this.hud.renderPanel(); } }, icon('wisdom', 14), 'Invest Wisdom'))] : h('p', { class: 'sub' }, 'At its greatest.')));
     }
+    // the smithy's armoury: fit iron armour to soldiers who have none
+    if (b.type === 'blacksmith' && b.done) {
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('iron', 20), h('b', null, 'Armoury')),
+        this.hud.live(h('div', null), el => {
+          el.textContent = ''; const list = g.unarmoured(), need = list.reduce((a, v) => a + ARMOUR[v.job], 0);
+          el.append(h('p', { class: 'sub' }, 'Iron armour gives a soldier 30% more health. Spearmen, archers, ninja and s\u014dhei are fitted when they graduate \u2014 if there is iron.'));
+          if (!list.length) el.append(h('p', { class: 'sub' }, 'Every soldier has armour.'));
+          else el.append(h('div', { class: 'row' }, h('span', null, `${list.length} soldier${list.length > 1 ? 's' : ''} without armour`), costChips(g, { iron: need }),
+            h('button', { class: 'btn small', onclick: () => { g.armourAll(); this.hud.renderPanel(); } }, 'Fit armour')));
+        })));
+    }
+    // training grounds: armour for the graduates
+    if ((b.type === 'dojo' || b.type === 'kyudojo') && b.done) {
+      p.append(this.hud.live(h('div', { class: 'irow' }), el => {
+        const to = g.trainInfo(b).to, need = ARMOUR[to]; el.textContent = '';
+        el.append(icon('iron', 18), h('span', null, need ? `Graduates get iron armour: ${need} iron each (you have ${Math.floor(g.state.res.iron)}). Without it they are 30% weaker.` : `${JOBS[to].name}s come in armour (iron is part of their training cost).`));
+        el.classList.toggle('warn', !!need && g.state.res.iron < need);
+      }));
+    }
     if (b.type === 'workshop' && b.done) {
-      const cost = { wood: 120, stone: 20 };
+      const cost = { wood: 120, stone: 20, iron: 10 };
       p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('ram', 22), h('b', null, 'Battering rams'), this.hud.live(h('span', { class: 'count' }), el => { el.textContent = `${g.state.rams || 0} ready`; })),
         this.hud.live(h('div', null), el => {
           el.textContent = '';
           if (g.state.ramBuild) { const left = g.state.ramBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a ram… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / 45) * 100}%` }))); }
           else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cost)) return g.toast('Not enough resources', 'warn'); g.pay(cost); g.state.ramBuild = { done: g.state.clock + Math.round(45 * (1 - g.rb('ramBuild'))) }; this.hud.renderPanel(); } }, `Build a ram (${Math.round(45 * (1 - g.rb('ramBuild')))}s)`, costChips(g, cost)));
         })));
-      const cc = { wood: 260, stone: 120, gold: 60 }, ct = Math.round(80 * (1 - g.rb('ramBuild')));
+      const cc = { wood: 260, stone: 120, gold: 60, iron: 25 }, ct = Math.round(80 * (1 - g.rb('ramBuild')));
       p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('ram', 22), h('b', null, 'Catapults'), this.hud.live(h('span', { class: 'count' }), el => { el.textContent = `${g.state.catapults || 0} ready`; })),
-        !g.hasResearch('catapults') ? [h('p', { class: 'sub' }, 'Research \u201cSiege Engines\u201d (Daimy\u014d\u2019s Domain era) to build them. A catapult throws boulders at walls and towers from 30 paces \u2014 out of reach of most archers.'), h('button', { class: 'btn small ghost', onclick: () => this.hud.openResearch() }, 'Open Research')] : this.hud.live(h('div', null), el => {
+        !g.hasResearch('catapults') ? [h('p', { class: 'sub' }, 'Research \u201cSiege Engines\u201d (Daimy\u014d\u2019s Domain era) to build them. A catapult throws boulders at walls and towers from 30 paces \u2014 out of reach of most archers.'), h('button', { class: 'btn small ghost', onclick: () => this.hud.gotoPavilion() }, 'Research at the Pavilion')] : this.hud.live(h('div', null), el => {
           el.textContent = '';
           if (g.state.catBuild) { const left = g.state.catBuild.done - g.state.clock; el.append(h('p', { class: 'sub' }, `Building a catapult… ${fmtTime(left)}`), h('div', { class: 'bar' }, h('i', { style: `width:${(1 - left / ct) * 100}%` }))); }
           else el.append(h('button', { class: 'btn small', onclick: () => { if (!g.canAfford(cc)) return g.toast('Not enough resources', 'warn'); g.pay(cc); g.state.catBuild = { done: g.state.clock + ct }; this.hud.renderPanel(); } }, `Build a catapult (${ct}s)`, costChips(g, cc)));

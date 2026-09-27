@@ -7,7 +7,7 @@
 // While a raid lasts you can command your soldiers: select them and send them anywhere, onto the
 // walls, out through the gate to kill the ram, or let them fight on their own.
 import * as THREE from 'three';
-import { RAIDS, JOBS, UNITS, RES, rankOf } from './data.js';
+import { RAIDS, JOBS, UNITS, RES, rankOf, isArmoured, ARMOUR_HP } from './data.js';
 import { PLOT, heightAt } from '../render/nature.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
@@ -18,7 +18,7 @@ const TURN = { north: 'east', east: 'south', south: 'west', west: 'north' };
 const OPPOSITE = { north: 'south', south: 'north', east: 'west', west: 'east' };
 const SOLDIER_HP = { ashigaru: 120, shieldman: 135, samurai: 280, archer: 70, berserker: 560, taisho: 380, ninja: 95, sohei: 210, cavalry: 230 };
 const TOUGH = 1.75; // everyone lasts longer in a fight
-const maxHp = v => (SOLDIER_HP[v.job] || 100) * TOUGH;
+const maxHp = v => (SOLDIER_HP[v.job] || 100) * TOUGH * (isArmoured(v) ? 1 + ARMOUR_HP : 1);
 const EDGE = PLOT.half - 1.2;
 const inPlot = (x, z) => Math.abs(x) < PLOT.half - 0.6 && Math.abs(z) < PLOT.half - 0.6;
 const wallTopH = b => 2.95 * (1 + 0.14 * ((b.level || 1) - 1));

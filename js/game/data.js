@@ -11,7 +11,7 @@ export const RES = {
 };
 
 // The year: each season lasts a few days and changes the fields, the forest and the mood
-export const DAYS_PER_SEASON = 3;
+export const DAYS_PER_SEASON = 2;
 export const SEASONS = [
   { name: 'Spring', kanji: '春', farm: 1.0, wood: 1.0, march: 1.0, mood: 5, arrive: 1.3 },
   { name: 'Summer', kanji: '夏', farm: 1.25, wood: 1.1, march: 1.0, mood: 3, arrive: 1.0 },
@@ -92,6 +92,13 @@ export const DOJO_TRAINS = {
   sohei:     { tech: 'sohei', dojo: 3, time: 160, cost: { wheat: 30, gold: 20 }, needs: 'shrine' },
   cavalry:   { tech: 'horse', dojo: 3, time: 170, cost: { wheat: 50, gold: 30, iron: 8 }, needs: 'stable' },
 };
+
+// Iron armour: a soldier fitted with it has 30% more health. These classes are fitted when they graduate
+// (if you have the iron); shield-bearers, samurai, cavalry and commanders always come in armour.
+export const ARMOUR = { ashigaru: 3, archer: 2, ninja: 2, sohei: 3 };
+export const ARMOUR_HP = 0.3;
+const ARMOUR_BUILTIN = new Set(['shieldman', 'samurai', 'cavalry', 'berserker', 'taisho']);
+export const isArmoured = v => !!v && (!!v.armour || ARMOUR_BUILTIN.has(v.job));
 
 // Difficulty (per save): how big raids and counter-attacks get, and how hard enemy soldiers are.
 export const DIFFICULTY = {
@@ -264,7 +271,7 @@ export const BUILDINGS = {
                 desc: 'Sharpened stakes that slow attackers and hurt them as they push through.' },
   hedge:      { name: 'Hedge', kanji: '生垣', cat: 'defense', size: [1, 1], cost: { wood: 3 }, time: 4, line: true, h: 1.4, th: 1,
                 desc: 'Thick bushes. Troops hiding inside are hard to spot.' },
-  gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [2, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3, limit: [0, 1, 2, 3, 4],
+  gate:       { name: 'Castle Gate', kanji: '門', cat: 'defense', size: [3, 1], cost: { wood: 140, stone: 70 }, time: 45, walkable: true, h: 4.5, th: 2, hp: 1200, maxLevel: 3, limit: [0, 1, 2, 3, 4],
                 desc: 'Lets your people through your walls. Bandits must break it down.' },
   tower:      { name: 'Yagura Tower', kanji: '櫓', cat: 'defense', size: [2, 2], cost: { wood: 160, stone: 100 }, time: 60, garrison: 3, h: 7, th: 2, hp: 1800, maxLevel: 3, limit: [0, 2, 3, 4, 6],
                 desc: 'Your archers climb up here and shoot down at raiders. Upgrades make their arrows reach farther.' },

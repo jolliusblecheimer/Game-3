@@ -784,3 +784,12 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .irow.task { align-items: center; }
 .irow.task > span:nth-child(2) { flex: 1; min-width: 0; }
 .irow.task .rt { display: flex; align-items: center; gap: 6px; margin-left: auto; flex: 0 0 auto; }
+
+/* the Quests button and the Wisdom counter on the top bar */
+.res.quests { cursor: pointer; border: 1px solid var(--line); display: inline-flex; flex-direction: row; align-items: center; gap: 5px; white-space: nowrap; }
+.res.quests.claim { border-color: #c9962f; box-shadow: 0 0 0 2px #f3dc9a; animation: rtglow 1.8s ease-in-out infinite; }
+.res.quests.claim small { color: #b8342a; font-weight: 700; }
+.res.wis { cursor: pointer; border: 0; font: inherit; color: inherit; }
+.res.wis.full { box-shadow: 0 0 0 2px #f3dc9a; }
+@media (max-width: 900px) { .res.quests b { display: none; } }
+.irow.warn { color: #9a3b2a; }

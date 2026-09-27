@@ -1,7 +1,7 @@
 // Raids: a real-time battle against a rival base. You command every unit.
 import * as THREE from 'three';
 import { Grid } from './grid.js';
-import { UNITS, JOBS, SITES, CLANS, rankOf } from './data.js';
+import { UNITS, JOBS, SITES, CLANS, rankOf, isArmoured, ARMOUR_HP } from './data.js';
 import { treeGeometry } from '../render/nature.js';
 import { Smoke } from '../render/weather.js';
 import { buildModel } from '../render/buildings.js';
@@ -441,6 +441,7 @@ export class Battle {
     const U = UNITS[type], v0 = extra.vid && this.game.villagers.get(extra.vid), rank = v0 ? rankOf(v0) : 0;
     let S = this.stats(team, type);
     if (rank) S = { ...S, hp: S.hp * (1 + 0.1 * rank), dmg: S.dmg * (1 + 0.1 * rank) };   // veterans fight better
+    if (v0 && isArmoured(v0)) S = { ...S, hp: S.hp * (1 + ARMOUR_HP) };                         // iron armour
     if (team === 1) { const F = this.game.diff.foe; S = { ...S, hp: S.hp * F, dmg: S.dmg * F }; }
     S.dmg *= S.wet;
     let obj, person = null;

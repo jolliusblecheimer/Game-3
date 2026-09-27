@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY, COMMAND_TREES, cmdNodeCost, warGamesCost } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, ARMOUR, isArmoured, DIFFICULTY, COMMAND_TREES, cmdNodeCost, warGamesCost } from './data.js';
 
 // what the masters of the Dojo and the Kyūdō Range teach every soldier of their kind, per level above 1
 const DRILL_FX = { archRange: [['kyudojo', 0.05]], archDmg: [['kyudojo', 0.04]], spearDmg: [['dojo', 0.04]] };
@@ -155,6 +155,25 @@ export class Game {
   }
   // can the dojo train this class now? (Keep level, and some need a building: Stables for cavalry, a Shrine for monks)
   canTrain(k, dojo = null) { const T = DOJO_TRAINS[k]; return !!T && (!T.tech || this.hasResearch(T.tech)) && (!dojo || !T.dojo || dojo.level >= T.dojo) && (!T.needs || [...this.buildings.values()].some(b => b.type === T.needs && this.works(b))); }
+  // a trainee graduates: fitted with iron armour if the class wears it and there is iron for it
+  graduate(v, to, quiet = false) {
+    this.setJob(v, to); this.state.stats.trained++;
+    const need = ARMOUR[to]; let note = '';
+    if (need) {
+      if (this.state.res.iron >= need) { this.state.res.iron -= need; v.armour = 1; note = ' in iron armour'; this.emit('res'); }
+      else note = ' \u2014 but with no iron for armour (30% weaker)';
+    }
+    if (!quiet) this.toast(`${v.name} has become ${/^[AEIOU]/.test(JOBS[to].name) ? 'an' : 'a'} ${JOBS[to].name}${note}!`, need && !v.armour ? 'warn' : undefined);
+  }
+  // soldiers still without armour, and fitting them at the smithy
+  unarmoured() { return this.soldiers(true).filter(v => ARMOUR[v.job] && !isArmoured(v)); }
+  armourAll() {
+    let n = 0;
+    for (const v of this.unarmoured()) { const c = ARMOUR[v.job]; if (this.state.res.iron < c) break; this.state.res.iron -= c; v.armour = 1; n++; }
+    if (n) { this.sfx('clash'); this.toast(`The smiths fit ${n} soldier${n > 1 ? 's' : ''} with iron armour.`); this.emit('res'); }
+    else this.toast('Not enough iron', 'warn');
+    return n;
+  }
   // veterans: kills and battles raise a soldier's rank
   credit(v, kills = 0, battles = 0) {
     if (!v) return;
@@ -382,12 +401,14 @@ export class Game {
   }
   removeTree(t) { t.removed = true; this.nature.syncTree(t); this.unmark('t', t.cx, t.cz); }
   removeRock(r, i) { r.removed = true; this.nature.hideRock(i); this.unmark('r', r.cx, r.cz); }
-  place(type, cx, cz, rot, { done = false, progress = 0, id = 0, free = false, level = 1, hp = null } = {}) {
-    const def = BUILDINGS[type], [w, d] = this.footprint(type, rot, level), [sw, sd] = this.sizeAt(type, level);
+  place(type, cx, cz, rot, { done = false, progress = 0, id = 0, free = false, level = 1, hp = null, narrow = false } = {}) {
+    const def = BUILDINGS[type]; let [w, d] = this.footprint(type, rot, level), [sw, sd] = this.sizeAt(type, level);
+    if (narrow) { sw = 2; sd = 1; [w, d] = rot % 2 ? [1, 2] : [2, 1]; }
     if (!free) { if (!this.canAfford(def.cost)) return null; this.pay(def.cost); }
     if (def.time === 0) done = true; // roads are laid instantly
     if (!def.road) for (let z = cz; z < cz + d; z++) for (let x = cx; x < cx + w; x++) { const o = this.grid.get(x, z); if (o > 0 && this.isRoad(o)) this.demolish(o, { silent: true }); }
     const b = { id: id || this.state.nextId++, type, def, cx, cz, rot, w, d, sw, sd, level, done, progress: done ? 1 : progress, workers: [], upg: null };
+    if (narrow) b.narrow = true;
     b.hp = hp ? hp : this.maxHp(b);          // (old saves: towers had no strength yet)
     if (id && id >= this.state.nextId) this.state.nextId = id + 1;
     this.clearCells(cx, cz, w, d);
@@ -477,6 +498,7 @@ export class Game {
     if (!ok) { this.occupy(b, true); return false; }
     this.refreshNeighbours(b);
     [b.w, b.d] = this.footprint(b.type, rot, b.level); b.cx = cx; b.cz = cz; b.rot = rot;
+    if (b.narrow) { b.narrow = false; [b.sw, b.sd] = this.sizeAt(b.type, b.level); }   // a moved gate is rebuilt three wide
     this.clearCells(cx, cz, b.w, b.d); this.occupy(b, true); this.makeVisual(b); this.refreshNeighbours(b);
     for (const v of this.villagers.values()) { v.reset = true; if (v.post && v.post.b === id) { v.post = null; v.elev = 0; } }
     this.emit('move', b); return true;
@@ -530,19 +552,20 @@ export class Game {
     const L = b.level + 1;
     let cost, time, why = '';
     if (b.type === 'townhall') {
-      const T = TOWNHALL[L]; cost = T.cost; time = T.time;
+      const T = TOWNHALL[L]; cost = L >= 4 ? { ...T.cost, iron: L === 4 ? 80 : 200 } : T.cost; time = T.time;
       if (!this.hasResearch('keep' + L)) why = `Research \u201c${this.researchNode('keep' + L).node.name}\u201d first`;
       else if (this.pop < T.needPop) why = `Needs ${T.needPop} villagers (you have ${this.pop})`;
     } else {
       cost = {}; for (const r in def.cost) cost[r] = round5(def.cost[r] * Math.pow(1.7, L - 1));
       if (def.cat === 'resources' || def.cat === 'military') cost.gold = (cost.gold || 0) + round5(10 * (L - 1) * (L - 1));
+      if ((def.cat === 'military' || def.cat === 'defense') && L >= 3) cost.iron = (cost.iron || 0) + round5(12 * (L - 2) * (L - 1));
       time = Math.round(def.time * (1 + 0.6 * (L - 1)));
       const needTh = def.cat === 'defense' ? Math.min(MAX_TH, (def.th || 1) + L - 1) : Math.min(MAX_TH, L);
       if (th < needTh) why = `Needs Town Hall level ${needTh}`;
     }
     // growing: find room for the bigger footprint that still covers the old one
     let anchor = null;
-    const [nw, nd] = this.footprint(b.type, b.rot, L);
+    const [nw, nd] = b.narrow ? [b.w, b.d] : this.footprint(b.type, b.rot, L);
     if (nw !== b.w || nd !== b.d) {
       for (let ox = 0; ox <= nw - b.w && !anchor; ox++) for (let oz = 0; oz <= nd - b.d && !anchor; oz++) if (this.cellsFree(b.cx - ox, b.cz - oz, nw, nd, b.id)) anchor = [b.cx - ox, b.cz - oz];
       if (!anchor && !why) why = 'Needs free space around it to grow bigger';
@@ -743,8 +766,8 @@ export class Game {
     return {
       v: SAVE_VERSION, plot: PLOT.n, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
-      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, drill: v.drill || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
+      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined, wide: b.type === 'gate' && !b.narrow ? 1 : undefined })).concat(this.keptBuildings || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, drill: v.drill || undefined, armour: v.armour || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null, catapults: S.catapults || 0, catBuild: S.catBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
@@ -790,7 +813,7 @@ export class Game {
       try {
         if (!BUILDINGS[b.type]) { this.keptBuildings.push(b); continue; }
         const lvl = clamp(b.level | 0 || 1, 1, BUILDINGS[b.type].maxLevel || 1);
-        const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null });
+        const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null, narrow: b.type === 'gate' && !b.wide });
         if (b.prio) nb.prio = true;
         if (b.trainAs) nb.trainAs = b.trainAs;
         if (b.gbPts) nb.gbPts = +b.gbPts;
@@ -805,7 +828,7 @@ export class Game {
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
         if (v.aid) nv.aid = true;
         if (v.born) nv.born = v.born;
-        if (v.kills) nv.kills = +v.kills; if (v.battles) nv.battles = +v.battles; if (v.drill) nv.drill = +v.drill;
+        if (v.kills) nv.kills = +v.kills; if (v.battles) nv.battles = +v.battles; if (v.drill) nv.drill = +v.drill; if (v.armour) nv.armour = 1;
         if (typeof v.hpf === 'number' && v.hpf < 1) nv.hpf = Math.max(0.05, v.hpf);
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }
@@ -856,9 +879,11 @@ export class Game {
       if (!(v.job === 'trainee' || v.job === 'trainee_archer') || !v.paid) continue;
       const b = this.buildings.get(v.work); if (!b) continue;
       v.train += sec * eff;
-      const T = this.trainInfo(b); if (v.train >= T.time) { this.setJob(v, T.to); trained++; }
+      const T = this.trainInfo(b); if (v.train >= T.time) { this.graduate(v, T.to, true); trained++; }
     }
-    this.state.clock += sec; this.state.time = (this.state.time + sec / ECON.dayLength) % 1;
+    this.state.clock += sec; const t = this.state.time + sec / ECON.dayLength, days = Math.floor(t);
+    this.state.time = t - days;
+    if (days > 0) { this.state.day += days; this.life.newDay(); this.emit('day'); }
     for (const t of this.nature.trees) if (!t.alive && !t.removed && this.state.clock >= t.regrowAt) { t.alive = true; t.chops = 0; t.grow = 1; this.grid.set(t.cx, t.cz, TREE, false); this.nature.syncTree(t); }
     this.raids.postpone();
     this.emit('res');

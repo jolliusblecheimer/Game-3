@@ -862,8 +862,18 @@ const MODELS = {
     m.box(0.3, 0.18, 0.06, DARK, [0, 2.3, 0.82]); m.box(0.3, 0.18, 0.06, DARK, [0, 2.3, -0.82]); m.box(0.06, 0.18, 0.3, DARK, [0.82, 2.3, 0]); m.box(0.06, 0.18, 0.3, DARK, [-0.82, 2.3, 0]);
     m.roof(1.6, 1.6, 0.55, ROOF, 2.8, { over: 0.28, ridge: 0.3 });
   },
-  gate(b, w) {
+  gate(b, w, d) {
     const m = b.m;
+    if (w >= 5) {
+      // three cells: guard walls with a stone base on both sides, the gate in the middle, a road through it
+      m.box(1.7, 0.03, d + 0.02, '#9a8466', [0, 0.015, 0]); for (let i = 0; i < 4; i++) m.box(1.5, 0.02, 0.08, '#86705a', [0, 0.035, -d / 2 + 0.25 + i * (d - 0.5) / 3]);
+      for (const sx of [-1, 1]) {
+        m.frustum(1.3, 1.5, 1.1, 1.3, 1.1, STONE, [sx * (w / 2 - 0.7), 0, 0]); courses(m, 1.3, 1.5, 1.1, 1.3, 1.1, 0, 2);
+        m.box(1.1, 1.8, 1.0, PLASTER, [sx * (w / 2 - 0.7), 2.0, 0]); m.box(1.14, 0.12, 1.04, WOOD_D, [sx * (w / 2 - 0.7), 2.3, 0]);
+        m.box(0.1, 0.35, 0.02, DARK, [sx * (w / 2 - 0.7), 1.9, 0.51]); m.box(0.1, 0.35, 0.02, DARK, [sx * (w / 2 - 0.7), 1.9, -0.51]);   // arrow slits
+        m.roof(1.3, 1.2, 0.6, ROOF, 2.9, { over: 0.3, ridge: 0.3, cx: sx * (w / 2 - 0.7) });
+      }
+    }
     for (const x of [-1.55, 1.55]) { m.box(0.5, 0.4, 0.8, STONE, [x, 0.2, 0]); m.box(0.36, 3.4, 0.36, WOOD, [x, 1.9, 0]); }
     m.box(3.7, 0.36, 0.5, WOOD_D, [0, 3.35, 0]); m.box(3.4, 0.22, 0.34, WOOD, [0, 2.85, 0]);
     m.roof(3.6, 1.1, 1.0, ROOF, 3.55, { over: 0.55, ridge: 0.9 });
@@ -1012,7 +1022,7 @@ const MODELS = {
 
 // A model for a building type, sized to its footprint (w×d world units).
 // Buildings that are modelled at their real (grown) size; the rest are scaled up as they grow.
-export const SIZE_AWARE = new Set(['farm', 'garden', 'pond', 'kyudojo', 'quarry', 'mine']);
+export const SIZE_AWARE = new Set(['farm', 'garden', 'pond', 'kyudojo', 'quarry', 'mine', 'gate']);
 export function buildModel(type, w, d, seed = 1, conn = null, level = 1) {
   const b = new ModelBuilder(seed + type.length * 17);
   b.level = level;

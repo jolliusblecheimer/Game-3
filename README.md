@@ -340,3 +340,19 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Straw and a trough in the stable.
   - Sawdust and timber at the workshop.
   - Makiwara straw targets.
+
+## Iron armour, the Quests scroll, Wisdom, a wider gate, seasons
+- **Iron armour:** armoured soldiers have **+30% health**, both in raids and in battles.
+  - Spearmen (3 iron), archers (2), ninja (2) and sōhei (3) are fitted with armour when they graduate, if you have the iron. Without iron they train unarmoured, and you get a warning.
+  - Shield-bearers, samurai, cavalry and commanders always come in armour.
+  - The **Blacksmith's Armoury** fits armour to every soldier who has none.
+  - The Dojo and Kyūdō Range show the armour cost. A soldier's panel shows whether they wear armour.
+- **More uses for iron:**
+  - Battering rams (10 iron) and catapults (25 iron).
+  - Military and defence upgrades to level 3 and above.
+  - Keep level 4 (80 iron) and level 5 (200 iron).
+- **Quests** have their own button on the top bar, with a scroll icon. It shows "N to claim!" when a reward is waiting.
+- **Wisdom** is a counter next to the resources, with a new brush-and-ink-stone icon.
+  - Research is opened **only at the Scholars' Pavilion**. Clicking the Wisdom counter takes you there.
+- **The Castle Gate is 3 cells wide.** It has guard walls on both sides and a road running under the middle. Gates from older saves stay 2 wide until you move them.
+- **Seasons:** a season now lasts 2 days (24 minutes) instead of 3. Days (and so seasons) also advance while you are away; before, the time away never counted as days.

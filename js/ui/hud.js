@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, TECH_LANES, TECH_LANE, KEY_TECHS, COMMAND_TREES, cmdNodeCost, warGamesCost, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, TECH_LANES, TECH_LANE, KEY_TECHS, COMMAND_TREES, cmdNodeCost, warGamesCost, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP, isArmoured, ARMOUR } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -82,6 +82,10 @@ export class Hud {
       if (RES[r].extra) el.hidden = !(v > 0 || g.countType(r === 'iron' ? 'ironmine' : 'sakebrewery') > 0);
       el.classList.toggle('full', v >= cap * 0.95); el.classList.toggle('empty', v <= 0);
     }));
+    res.append(this.live(h('button', { class: 'res wis', title: 'Wisdom \u2014 spend it on research at the Scholars\u2019 Pavilion' , onclick: () => this.gotoPavilion() }), el => {
+      const w = Math.floor(g.state.wisdom), c = g.wisdomCap(); el.textContent = '';
+      el.append(icon('wisdom', 20), h('b', null, String(w)), h('small', null, '/' + c)); el.classList.toggle('full', w >= c);
+    }));
     const night = () => g.state.time < 0.22 || g.state.time > 0.8;
     const clock = this.live(h('button', { class: 'res clock', title: 'Pause (Space) · speed (F)', onclick: () => this.cycleSpeed() }), el => {
       const hr = Math.floor(g.state.time * 24); el.textContent = '';
@@ -89,7 +93,11 @@ export class Hud {
       el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${sea.kanji} ${sea.name}${L.weather !== 'clear' ? ' · ' + L.weather : ''} · ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
-    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), this.live(h('button', { class: 'res research', title: 'Research: new technologies and eras (paid with Wisdom)', onclick: () => this.openResearch() }, icon('wisdom', 20), h('b', null, 'Research'), h('small')), el => { const w = Math.floor(g.state.wisdom), c = g.wisdomCap(); el.lastChild.textContent = ` ${w}/${c}`; el.classList.toggle('full', w >= c); }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
+    R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), this.live(h('button', { class: 'res quests', title: 'Quests and tasks', onclick: () => this.openTasks() }, icon('scroll', 22), h('b', null, 'Quests'), h('small')), el => {
+        const P = g.progress, n = P.toClaim(), Q = GUIDE[P.guide];
+        el.lastChild.textContent = n ? ` ${n} to claim!` : Q ? ` ${P.guide + 1}/${GUIDE.length}` : '';
+        el.classList.toggle('claim', n > 0); el.title = Q ? `Quest: ${Q.title} \u2014 ${Q.text}` : 'Quests and tasks';
+      }), clock, this.muteBtn = h('button', { class: 'res menu mute', title: 'Mute / unmute all sound (N)', onclick: () => this.toggleMute() }), menu));
     this.renderMute();
     // raid warnings under the top bar
     const rbTitle = h('b'), rbSub = h('small'), rbIcon = h('span');
@@ -164,10 +172,6 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'Select an unemployed villager', onclick: () => { const v = g.idleVillagers()[0]; if (v) this.input.select({ kind: 'villager', id: v.id }); } }, icon('worker', 20), h('span', null, 'Unemployed'), h('b')), el => { el.lastChild.textContent = String(g.idleVillagers().length); el.classList.toggle('attn', g.idleVillagers().length > 0); }),
       row('build', 'Building', () => String(g.building()), 'Villagers working on construction. Unemployed villagers build on their own.'),
       this.live(h('button', { class: 'crow link2', title: 'Your army: every soldier and commander', onclick: () => this.openArmy() }, icon('soldier', 20), h('span', null, 'Army'), h('b')), el => { const all = g.soldiers(true).length, here = g.soldiers().length; el.lastChild.textContent = all > here ? `${here} (+${all - here} away)` : String(here); }),
-      this.live(h('button', { class: 'crow link2', title: 'Research: invest Wisdom in new technologies', onclick: () => this.openResearch() }, icon('wisdom', 20), h('span', null, 'Wisdom'), h('b')), el => {
-        const w = Math.floor(g.state.wisdom), cap = g.wisdomCap(); el.lastChild.textContent = `${w}/${cap}`; el.classList.toggle('attn', w >= cap);
-        el.title = `Era ${g.era}: ${ERAS[g.era].name}. Wisdom +${g.wisdomRate().toFixed(1)} a minute — click to research`;
-      }),
       this.live(h('button', { class: 'crow link2', title: 'Buildings with no road to the Keep do nothing — click to find one', onclick: () => { const b = [...g.buildings.values()].find(b => b.done && b.linked === false); if (b) { const c = g.center(b); this.cam.target.set(c.x, 0, c.z); this.input.select({ kind: 'building', id: b.id }); } } }, icon('road', 20), h('span', null, 'No road'), h('b')), el => {
         const n = g.unlinked || 0; el.hidden = !n; el.lastChild.textContent = String(n); el.classList.toggle('attn', n > 0);
         if (n > 0 && !g.state.settings.roadIntro && this.modal.hidden) {
@@ -186,12 +190,6 @@ export class Hud {
         el.classList.toggle('attn', R.active || t < 60);
       }),
       this.live(h('button', { class: 'crow link2', title: 'How your villagers feel', onclick: () => this.openMood() }, icon('people', 20), h('span', null, 'Mood'), h('b')), el => { const m = g.life.mood(); el.lastChild.textContent = `${m}%${g.life.festival ? ' 🏮' : ''}`; el.classList.toggle('attn', m < 30); }),
-      this.live(h('button', { class: 'crow link2 tasks', title: 'Quests and tasks', onclick: () => this.openTasks() }, icon('flag', 20), h('span', null, 'Quests'), h('b')), el => {
-        const P = g.progress, n = P.toClaim(), Q = GUIDE[P.guide];
-        el.lastChild.textContent = n ? `${n} to claim!` : Q ? `${P.guide + 1}/${GUIDE.length}` : String(P.tasks.length);
-        el.classList.toggle('attn', n > 0); el.classList.toggle('claim', n > 0);
-        el.title = Q ? `Quest: ${Q.title} \u2014 ${Q.text}` : 'Tasks with rewards';
-      }),
       this.live(h('button', { class: 'crow link2', title: 'Harmony: see where it comes from', onclick: () => this.openHarmony() }, icon('sakura', 20), h('span', null, 'Harmony'), h('b')), el => { el.lastChild.textContent = `+${g.harmony()}%`; }),
     );
   }
@@ -401,6 +399,7 @@ export class Hud {
         const r = rankOf(v), R = RANKS[r], N = RANKS[r + 1];
         p.append(h('div', { class: 'irow rank' }, icon('katana', 16), h('span', null, h('b', null, `${R.name} ${R.stars}`), ` · ${v.kills || 0} kill${v.kills === 1 ? '' : 's'} · ${v.battles || 0} battle${v.battles === 1 ? '' : 's'}`),
           h('small', { class: 'rt sub' }, N ? `${N.xp - xpOf(v)} to ${N.name}` : 'Highest rank')));
+        p.append(h('div', { class: 'irow' + (isArmoured(v) ? '' : ' warn') }, icon('iron', 16), h('span', null, isArmoured(v) ? 'Iron armour (+30% health)' : ARMOUR[v.job] ? `No armour \u2014 the Blacksmith can fit it (${ARMOUR[v.job]} iron)` : 'No armour')));
       }
       if (v.hpf != null) p.append(h('div', { class: 'irow' }, icon('soldier', 16), h('span', null, 'Wounded'), this.bar2(() => v.hpf == null ? 1 : v.hpf, 'hp')));
       if ((v.job === 'trainee' || v.job === 'trainee_archer') && work) p.append(this.bar2(() => (v.train || 0) / g.trainInfo(work).time));
@@ -492,7 +491,7 @@ export class Hud {
         h('p', { class: 'sub' }, `+${TOWNHALL[L + 1].housing - TOWNHALL[L].housing} homes, +${TOWNHALL[L + 1].storage - TOWNHALL[L].storage} storage, more buildings of each kind` + (next.length ? `. Unlocks: ${next.join(', ')}` : '') + (COMMANDERS.berserker.th === L + 1 ? ', the Berserker commander' : COMMANDERS.taisho.th === L + 1 ? ', the Taishō commander' : '') + (L + 1 === 4 ? '. From now on the warlords’ castles send real soldiers to raid you instead of bandits' : '') ),
         u && !u.busy ? [h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(k)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade the Keep')),
           u.why ? h('p', { class: 'why' }, u.why) : null,
-          u.why && u.why.startsWith('Research') ? h('button', { class: 'btn small', onclick: () => this.openResearch() }, icon('wisdom', 15), 'Open Research') : null] : null));
+          u.why && u.why.startsWith('Research') ? h('button', { class: 'btn small', onclick: () => this.gotoPavilion() }, icon('wisdom', 15), 'Go to the Scholars\u2019 Pavilion') : null] : null));
     } else p.append(h('p', { class: 'sub' }, 'Your Keep is as grand as it can be.'));
   }
   bar2(frac, cls = '') { const i = h('i'); return this.live(h('div', { class: 'bar ' + cls }, i), () => { i.style.width = Math.min(100, Math.max(0, (frac() || 0) * 100)).toFixed(1) + '%'; }); }
@@ -741,7 +740,7 @@ export class Hud {
     body.append(h('h3', null, `Battering rams · ${g.state.rams || 0}`), h('p', { class: 'sub' }, g.state.ramBuild ? 'One more is being built at the Siege Workshop.' : 'Built at the Siege Workshop.'));
     const holds = Object.keys(C.holds);
     if (holds.length) body.append(h('h3', null, 'Held places'), h('div', { class: 'chips' }, holds.map(id => { const s = C.site(+id); return h('span', { class: 'chip' }, icon(SITES[s.type].icon, 16), `${s.name} · ${C.garrison(s).length} guards`); })));
-    this.openModal('Your army', body, [{ label: 'Research', cls: 'ghost', fn: () => setTimeout(() => this.openResearch(), 0) }, { label: 'Close' }], { wide: true });
+    this.openModal('Your army', body, [{ label: 'Close' }], { wide: true });
   }
   /* ---------- skill trees ---------- */
   // what a Great Building gives at a level
@@ -757,6 +756,12 @@ export class Hud {
   // Research: one hanging scroll for each era. The tree grows from the top — what you already mastered —
   // down golden branches through each path of the era, and all paths meet at the bottom in the era's key
   // technology. Finish it and this scroll rolls up while the next one unrolls.
+  // research lives at the Scholars' Pavilion: go there (or say how to get one)
+  gotoPavilion() {
+    const g = this.game, b = [...g.buildings.values()].filter(b => b.type === 'shoin').sort((a, c) => (c.done ? 1 : 0) - (a.done ? 1 : 0))[0];
+    if (!b) return g.toast('Build a Scholars\u2019 Pavilion (Village tab) \u2014 research is done there.', 'warn');
+    const c = g.center(b); this.cam.target.set(c.x, 0, c.z); this.cam.follow = null; this.input.select({ kind: 'building', id: b.id });
+  }
   openResearch(showEra) {
     const g = this.game, NS = 'http://www.w3.org/2000/svg';
     const ERA_TEXT = [null,
