@@ -1,5 +1,7 @@
 # Tenka 天下 — Rise of the Clan
 
+> **Working on the game?** Start with [`CLAUDE.md`](CLAUDE.md) and [`docs/HANDOVER.md`](docs/HANDOVER.md): the full history, design decisions, architecture and next steps. Plans are in [`plans/`](plans/).
+
 A samurai-era strategy game in 3D that runs in the browser. Build your clan's village in a mountain valley, put your villagers to work, raise an army, and (in later stages) scout the country and lay siege to rival castles.
 
 Runs on an iPad with a keyboard and trackpad, on a laptop, or with touch. Nothing to install: open the page and play. Your village is saved automatically in the browser on that device.

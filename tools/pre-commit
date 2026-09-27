@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stamps version.json on every commit (a fresh version id + the list of files), so players' browsers
+# see that the game changed and fetch the new files. Install with: sh tools/install-hooks.sh
+python3 tools/stamp.py >/dev/null 2>&1 || python tools/stamp.py >/dev/null
+git add version.json
