@@ -1,7 +1,7 @@
 # Tenka — *Blade & Banner* (刃と旗)
 ### A plan to replace the battle system with first-person battles in which you fight and command at once
 
-*Status: M0 and M1 are built (Menu → ⚔ First person (preview), or `?fp=sandbox`); the rest is still plan. Backups of the game before this change: `/v1/`, `/v2/`, `/v3/`.*
+*Status: M0 and M1 are built, and all soldier classes can be tried in the training yard (new controls: click = left/right combo, hold = heavy overhead, right = block facing the strike, bows aim with right); the split-second parry is shelved as an option. Built (Menu → ⚔ First person (preview), or `?fp=sandbox`); the rest is still plan. Backups of the game before this change: `/v1/`, `/v2/`, `/v3/`.*
 
 ---
 
@@ -562,7 +562,7 @@ Phase 2 (after the attack battles feel good):
 | **M4** | **Places** | The generator builds all place types from the village models, at their levels, with roads, fields, clan colours and civilians hiding |
 | **M5** | **Rivers and terrain** | Meandering carved rivers with fords and bridges on battlefields **and** the country map |
 | **M6** | **Walls and siege** | Towers, walkways, ladders, rams, gates, catapults; archers and the bow |
-| **M7** | **All classes** | Samurai, ninja (stealth, hook, smoke), sōhei, cavalry (riding), shield-bearer (shield wall) |
+| **M7** ◐ | **All classes** (in the training yard; riding and the ninja's stealth still simple) | Samurai, ninja (stealth, hook, smoke), sōhei, cavalry (riding), shield-bearer (shield wall) |
 | **M8** | **Commanders** | Berserker and Taishō with their skill trees as abilities |
 | **M9** | **Into the game** | Muster screen → march → battle → aftermath. **The old battle.js is removed.** Defence of held places uses the new mode |
 | **M10** | **Polish** | Enemy duels, surrender, sounds, music, comfort settings, lefty and button layout, balance of difficulty. README and backup |

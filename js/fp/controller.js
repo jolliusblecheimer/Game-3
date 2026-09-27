@@ -3,7 +3,7 @@
 import { clamp, lerp } from '../util.js';
 import { HALF } from './terrain.js';
 
-const EYE = 1.62, EYE_CROUCH = 1.12, RADIUS = 0.35;
+let RADIUS = 0.35;
 
 export class Player {
   constructor(T) {
@@ -11,10 +11,19 @@ export class Player {
     this.x = T.spawn.x; this.z = T.spawn.z;
     this.yaw = Math.atan2(T.yard.x - T.spawn.x, T.yard.z - T.spawn.z) + Math.PI; this.pitch = -0.05;
     this.vx = 0; this.vz = 0; this.speed = 0;
-    this.crouch = false; this.eye = EYE; this.y = T.groundAt(this.x, this.z);
+    this.cfg = { eye: 1.62, eyeCrouch: 1.12, walk: 3.5, run: 6.2, crouch: 1.7, radius: 0.35, dodge: 8.5 };
+    this.crouch = false; this.eye = 1.62; this.y = T.groundAt(this.x, this.z);
     this.dodgeT = 0; this.dodgeV = { x: 0, z: 0 };
     this.colliders = T.colliders;
     this.wet = 0; this.onBridge = false; this.stepT = 0;
+  }
+  // each kind of soldier moves a little differently; a rider sits high and gallops, but can't crouch
+  setClass(C) {
+    const k = C.speed || 1;
+    this.onHorse = !!C.horse; this.crouch = false;
+    this.cfg = C.horse ? { eye: 2.55, eyeCrouch: 2.55, walk: 4.6, run: 10.5, crouch: 4.6, radius: 0.75, dodge: 6 }
+      : { eye: C.name === 'Berserker' ? 1.8 : 1.62, eyeCrouch: 1.12, walk: 3.5 * k * (C.shield ? 0.92 : 1), run: 6.2 * k * (C.name === 'Berserker' ? 0.9 : 1), crouch: 1.7 * k * (C.quiet ? 1.35 : 1), radius: 0.35, dodge: 8.5 * k };
+    RADIUS = this.cfg.radius;
   }
   // forward/right on the ground from the view direction (the camera looks down −z at yaw 0)
   get fwd() { return { x: -Math.sin(this.yaw), z: -Math.cos(this.yaw) }; }
@@ -34,19 +43,20 @@ export class Player {
     const L = Math.hypot(wx, wz); if (L > 1) { wx /= L; wz /= L; }
     const depth = this.T.waterDepth(this.x, this.z), inWater = depth > 0.05;
     const busy = fighter && (fighter.state === 'stagger' || fighter.state === 'down');
-    const canRun = run && !this.crouch && !inWater && move.z > 0.2 && fighter.st > 2 && !fighter.busy && fighter.state !== 'guard';
-    let sp = this.crouch ? 1.7 : canRun ? 6.2 : 3.5;
-    if (fighter && fighter.state === 'guard') sp = Math.min(sp, 2.4);
-    if (fighter && (fighter.state === 'windup' || fighter.state === 'active')) sp = Math.min(sp, 2.2);
+    const canRun = run && !this.crouch && !inWater && move.z > 0.2 && fighter.st > 2 && (this.onHorse || (!fighter.busy && fighter.state !== 'guard' && fighter.state !== 'aim'));
+    const c = this.cfg, strafe = this.onHorse ? Math.abs(move.x) * 0.5 : 0;
+    let sp = this.crouch ? c.crouch : canRun ? c.run : c.walk - strafe * c.walk * 0.5;
+    if (!this.onHorse && fighter && (fighter.state === 'guard' || fighter.state === 'aim')) sp = Math.min(sp, 2.4);
+    if (!this.onHorse && fighter && (fighter.state === 'windup' || fighter.state === 'active')) sp = Math.min(sp, 2.2);
     if (inWater) sp *= depth > 0.4 ? 0.4 : 0.6;
     if (busy) sp = fighter.state === 'down' ? 0 : 1;
     // uphill is slower, downhill a touch faster
     if (L > 0.01) { const up = this.T.groundAt(this.x + wx * 0.6, this.z + wz * 0.6) - this.T.groundAt(this.x, this.z); sp *= clamp(1 - up * 0.9, 0.5, 1.12); }
-    if (canRun && L > 0.1) fighter.spend(9 * dt, now);
+    if (canRun && L > 0.1) fighter.spend((this.onHorse ? 3 : 9) * dt, now);   // a horse tires you less
     // a dodge: a quick step in the direction you're moving (backwards if standing still)
     if (dodge && this.dodgeT <= 0 && fighter.st >= 18 && !busy && !inWater) {
       const dx = L > 0.1 ? wx : -f.x, dz = L > 0.1 ? wz : -f.z;
-      this.dodgeT = 0.24; this.dodgeV = { x: dx * 8.5, z: dz * 8.5 }; fighter.spend(20, now); this.justDodged = true;
+      this.dodgeT = 0.24; this.dodgeV = { x: dx * this.cfg.dodge, z: dz * this.cfg.dodge }; fighter.spend(20, now); this.justDodged = true;
     }
     const acc = 1 - Math.exp(-(L > 0.01 ? 14 : 10) * dt);
     this.vx = lerp(this.vx, wx * sp, acc); this.vz = lerp(this.vz, wz * sp, acc);
@@ -57,7 +67,7 @@ export class Player {
     // stand on the ground (or the bridge), with the eye easing over steps
     const g = this.T.groundAt(this.x, this.z);
     this.y = lerp(this.y, g, 1 - Math.exp(-20 * dt));
-    this.eye = lerp(this.eye, this.crouch ? EYE_CROUCH : fighter && fighter.state === 'down' ? 0.5 : EYE, 1 - Math.exp(-10 * dt));
+    this.eye = lerp(this.eye, this.crouch ? this.cfg.eyeCrouch : fighter && fighter.state === 'down' ? 0.5 : this.cfg.eye, 1 - Math.exp(-10 * dt));
     this.wet = this.T.waterDepth(this.x, this.z);
     this.onBridge = this.T.deckAt(this.x, this.z) != null;
   }

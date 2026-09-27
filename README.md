@@ -401,3 +401,27 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Keyboard backups: J / I / L strike, K blocks.
   - Keys use their physical position, so QWERTZ keyboards work.
 - **Settings in the pause screen:** weapon, sparring difficulty, time of day, look speed (mouse and touch separately), field of view, invert, auto-guard (recommended for trackpad and touch), the red strike cue, head bob, sounds.
+
+### First person — new fighting controls, and every soldier in the training yard
+- **Striking:**
+  - **Click:** cuts alternate as a combo, left, right, left… An arrow beside the crosshair shows the side of the next cut.
+  - **Hold the click:** a **heavy overhead** (the ring fills orange). It breaks any block or shield.
+- **Blocking:**
+  - **Hold the right button** (or a two-finger click, K, or the BLOCK button). Every strike from **in front of you** is stopped, whatever side it comes from, so just face your opponent. A shield covers a wider arc.
+  - A block opens a calm **counter**: your next strike within a second does ×1.5 (gold ring).
+  - The split-second parry is shelved. It's still in the game as an experimental setting, off by default.
+- **Bows:** hold the right button to **aim**. The view zooms in and the circle closes as you draw. **Click** to loose. A click without aiming is a quick, less accurate shot.
+- **Fight as any soldier** from the pause screen, or **F** at the armoury by the gate:
+  - Ashigaru (yari)
+  - Shield-bearer (sword and shield)
+  - Archer (yumi, 24 arrows)
+  - Samurai (katana)
+  - Ninja (ninjatō; G throws a kunai)
+  - Sōhei (naginata sweeps that cut two at once; G: a healing prayer)
+  - Cavalry (on horseback with a lance; the faster you ride, the harder it hits)
+  - Berserker (kanabō; G: a war roar that makes the next heavy strike hit all around)
+  - Taishō (katana and war fan; G: a rally with full stamina and +25% damage)
+- **The training yard also has:**
+  - An archery range: three mato targets scoring 10, 7, 5 and 2 points, and a line of stones to shoot from.
+  - An armoury by the gate: change soldier, or refill arrows and kunai.
+- **The red ring** means a strike is coming, so block. **Orange** means a heavy one that breaks blocks, so dodge (Space).

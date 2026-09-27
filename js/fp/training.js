@@ -160,6 +160,30 @@ export class SparringPost {
   }
 }
 
+// a round mato target on a stand, facing the shooting line; rings score 10 / 7 / 5 / 2
+export class ArcheryTarget {
+  constructor(x, z, y, face, parent) {
+    this.x = x; this.z = z; this.y = y; this.face = face; this.h = 1.25; this.R = 0.55; this.kind = 'target';
+    const m = new Mesher(Math.round(x * 7 + z), 0.05);
+    for (const s of [-1, 1]) m.box(0.08, 1.6, 0.08, WOOD, [s * 0.5, 0.8, -0.1], [0.12, 0, 0]);
+    m.box(1.2, 0.08, 0.08, WOOD, [0, 1.5, -0.12]); m.box(0.9, 0.5, 0.3, '#8a7a55', [0, 0.25, -0.2]);   // a sandbag behind
+    const rings = [[0.55, '#f4f0e6'], [0.45, '#1c1c1f'], [0.36, '#f4f0e6'], [0.22, '#1c1c1f'], [0.1, '#f4f0e6']];
+    rings.forEach(([r, c], i) => m.cyl(r, r, 0.06 + i * 0.01, 20, c, [0, this.h, 0], [Math.PI / 2, 0, 0]));
+    this.mesh = m.mesh(); this.mesh.position.set(x, y, z); this.mesh.rotation.y = face; parent.add(this.mesh);
+    this.nx = Math.sin(face); this.nz = Math.cos(face);
+  }
+  // does the arrow's step from a to b cross the target face? → { at, dist }
+  test(a, b) {
+    const da = (a.x - this.x) * this.nx + (a.z - this.z) * this.nz, db = (b.x - this.x) * this.nx + (b.z - this.z) * this.nz;
+    if (da < 0 || db > 0) return null;
+    const k = da / (da - db), x = a.x + (b.x - a.x) * k, y = a.y + (b.y - a.y) * k, z = a.z + (b.z - a.z) * k;
+    const u = (x - this.x) * this.nz - (z - this.z) * this.nx, v = y - (this.y + this.h), dist = Math.hypot(u, v);
+    if (dist > this.R) return null;
+    return { at: new THREE.Vector3(x, y, z), dist };
+  }
+  score(dist) { return dist < 0.1 ? 10 : dist < 0.22 ? 7 : dist < 0.36 ? 5 : 2; }
+}
+
 // the yard: sand floor, a bamboo fence with an opening toward the bridge, dummies, the post, a weapon rack,
 // a dojo and houses from the village, lanterns and banners
 export function buildYard(T, parent, diff) {
@@ -198,14 +222,31 @@ export function buildYard(T, parent, diff) {
   const px = Y.x + side.x * 5.5 + fwd.x * 2, pz = Y.z + side.z * 5.5 + fwd.z * 2;
   out.post = new SparringPost(px, pz, y0, g, diff);
   out.dummies.push(out.post);
-  // the weapon rack
-  const rx = Y.x - side.x * 6.5 + fwd.x * 1.5, rz = Y.z - side.z * 6.5 + fwd.z * 1.5, rack = new Mesher(57, 0.06);
-  rack.box(0.1, 1.3, 0.1, WOOD, [-0.8, 0.65, 0]); rack.box(0.1, 1.3, 0.1, WOOD, [0.8, 0.65, 0]); rack.box(1.8, 0.08, 0.14, WOOD, [0, 1.25, 0]); rack.box(1.8, 0.08, 0.14, WOOD, [0, 0.45, 0]);
-  rack.cyl(0.02, 0.02, 2.6, 5, '#4a3222', [-0.4, 1.3, 0.05], [0.12, 0, 0]); rack.box(0.03, 0.3, 0.01, '#dfe4ea', [-0.4, 2.65, 0.2], [0.12, 0, 0]);
-  rack.box(0.04, 0.95, 0.03, '#dfe4ea', [0.35, 1.0, 0.05], [0.05, 0, 0]); rack.box(0.05, 0.28, 0.05, '#1f1c1f', [0.35, 0.4, 0.05]);
-  const rm = rack.mesh(); rm.position.set(rx, y0, rz); rm.rotation.y = Math.atan2(Y.x - rx, Y.z - rz); g.add(rm);
-  out.rack = { x: rx, z: rz };
-  out.colliders.push({ x: rx, z: rz, hw: 1.0, hd: 0.2, ang: rm.rotation.y });
+  // the armoury by the gate: racks of every weapon, a quiver stand (F: change soldier, refill arrows and kunai)
+  const at = (sd, fw) => ({ x: Y.x + side.x * sd + fwd.x * fw, z: Y.z + side.z * sd + fwd.z * fw });
+  const A = at(3, 10.5), rack = new Mesher(57, 0.06);
+  rack.box(0.1, 1.5, 0.1, WOOD, [-1.2, 0.75, 0]); rack.box(0.1, 1.5, 0.1, WOOD, [1.2, 0.75, 0]); rack.box(2.6, 0.08, 0.14, WOOD, [0, 1.45, 0]); rack.box(2.6, 0.08, 0.14, WOOD, [0, 0.5, 0]);
+  rack.box(2.7, 0.1, 0.5, '#6b4c35', [0, 1.62, 0.05], [0.2, 0, 0]);
+  const pole = (x, L, blade) => { rack.cyl(0.02, 0.02, L, 5, '#4a3222', [x, L / 2 + 0.05, 0.08], [0.1, 0, 0]); rack.box(0.03, 0.3, 0.012, blade, [x, L + 0.1, 0.08 + L * 0.1], [0.1, 0, 0]); };
+  pole(-1.0, 2.6, '#dfe4ea'); pole(-0.75, 2.2, '#e8ecf0'); pole(-0.5, 3.0, '#dfe4ea');
+  for (const [x, L] of [[0.0, 0.95], [0.2, 0.75], [0.4, 0.6]]) { rack.box(0.035, L, 0.025, '#dfe4ea', [x, 0.55 + L / 2, 0.08], [0.05, 0, 0]); rack.box(0.045, 0.26, 0.04, '#1f1c1f', [x, 0.45, 0.08]); }
+  rack.cyl(0.06, 0.09, 0.95, 8, '#2a1c14', [0.75, 0.6, 0.1], [0.08, 0, 0]);                       // a kanabō
+  rack.box(0.46, 0.62, 0.04, '#7a2a22', [1.0, 0.8, 0.14], [0.1, 0, 0]);                            // a shield
+  rack.cyl(0.12, 0.1, 0.7, 8, '#4a3222', [1.75, 0.35, 0.3]); for (let k = 0; k < 7; k++) rack.box(0.012, 0.5, 0.012, '#e9e4d8', [1.7 + (k % 3) * 0.04, 0.85, 0.26 + Math.floor(k / 3) * 0.04]);   // the quiver stand
+  rack.cyl(0.02, 0.02, 2.0, 5, '#3a2418', [-1.6, 1.0, 0.2], [0, 0, 0.12]);                          // a bow leaning on it
+  const rm = rack.mesh(); rm.position.set(A.x, y0, A.z); rm.rotation.y = Math.atan2(Y.x - A.x, Y.z - A.z); g.add(rm);
+  out.rack = { x: A.x, z: A.z };
+  out.colliders.push({ x: A.x, z: A.z, hw: 1.5, hd: 0.3, ang: rm.rotation.y });
+  // the archery range across the yard: three mato targets, and a line of stones to shoot from
+  out.targets = [];
+  const mark = at(9, 5), ml = new Mesher(58, 0.06);
+  for (let k = -2; k <= 2; k++) ml.cyl(0.18, 0.2, 0.1, 7, '#9a958a', [fwd.x * k * 0.9, 0.05, fwd.z * k * 0.9]);
+  const mm = ml.mesh(); mm.position.set(mark.x, y0, mark.z); g.add(mm);
+  out.mark = mark;
+  for (const fw of [1.5, 5, 8.5]) {
+    const p = at(-11.5, fw), t = new ArcheryTarget(p.x, p.z, y0, Math.atan2(mark.x - p.x, mark.z - p.z), g);
+    out.targets.push(t); out.colliders.push({ x: p.x, z: p.z, r: 0.35 });
+  }
   // lanterns and banners at the opening
   for (const s of [-1, 1]) {
     const a = toBridge + s * 0.3, x = Y.x + Math.sin(a) * (Y.r + 0.8), z = Y.z + Math.cos(a) * (Y.r + 0.8);

@@ -44,10 +44,9 @@ export class FPInput {
     e.stopPropagation();   // the village's hotkeys stay quiet while you're in first person
     if (down) { if (!this.keys.has(c)) this.pressed.add(c); this.keys.add(c); } else this.keys.delete(c);
     if (['KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(c) && this.onKeyboard) this.onKeyboard();
-    // keyboard backups for fighting: J / I / L strike from the left / overhead / right, K blocks
-    const dirKey = { KeyJ: 'l', KeyI: 'u', KeyL: 'r' }[c];
-    if (dirKey && !e.repeat) { if (down) { this.dir = dirKey; this.events.push({ t: 'strikeDown', dir: dirKey }); } else this.events.push({ t: 'strikeUp' }); }
-    if (c === 'KeyK' && !e.repeat) this.events.push({ t: down ? 'blockDown' : 'blockUp', dir: this.dir });
+    // keyboard backups for fighting: J strikes (hold for the heavy overhead), K blocks (or aims a bow)
+    if (c === 'KeyJ' && !e.repeat) this.events.push({ t: down ? 'strikeDown' : 'strikeUp' });
+    if (c === 'KeyK' && !e.repeat) this.events.push({ t: down ? 'blockDown' : 'blockUp' });
     if (c === 'Escape' && down) this.events.push({ t: 'pause' });
   }
   down(c) { return this.keys.has(c); }
@@ -89,11 +88,10 @@ export class FPInput {
     if (!this.active || this.touching) return;
     if (down && !this.locked) { this.lock(); if (this.cv.requestPointerLock) return; }   // the first click only captures the mouse
     this.setDevice('mouse');
-    if (e.button === 0) { if (down) { this.dir = this.motionDir(); this.events.push({ t: 'strikeDown', dir: this.dir }); } else this.events.push({ t: 'strikeUp' }); }
-    if (e.button === 2) { if (down) this.events.push({ t: 'blockDown', dir: this.motionDir() }); else this.events.push({ t: 'blockUp' }); }
+    // left: strike (hold for the heavy overhead) · right (or a two-finger click): block, or aim a bow
+    if (e.button === 0) this.events.push({ t: down ? 'strikeDown' : 'strikeUp' });
+    if (e.button === 2) this.events.push({ t: down ? 'blockDown' : 'blockUp' });
   }
-  // while blocking, the guard follows the pointer
-  guardDir() { return this.device === 'touch' ? this.touchGuard || this.dir : this.motionDir(); }
 
   /* ---------- touchscreen ---------- */
   touchDown(e) {
@@ -112,11 +110,11 @@ export class FPInput {
     if (e.pointerId === this.lookId) this.lookId = null;
     setTimeout(() => { if (this.lookId == null) this.touching = false; }, 400);
   }
-  // the on-screen buttons (touchscreen): strike with a swipe, block with a slide, and plain buttons
+  // the on-screen buttons (touchscreen): STRIKE (tap = a cut of the combo, hold = heavy overhead), BLOCK / AIM (hold)
   buttons(root) {
     const btn = (cls, label, sub) => h('div', { class: 'fp-btn ' + cls }, h('b', null, label), sub ? h('small', null, sub) : null);
-    const strike = btn('strike', 'STRIKE', 'swipe ← ↑ →'), block = btn('block', 'BLOCK', 'slide to turn'), kick = btn('kick', 'KICK'), use = btn('use', 'USE'), dodge = btn('dodge', 'DODGE');
-    const swipeDir = (dx, dy) => Math.abs(dx) > Math.abs(dy) * 0.9 ? (dx < 0 ? 'l' : 'r') : 'u';
+    const strike = btn('strike', 'STRIKE', 'hold: heavy'), block = btn('block', 'BLOCK'), kick = btn('kick', 'KICK'), use = btn('use', 'USE'), dodge = btn('dodge', 'DODGE'), abil = btn('abil', 'G');
+    this.blockBtn = block; this.abilBtn = abil;
     // each button follows its own finger, even when the finger slides off the button
     const track = (el, down, move, up) => {
       let pid = null;
@@ -125,18 +123,12 @@ export class FPInput {
       const end = e => { if (e.pointerId !== pid) return; pid = null; el.classList.remove('on'); up(e); };
       window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     };
-    let s0 = null, fired = false;
-    track(strike, e => { s0 = { x: e.clientX, y: e.clientY }; fired = false; }, e => {
-      const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
-      if (!fired && Math.hypot(dx, dy) > 26) { fired = true; this.dir = swipeDir(dx, dy); this.events.push({ t: 'strikeDown', dir: this.dir }); }
-    }, () => { if (!fired) this.events.push({ t: 'strikeDown', dir: this.dir }); this.events.push({ t: 'strikeUp', touchTap: !fired }); });
-    let b0 = null;
-    track(block, e => { b0 = { x: e.clientX, y: e.clientY }; this.touchGuard = null; this.events.push({ t: 'blockDown', dir: this.dir }); }, e => {
-      const dx = e.clientX - b0.x, dy = e.clientY - b0.y; if (Math.hypot(dx, dy) > 20) this.touchGuard = swipeDir(dx, dy);
-    }, () => { this.touchGuard = null; this.events.push({ t: 'blockUp' }); });
+    track(strike, () => this.events.push({ t: 'strikeDown' }), () => {}, () => this.events.push({ t: 'strikeUp' }));
+    track(block, () => this.events.push({ t: 'blockDown' }), () => {}, () => this.events.push({ t: 'blockUp' }));
     track(kick, () => this.pressed.add('KeyE'), () => {}, () => {});
     track(use, () => this.pressed.add('KeyF'), () => {}, () => {});
     track(dodge, () => this.pressed.add('Space'), () => {}, () => {});
+    track(abil, () => this.pressed.add('KeyG'), () => {}, () => {});
     // a move stick for when there is no keyboard at hand; it steps aside once W A S D are used
     const knob = h('i'), stick = h('div', { class: 'fp-stick' }, knob);
     let c0 = null;
@@ -145,7 +137,7 @@ export class FPInput {
       this.touchMove = { x: dx, y: -dy }; this.touchRun = L > 1.25; knob.style.transform = `translate(${dx * 38}px, ${dy * 38}px)`;
     }, () => { this.touchMove = { x: 0, y: 0 }; this.touchRun = false; knob.style.transform = ''; });
     this.stick = stick;
-    root.append(h('div', { class: 'fp-touch' }, stick, strike, block, kick, use, dodge));
+    root.append(h('div', { class: 'fp-touch' }, stick, strike, block, kick, use, dodge, abil));
   }
   endFrame() { this.pressed.clear(); this.look.x = 0; this.look.y = 0; }
 }

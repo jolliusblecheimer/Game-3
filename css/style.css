@@ -887,3 +887,40 @@ html.site-mobile .keys { display: none; }
 #fp-ui.haskeys .fp-stick { display: none; }
 #fp-ui.touch .fp-bars { bottom: 240px; }
 @media (max-width: 700px) { .fp-card { display: none; } .fp-row > span { min-width: 120px; } }
+/* first person: the new crosshair, soldier chooser, legend */
+.fp-x { width: 80px; height: 80px; overflow: visible; }
+.fp-x .ring { fill: none; stroke: rgba(246,239,223,.22); stroke-width: 2.5; transition: stroke .08s; }
+.fp-x .charge { fill: none; stroke: #ffb13b; stroke-width: 4; stroke-dasharray: 0 100; transform: rotate(-90deg); transform-origin: 40px 40px; stroke-linecap: round; }
+.fp-x .side { fill: none; stroke: rgba(246,239,223,.25); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.fp-x .side.on { stroke: rgba(246,239,223,.9); }
+.fp-x .dot { fill: rgba(255,255,255,.9); }
+.fp-x.guard .ring { stroke: #7fc0ff; stroke-width: 5; }
+.fp-x.counter .ring { stroke: #ffd76a; stroke-width: 5; filter: drop-shadow(0 0 4px #ffd76a); }
+.fp-x.incoming .ring { stroke: #ff4a36; stroke-width: 5; filter: drop-shadow(0 0 5px #ff3b2a); animation: fpPulse .25s ease-in-out infinite alternate; }
+.fp-x.incomingHeavy .ring { stroke: #ff9a2a; stroke-width: 6; filter: drop-shadow(0 0 6px #ff8a1a); animation: fpPulse .18s ease-in-out infinite alternate; }
+.fp-x.heavy .charge { stroke: #ff7a1a; }
+.fp-x.bow .ring { stroke: rgba(246,239,223,.55); stroke-width: 1.6; }
+.fp-x.bow .charge { stroke: #fff2c8; stroke-width: 2.5; }
+@keyframes fpPulse { from { opacity: .55; } to { opacity: 1; } }
+.fp-cross { transition: transform .1s; }
+.fp-cross.riposte::after { display: none; }
+.fp-who { display: flex; justify-content: space-between; align-items: baseline; }
+.fp-ammo { font: 600 13px system-ui, sans-serif; }
+.fp-classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.fp-class { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 6px 8px; border: 1px solid var(--line, #d6c9ad); border-radius: 10px; background: #fffaf0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.fp-class .k { font: 700 16px var(--mincho, serif); color: #b8342a; }
+.fp-class b { font-size: 13px; } .fp-class small { font-size: 11px; color: #7a6b58; }
+.fp-class.cmd { background: #fbf1dc; }
+.fp-class.on { border-color: #b8342a; box-shadow: 0 0 0 2px rgba(184,52,42,.3); background: #fff3e6; }
+.fp-classdesc { font-size: 13px; margin: 8px 0 0; }
+.fp-legend { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.fp-legend > div { display: flex; gap: 10px; align-items: center; }
+.fp-legend .lg { flex: 0 0 26px; height: 26px; border-radius: 50%; border: 3px solid #bbb; box-sizing: border-box; background: #3a3530; }
+.fp-legend .lg.side { border-radius: 4px; border: 0; background: linear-gradient(90deg, #f6efdf 0 30%, #3a3530 30%); }
+.fp-legend .lg.charge { border-color: #ffb13b; }
+.fp-legend .lg.guard { border-color: #7fc0ff; }
+.fp-legend .lg.counter { border-color: #ffd76a; }
+.fp-legend .lg.incoming { border-color: #ff4a36; }
+.fp-legend .lg.bow { border-color: #fff2c8; border-width: 2px; }
+.fp-btn.abil { right: 20px; bottom: 120px; width: 60px; height: 60px; background: rgba(201,150,47,.4); }
+.fp-btn.abil[hidden] { display: none; }
