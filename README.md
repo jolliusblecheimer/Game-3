@@ -282,3 +282,14 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Tap a medallion to see what it does and what it needs, then invest Wisdom or complete it.
 - **Troops come from research:** shield-bearers, ninja, warrior monks, cavalry, samurai, both commanders and catapults.
 - **Move mode:** Move and Demolish only show up in Move mode. Press Move or G, then drag a building, or tap it to demolish it.
+
+## Every upgrade does something
+- A building's upgrade section now says what the **next level** brings: more homes, more workers, faster work, more Wisdom, and so on.
+- **Market:** merchants collect market fees (gold every round at the stalls), and more at a bigger market. Its levels also give better prices.
+- **Blacksmith:** while the forge burns, your soldiers are stronger, and the whole village works faster with better tools. Both grow with every level.
+- **Castle Gate:**
+  - Level 2: iron-banded, so rams do 30% less damage.
+  - Level 3: murder holes, so boiling oil burns anyone battering it.
+- **Stone Wall:**
+  - Level 2: a walkway for patrols and fighting from above.
+  - Level 3: battlements, so soldiers on it take 35% less damage and strike 20% harder.

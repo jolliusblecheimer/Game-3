@@ -719,3 +719,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 .rs-detail .hanko { align-self: flex-end; width: 60px; height: 60px; border: 3px solid #e8634f; color: #e8634f; border-radius: 10px; display: grid; place-items: center; font: 700 32px var(--mincho); transform: rotate(-10deg); }
 .kake-sheet .rs .kake-roll { margin: 0 -12px; }
 .kake-sheet { border: 0 !important; }
+
+.upgrade .perk { margin: 2px 0 4px; font-size: 13px; color: #4a3f33; }
+.upgrade .perk b { color: #2b2118; }

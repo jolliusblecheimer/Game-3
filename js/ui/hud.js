@@ -249,7 +249,10 @@ export class Hud {
     if (d.garrison) row('soldier', `${d.garrison} archers stand watch up here${L > 1 ? `, shooting ${4 * (L - 1)} further` : ''}`);
     if (d.road) row('road', `Villagers walk ${Math.round((d.road - 1) * 100)}% faster and follow roads`);
     if (d.hp) row('wall', `Strength ${b ? `${Math.round(b.hp)} / ${g.maxHp(b)}` : d.hp} — bandits must break it to get through`);
-    if (type === 'gate') row('wall', 'Your people pass through; bandits must break it down');
+    if (type === 'gate') row('wall', 'Your people pass through; bandits must break it down' + (L >= 2 ? ' · iron-banded: rams do 30% less' : '') + (L >= 3 ? ' · boiling oil on attackers' : ''));
+    if (type === 'wall' && L >= 2) row('soldier', L >= 3 ? 'Walkway with battlements: soldiers on it take 35% less damage and strike 20% harder' : 'A walkway on top: soldiers patrol it and fight from above');
+    if (type === 'market') row('gold', `Merchants collect market fees: about ${2 + L} gold each round at the stalls`);
+    if (type === 'blacksmith') row('katana', `While the forge burns: soldiers +${8 * L}% stronger, everyone +${4 * L}% faster`);
     if (type === 'hedge') row('soldier', 'Troops standing in a hedge are hidden from enemies');
     if (type === 'spikes') row('wall', 'Slows attackers and wounds them as they push through');
     if (d.upgradeTo) row('up', `Can be rebuilt as a ${BUILDINGS[d.upgradeTo].name} at Keep level ${BUILDINGS[d.upgradeTo].th}`);
@@ -439,12 +442,34 @@ export class Hud {
     p.append(h('p', { class: 'sub' }, 'Tip: double-click any piece of wall, fence, hedge or road to select the whole line.'),
       this.input.moveMode ? h('div', { class: 'actions' }, h('button', { class: 'btn danger', onclick: () => this.demolishSelected() }, icon('demolish', 16), this.confirmDemolish ? `Really demolish all ${list.length}?` : `Demolish all ${list.length}`)) : null);
   }
+  // what one more level of a building gives you, in plain words
+  levelPerk(b, L) {
+    const d = b.def, t = b.type, out = [];
+    if (d.housing) out.push(`+${d.housingUp || 2} homes`);
+    if (d.storage) out.push('+300 storage');
+    if (d.jobs && d.trains) out.push('+1 trainee at a time');
+    else if (d.jobs) out.push(`+1 ${JOBS[d.job].name.toLowerCase()}`);
+    if (d.jobs && JOBS[d.job].res) out.push('everyone here works 25% faster');
+    const extra = {
+      market: 'better prices when you buy and sell; each merchant brings in more gold',
+      blacksmith: 'while the forge burns: soldiers +8% stronger and everyone in the village +4% faster (better tools)',
+      sakebrewery: 'brews 25% faster',
+      shoin: '+0.4 Wisdom a minute, +6 room', strategy: '+0.6 Wisdom a minute, +8 room',
+      tower: 'archers shoot 4 further; stronger',
+      wall: L === 2 ? 'a walkway on top: soldiers patrol it and fight from above' : L === 3 ? 'battlements: soldiers on it take 35% less damage and strike 20% harder' : '',
+      gate: L === 2 ? 'iron-banded doors: rams do 30% less damage' : L === 3 ? 'murder holes: boiling oil burns anyone battering the gate' : '',
+    }[t];
+    if (extra) out.push(extra);
+    if (d.hp && t !== 'tower') out.push('stronger');
+    if (d.grow && d.grow[L]) out.push('it grows bigger');
+    return out.join(' \u00b7 ');
+  }
   upgradeSection(p, b) {
     const g = this.game, u = g.upgradeInfo(b);
     if (!u || u.busy || u.max) { if (u && u.max && (b.def.maxLevel || 1) > 1) p.append(h('p', { class: 'sub' }, 'Fully upgraded.')); return; }
     p.append(h('div', { class: 'upgrade' },
       h('div', { class: 'jrow' }, icon('up', 18), h('b', null, u.name), h('span', { class: 'sub' }, fmtTime(u.time))),
-      u.grows ? h('p', { class: 'sub' }, 'It will grow bigger.') : null,
+      u.to ? null : h('p', { class: 'perk' }, h('b', null, 'Next level: '), this.levelPerk(b, u.level || b.level + 1)),
       h('div', { class: 'row' }, costChips(g, u.cost, this.live), h('button', { class: 'btn small', disabled: u.ok ? null : true, onclick: () => { if (g.startUpgrade(b)) { this.sound('place'); this.renderPanel(); } } }, 'Upgrade')),
       u.why ? h('p', { class: 'why' }, u.why) : null));
   }

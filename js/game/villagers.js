@@ -237,7 +237,8 @@ export function thinkVillager(game, v) {
       }, 'Walking to the forge');
     }
     case 'merchant':
-      return goTo(game, v, game.spotAround(work, 0.4), () => act(v, 10 + game.rand() * 8, game.rand() < 0.5 ? 'work' : 'idle', null, game.life.merchant ? 'Haggling with the travelling merchants' : 'Minding the market stalls', game.center(work)), 'Opening the stalls');
+      // market fees: every round at the stalls brings in gold, more at a bigger market
+      return goTo(game, v, game.spotAround(work, 0.4), () => act(v, 12 + game.rand() * 6, game.rand() < 0.5 ? 'work' : 'idle', () => game.add('gold', Math.max(2, Math.round((2 + work.level) * mult))), game.life.merchant ? 'Haggling with the travelling merchants' : 'Collecting market fees', game.center(work)), 'Opening the stalls');
     case 'child': {
       const night = game.state.time < 0.22 || game.state.time > 0.8;
       if (night) return goHome(game, v, 'Asleep at home');

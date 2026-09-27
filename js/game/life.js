@@ -48,6 +48,7 @@ export class Life {
   moodMult() { return 1 + (this.mood() - 50) / 250; }        // 0.8 … 1.2
 
   /* ---------- the forge ---------- */
+  toolBonus() { for (const b of this.g.buildings.values()) if (b.type === 'blacksmith' && this.g.works(b) && (b.forgingUntil || 0) > this.S.clock) return 0.04 * b.level; return 0; }
   forgeBonus() {
     for (const b of this.g.buildings.values()) if (b.type === 'blacksmith' && this.g.works(b) && (b.forgingUntil || 0) > this.S.clock) return 0.08 * b.level;
     return 0;

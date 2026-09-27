@@ -472,9 +472,11 @@ export class Raids {
     if (Math.hypot(c.x - u.x, c.z - u.z) < reach) {
       // murder holes: stones from nearby towers
       if (g.rb('murder') && [...g.buildings.values()].some(t => t.type === 'tower' && t.done && Math.hypot(g.center(t).x - u.x, g.center(t).z - u.z) < 12)) this.hurtBandit(u, 6 * dt);
+      if (T.type === 'gate' && T.level >= 3) { this.hurtBandit(u, 8 * dt); if (!this.oilT || this.clock > this.oilT) { this.oilT = this.clock + 20; g.toast('Boiling oil pours from the gatehouse onto the attackers!'); } }   // murder holes over a level 3 gate
       this.face(u, c.x - u.x, c.z - u.z, dt);
       if (u.cd <= 0) {
-        u.cd = u.ram ? 2.2 : 1.1; T.hp -= u.dmg * (u.ram ? 1 : T.type === 'gate' ? 0.5 : 1); T.hitT = 0.4;
+        // an iron-banded gate (level 2+) takes rams badly
+        u.cd = u.ram ? 2.2 : 1.1; T.hp -= u.dmg * (u.ram ? 1 : T.type === 'gate' ? 0.5 : 1) * (T.type === 'gate' && T.level >= 2 ? 0.7 : 1); T.hitT = 0.4;
         g.sfx(u.ram ? 'boom' : 'clash'); if (u.ram) u.bump = 0.5;
         if (T.hp <= 0) this.breakThrough(T);
       }
@@ -606,7 +608,7 @@ export class Raids {
           if (v.rcd <= 0) {
             v.rcd = ranged ? 1.5 / (1 + g.rb('archFast')) : (UNITS[v.job]?.cd || 1) / (1 + (v.job === 'ashigaru' ? g.rb('spearFast') : 0));
             const base = ranged ? UNITS.archer.dmg * (tower ? 1.3 : v.onWall ? 1.2 : 1) * (1 + g.rb('archDmg')) : v.job === 'ashigaru' ? UNITS.ashigaru.dmg * (1 + g.rb('spearDmg')) : (UNITS[v.job] || UNITS.ashigaru).dmg;
-            const dmg = base * (1 + g.life.forgeBonus()) * (1 + 0.1 * rankOf(v)) * (v.onWall && !ranged ? 1.25 : 1);
+            const wl = v.onWall && g.buildings.get(v.wallB), dmg = base * (1 + g.life.forgeBonus()) * (1 + 0.1 * rankOf(v)) * (v.onWall && !ranged ? 1.25 : 1) * (wl && wl.level >= 3 ? 1.2 : 1);
             if (ranged) this.shoot(v, t, dmg); else this.hurtBandit(t, t.ram ? dmg * 1.4 : dmg, v);
           }
           continue;
@@ -689,6 +691,7 @@ export class Raids {
   hurtSoldier(v, dmg) {
     const g = this.game; g.sfx('clash');
     if (v.job === 'shieldman' && g.rand() < 0.25) return;       // caught on the shield
+    if (v.onWall) { const w = g.buildings.get(v.wallB); if (w && w.level >= 3) dmg *= 0.65; }   // behind the battlements of a level 3 wall
     v.rhp = (v.rhp || maxHp(v) * (v.hpf ?? 1)) - dmg; v.hitT = 0.3;
     if (v.rhp <= 0) { g.toast(`${v.name} fell defending the village.`, 'bad'); this.cmd.delete(v.id); g.killVillager(v.id); }
   }

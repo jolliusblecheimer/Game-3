@@ -261,7 +261,7 @@ export class Game {
   // Harmony: every beauty building adds its own share, up to +30%
   harmony(extra = 0) { return Math.min(30, Math.round(this.beauty() + extra)); }
   hungry() { return this.state.res.wheat <= 0; }
-  workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100) * this.life.moodMult(); }
+  workMult() { return (this.hungry() ? ECON.hungryWork : 1) * (1 + this.harmony() / 100) * this.life.moodMult() * (1 + this.life.toolBonus()); }
   countJob(job) { let n = 0; for (const v of this.villagers.values()) if (v.job === job) n++; return n; }
   idleVillagers() { return [...this.villagers.values()].filter(v => v.job === 'idle' && !v.away); }
   soldiers(all = false) { return [...this.villagers.values()].filter(v => JOBS[v.job].soldier && (all || !v.away)); }
