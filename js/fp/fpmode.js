@@ -14,6 +14,7 @@ import { Projectiles } from './projectiles.js';
 import { CLASSES, ABILITY } from './classes.js';
 import { makeSensei, buildBanditCamp, SKILL } from './actors.js';
 import { Chaff } from './training.js';
+import { Sparks } from './effects.js';
 import { MAT } from '../render/geo.js';
 import { clamp } from '../util.js';
 
@@ -51,6 +52,8 @@ export class FPMode {
     this.sensei = makeSensei(this); this.actors.push(this.sensei);
     this.camp = buildBanditCamp(this); this.actors.push(...this.camp.actors);
     this.ink = new Chaff(this.world, '#3a0d0b', 0.8);
+    this.sparks = new Sparks(this.world);
+    this.kick = 0; this.fovKick = 0;
     this.vm = new ViewModel(this.stage.camera);
     this.input = new FPInput(this.stage.renderer.domElement, this.S);
     this.hud = new FPHud(this);
@@ -129,6 +132,10 @@ export class FPMode {
     if (rerender && !this.hud.pauseEl.hidden) this.hud.renderPause();
   }
 
+  jolt(pitch = 0.06, fov = 0) { this.kick = Math.max(this.kick, pitch); this.fovKick += fov; }
+  // sparks just in front of you (your block or your broken guard)
+  sparksAtYou(power) { const P = this.player, f = P.fwd; this.sparks.burst(P.x + f.x * 0.75, P.y + P.eye - 0.25, P.z + f.z * 0.75, power, -f.x, -f.z); }
+
   /* ---------- people: who may attack you, what they can see, what their blows do ---------- */
   // only a few may attack you at once (by difficulty); the rest circle and wait for an opening
   askToken(a) { if (a.team === 'spar' || this.tokens.size < this.skill.tokens) this.tokens.add(a); }
@@ -148,7 +155,8 @@ export class FPMode {
     const P = this.player, F = this.fighter, dx = P.x - a.x, dz = P.z - a.z, d = Math.hypot(dx, dz) || 1;
     if (d > 1.9 || a.facing(P.x, P.z) > 0.8) return;
     this.sound.play('kick'); P.vx += dx / d * 5; P.vz += dz / d * 5;
-    if (F.state === 'guard') { F.blockUp(); F.stagger(0.6, this.now); this.hud.message('Kicked through your guard!', 1.6, 'bad'); }
+    this.jolt(0.1, 4); this.hud.hurt(0.25);
+    if (F.state === 'guard') { F.blockUp(); F.stagger(0.6, this.now); this.sound.play('break', 0.7); this.vm.shake = 0.8; }
     else F.stagger(0.35, this.now);
   }
   // an archer looses at you: aimed at your chest where you will be, with an error by difficulty
@@ -196,7 +204,7 @@ export class FPMode {
     const roar = F.heavy && this.roar;
     const cone = roar ? Math.PI : F.heavy ? Math.min(W.cone, 0.6) : W.cone, n = roar ? 8 : F.heavy ? (W.heavyHits || W.hits) : W.hits;
     const hits = this.targetsInReach(W.reach + (P.onHorse ? 0.4 : 0), cone);
-    if (roar) { this.roar = false; this.hud.message('The roar — everything around you is struck!', 1.6, 'good'); }
+    if (roar) { this.roar = false; this.sound.play('roar', 0.8); this.vm.shake = 0.7; }
     let bonus = 1;
     if (P.onHorse) bonus = 1 + clamp((P.speed - 3) / 7, 0, 1) * 0.8;   // the lance hits harder at a gallop
     for (const { t, d, dx, dz } of hits.slice(0, n)) {
@@ -210,9 +218,10 @@ export class FPMode {
       this.sound.play(r.sound || 'thud', F.heavy ? 1.2 : 1);
       if (r.chaff) this.yard.chaff.burst(t.x, t.y + rel, t.z, r.chaff, dx, dz);
       if (r.ink) this.ink.burst(t.x - dx * 0.3, t.y + rel, t.z - dz * 0.3, r.ink, dx, dz);
-      if (r.blocked) { F.stagger(0.22, now); this.hud.message(`${t.name} blocks \u2014 watch for his counter!`, 1.3, 'bad'); this.stats.lastHit = 'Blocked'; this.vm.shake = 0.3; continue; }
+      if (r.sparks) this.sparks.burst(t.x - dx * 0.45, t.y + 1.3, t.z - dz * 0.45, r.sparks, -dx, -dz);
+      if (r.broke) this.jolt(0.03);
+      if (r.blocked) { F.stagger(0.22, now); this.stats.lastHit = 'Blocked'; this.vm.shake = 0.5; this.jolt(0.025); continue; }
       this.stats.lastHit = `${ZONE_NAME[zone]} · ${dmg}${F.lastBonus ? ` (${F.lastBonus})` : ''}${F.heavy ? ' heavy' : ''}${bonus > 1.05 ? ` charge ×${bonus.toFixed(1)}` : ''}`;
-      if (r.text) this.hud.message(r.text, 2.6);
       this.vm.shake = Math.max(this.vm.shake, F.heavy ? 0.45 : 0.25);
     }
   }
@@ -221,7 +230,7 @@ export class FPMode {
     this.sound.play('whiff', 0.5);
     for (const { t, dx, dz } of hits.slice(0, 1)) {
       const r = t.onKick({ fx: dx, fz: dz }); if (!r) continue;
-      this.sound.play(r.sound || 'kick'); if (r.chaff) this.yard.chaff.burst(t.x, t.y + 1, t.z, r.chaff, dx, dz); if (r.text) this.hud.message(r.text, 2.4);
+      this.sound.play(r.sound || 'kick'); if (r.chaff) this.yard.chaff.burst(t.x, t.y + 1, t.z, r.chaff, dx, dz); if (r.sparks) this.sparks.burst(t.x - dx * 0.4, t.y + 1.2, t.z - dz * 0.4, r.sparks, -dx, -dz);
     }
   }
   // your eye and the direction you look, in the valley's local metres
@@ -231,18 +240,18 @@ export class FPMode {
   }
   // loose an arrow: the fuller the draw, the faster and harder it flies; a quick shot from the hip scatters
   shoot(F, power, quick) {
-    if (this.arrows <= 0) { this.hud.message('No arrows left — refill them at the armoury by the gate (F).', 2.4, 'bad'); this.sound.play('tired'); return false; }
+    if (this.arrows <= 0) { this.sound.play('tired'); this.hud.emptyAmmo(); return false; }
     this.arrows--; this.stats.shots++;
     const { pos, dir } = this.aim(), P = this.player, r = P.right;
     const spread = quick ? 0.035 : 0.0012 + (1 - power) * 0.02;   // a full draw is very accurate
     dir.x += (Math.random() - 0.5) * spread * 2; dir.y += (Math.random() - 0.5) * spread * 2; dir.z += (Math.random() - 0.5) * spread * 2; dir.normalize();
     pos.x += dir.x * 0.5; pos.y += -0.03 + dir.y * 0.5; pos.z += dir.z * 0.5;   // from the eye line, so it goes where the crosshair is
     const p = this.proj.fire('arrow', pos, dir.multiplyScalar(30 + 80 * power)); p.dmg = Math.round(10 + 38 * power); p.grav = 0.5;   // fast and flat: a longbow
-    this.sound.play('swish', 0.7);
+    this.sound.play('loose', 0.6 + power * 0.5); this.stopDraw(); this.jolt(0.012 + power * 0.02, -2);
     return true;
   }
   throwKunai() {
-    if (this.kunai <= 0) { this.hud.message('No kunai left — the armoury by the gate has more (F).', 2.2, 'bad'); return; }
+    if (this.kunai <= 0) { this.sound.play('tired'); this.hud.emptyAmmo(); return; }
     this.kunai--;
     const { pos, dir } = this.aim(); pos.addScaledVector(dir, 0.5); pos.y -= 0.1;
     const p = this.proj.fire('kunai', pos, dir.multiplyScalar(30)); p.dmg = 22;
@@ -260,11 +269,11 @@ export class FPMode {
       const F = this.fighter, ddx = a.x - b.x, ddz = a.z - b.z, dl = Math.hypot(ddx, ddz) || 1, f = P.fwd;
       const angle = Math.acos(clamp((ddx * f.x + ddz * f.z) / dl, -1, 1)), side = (ddx * P.right.x + ddz * P.right.z) / dl;
       if (P.dodgeT > 0) return null;
-      if (F.state === 'guard' && F.shield && angle < 0.95) { this.sound.play('block'); this.hud.message('Arrow caught on your shield.', 1.2, 'good'); return { at, stick: false }; }
+      if (F.state === 'guard' && F.shield && angle < 0.95) { this.sound.play('thunk'); this.sparksAtYou(0.6); this.vm.shake = 0.3; return { at, stick: false }; }
       F.hurt(p.dmg, this.now); if (F.state === 'aim' || F.state === 'windup') F.stagger(0.3, this.now);
       this.sound.play('hurt'); this.hud.hurt(0.8); this.stats.hitsTaken++;
       if (angle > 1.0) this.hud.edge(side);
-      this.hud.message(F.state === 'down' ? 'An arrow brings you down\u2026' : 'An arrow hits you! Keep moving, use cover \u2014 or a shield.', 2, 'bad');
+      this.jolt(0.05);
       return { at, stick: false };
     }
     for (const t of this.actors) {
@@ -273,15 +282,14 @@ export class FPMode {
       const rel = at.y - t.y, zone = rel > 1.48 ? 'head' : rel > 0.85 ? 'torso' : 'legs', dmg = Math.round((p.dmg || 20) * ZONES[zone]);
       const r = t.onArrow(dmg, zone); if (!r) continue;
       this.sound.play('flesh', 0.8); this.ink.burst(at.x, at.y, at.z, r.ink || 4, 0, 0);
-      this.stats.lastHit = `${t.name}: ${ZONE_NAME[zone]} \u00b7 ${dmg} (${p.kind})`; if (r.text) this.hud.message(r.text, 2.2);
+      this.stats.lastHit = `${t.name}: ${ZONE_NAME[zone]} \u00b7 ${dmg} (${p.kind})`;
       return { at, stick: true };
     }
     for (const t of this.yard.targets) {
       const r = t.test(a, b); if (!r) continue;
       const s = t.score(r.dist); this.stats.score += s;
       if (this.stats.best === '—' || s > +this.stats.best) this.stats.best = String(s);
-      this.hud.message(s === 10 ? 'Bullseye! 10' : `${s} points`, 1.6, s >= 7 ? 'good' : '');
-      this.sound.play('thud', 0.7);
+      this.sound.play('thunk'); if (s === 10) { this.sound.play('bull'); this.sparks.burst(r.at.x, r.at.y, r.at.z, 0.7); } t.pulse(s >= 7);
       return { at: r.at, stick: true };
     }
     for (const t of this.yard.dummies) {
@@ -291,7 +299,7 @@ export class FPMode {
       if (Math.hypot(cx - t.x, cz - t.z) > t.r + 0.06 || cy < t.y + 0.1 || cy > t.y + t.h + 0.1) continue;
       const rel = cy - t.y, zone = rel > 1.48 ? 'head' : rel > 0.85 ? 'torso' : 'legs', dmg = Math.round((p.dmg || 20) * ZONES[zone]);
       const L = Math.sqrt(L2), r = t.onHit({ dmg, zone, dir: 'u', heavy: false, fx: dx / L, fz: dz / L });
-      if (r) { this.sound.play('thud', 0.8); if (r.chaff) this.yard.chaff.burst(cx, cy, cz, 5, dx / L, dz / L); this.stats.lastHit = `${ZONE_NAME[zone]} · ${dmg} (${p.kind})`; if (r.text) this.hud.message(r.text, 2.4); }
+      if (r) { this.sound.play('thunk', 0.8); if (r.chaff) this.yard.chaff.burst(cx, cy, cz, 5, dx / L, dz / L); this.stats.lastHit = `${ZONE_NAME[zone]} · ${dmg} (${p.kind})`; }
       return { at: new THREE.Vector3(cx, cy, cz), stick: true };
     }
     return null;
@@ -300,28 +308,26 @@ export class FPMode {
   ability(now) {
     const C = this.C, F = this.fighter; if (!C.ability) return;
     if (C.ability === 'kunai') { if (now >= this.abilityReady) { this.throwKunai(); this.abilityReady = now + ABILITY.kunai.cd; } return; }
-    if (now < this.abilityReady) { this.hud.message(`${ABILITY[C.ability].name} is ready again in ${Math.ceil(this.abilityReady - now)} s`, 1.4); return; }
+    if (now < this.abilityReady) { this.sound.play('tired', 0.6); return; }
     this.abilityReady = now + ABILITY[C.ability].cd;
-    if (C.ability === 'prayer') { F.heal(35); this.sound.play('bell'); this.hud.flash('parry'); this.hud.message('A prayer — your wounds close (+35 health).', 2.2, 'good'); }
-    if (C.ability === 'roar') { this.roar = true; this.sound.play('hurt', 1.4); this.hud.message('A war roar! Your next heavy strike hits everything around you.', 2.4, 'good'); }
-    if (C.ability === 'rally') { F.st = F.maxSt; F.buffUntil = now + 8; this.sound.play('bell'); this.hud.message('Rally! Full stamina and +25% damage for 8 seconds.', 2.4, 'good'); }
+    if (C.ability === 'prayer') { F.heal(35); this.sound.play('bell'); this.hud.flash('parry'); }
+    if (C.ability === 'roar') { this.roar = true; this.sound.play('roar'); this.vm.shake = 0.8; this.jolt(0.04, 5); }
+    if (C.ability === 'rally') { F.st = F.maxSt; F.buffUntil = now + 8; this.sound.play('bell'); this.sound.play('fullDraw'); this.hud.flash('parry'); }
   }
   // the sparring post or a person strikes at you
   enemyStrike(post, a) {
     const now = this.now, P = this.player, F = this.fighter;
-    if (P.dodgeT > 0 || (P.dodgedAt != null && now - P.dodgedAt < 0.3)) { this.stats.dodges++; this.sound.play('whiff'); this.hud.message('Dodged!', 1.2, 'good'); return; }
+    if (P.dodgeT > 0 || (P.dodgedAt != null && now - P.dodgedAt < 0.3)) { this.stats.dodges++; this.sound.play('dodge'); this.fovKick += 3; return; }
     const dx = post.x - P.x, dz = post.z - P.z, d = Math.hypot(dx, dz) || 1, f = P.fwd;
     const angle = Math.acos(clamp((dx * f.x + dz * f.z) / d, -1, 1)), side = (dx * P.right.x + dz * P.right.z) / d;
     if (angle > 1.1) this.hud.edge(side);
     const res = F.receive({ ...a, angle }, now); this.lastRes = res;
-    if (res === 'parry') { post.parried(); this.sound.play('parry'); this.hud.flash('parry'); this.hud.message('Parried! Your next strike does double damage.', 2.2, 'good'); }
-    else if (res === 'block') { this.stats.blocks++; this.sound.play(F.shield ? 'block' : 'clash'); this.vm.shake = 0.35; if (post.deflected) post.deflected(); this.hud.message('Blocked — strike back now for ×1.5!', 1.4, 'good'); }
-    else if (res === 'break') { this.sound.play('clash'); this.sound.play('hurt'); this.hud.hurt(0.5); this.hud.message(a.heavy ? 'A heavy strike breaks any block — dodge those (Space).' : 'Out of breath — your block broke. Watch your stamina.', 3, 'bad'); this.stats.hitsTaken++; }
+    if (res === 'parry') { post.parried(); this.sound.play('parry'); this.hud.flash('parry'); this.sparksAtYou(1.4); }
+    else if (res === 'block') { this.stats.blocks++; this.sound.play(F.shield ? 'block' : 'clash'); this.vm.shake = 0.45; this.sparksAtYou(F.shield ? 0.6 : 1); this.jolt(0.02); if (post.deflected) post.deflected(); }
+    else if (res === 'break') { this.sound.play('break'); this.hud.hurt(0.5); this.sparksAtYou(2.6); this.jolt(0.12, 6); this.vm.shake = 1; this.stats.hitsTaken++; }
     else {
       this.stats.hitsTaken++; this.sound.play(post.bokken ? 'thud' : 'hurt'); this.hud.hurt(post.bokken ? 0.4 : 0.9); this.vm.shake = 0.6;
-      if (res === 'down') this.hud.message('You are down. Getting back up…', 3, 'bad');
-      else if (F.state === 'guard' || F.blockHeld) this.hud.message('It came from the side — face your opponent to block.', 2.4, 'bad');
-      else this.hud.message(a.heavy ? 'Heavy strike — dodge those (Space).' : 'Hit! Hold block when the ring turns red.', 2.4, 'bad');
+      this.jolt(a.heavy ? 0.09 : 0.05, a.heavy ? 3 : 1);
     }
   }
 
@@ -351,13 +357,18 @@ export class FPMode {
       if (P.justDodged) { P.dodgedAt = now; this.sound.play('whiff', 0.6); P.justDodged = false; }
       F.update(dt, now, this);
       if (before === 'windup' && F.state === 'active') this.sound.play(F.heavy ? 'swishHeavy' : 'swish');
-      if (F.flash && F.flash.kind === 'tired' && now - F.flash.t < 0.05) { this.sound.play('tired'); this.hud.message('Out of breath — wait a moment.', 1.4, 'bad'); F.flash = null; }
+      if (F.flash && F.flash.kind === 'tired' && now - F.flash.t < 0.05) { if (now - (this.breathAt || -9) > 1.5) { this.breathAt = now; this.sound.play('breath'); } F.flash = null; }
+      // the bow: the creak of the draw, a ping when it's full
+      if (F.isBow && F.state === 'aim' && !F.quick) { if (!this.drawSnd && F.draw < 0.95) this.drawSnd = this.sound.drawStart(1.0 * (1 - F.draw)) || { stop() {} }; if (F.draw >= 1 && !this.fullPinged) { this.fullPinged = true; this.sound.play('fullDraw'); this.stopDraw(); } }
+      else { this.stopDraw(); if (F.state !== 'aim') this.fullPinged = false; }
+      // badly hurt: your heart pounds
+      if (F.hp / F.maxHp < 0.3 && F.state !== 'down' && now - (this.heartAt || -9) > 0.95) { this.heartAt = now; this.sound.play('heart'); }
       if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.hud.message('Back on your feet at the yard. Block when the ring turns red.', 3); } }
       // the dummies, the sparring post, the straw, the arrows
       for (const t of this.yard.dummies) if (t !== post) t.update(dt);
       post.update(dt, { px: P.x, pz: P.z, showCue: true, strike: (p, a) => this.enemyStrike(p, a), whiff: () => {} });
       for (const a of this.actors) a.update(dt, now);
-      this.ink.update(dt); for (const it of this.ink.items) it.floor = this.T.groundAt(it.m.position.x, it.m.position.z) + 0.02;
+      this.ink.update(dt); this.sparks.update(dt); for (const t of this.yard.targets) t.update(dt); for (const it of this.ink.items) it.floor = this.T.groundAt(it.m.position.x, it.m.position.z) + 0.02;
       P.dynamic = this.actors.filter(a => !a.dead).map(a => ({ x: a.x, z: a.z, r: 0.38 }));
       this.yard.chaff.update(dt);
       this.proj.update(dt, (p, a, b) => this.projHit(p, a, b), (x, z) => this.T.groundAt(x, z));
@@ -381,8 +392,10 @@ export class FPMode {
     const cam = this.stage.camera, bob = this.S.bob !== false ? Math.sin(this.vm.bob * 2) * (P.onHorse ? 0.06 : 0.03) * Math.min(1, P.speed / 4) : 0;
     const sh = this.S.bob !== false ? this.vm.shake * 0.02 : 0;
     cam.position.set(FP_ORIGIN.x + P.x, P.y + P.eye + bob, FP_ORIGIN.z + P.z);
-    cam.rotation.set(P.pitch + (Math.random() - 0.5) * sh, P.yaw + (Math.random() - 0.5) * sh, 0, 'YXZ');
-    const fov = this.S.fov - (F.state === 'aim' ? F.draw * 18 : 0);
+    this.kick = Math.max(0, this.kick - dt * 0.6); this.fovKick *= Math.exp(-dt * 8);
+    const kk = this.S.bob !== false ? this.kick : this.kick * 0.3;
+    cam.rotation.set(P.pitch + kk + (Math.random() - 0.5) * sh, P.yaw + (Math.random() - 0.5) * sh, 0, 'YXZ');
+    const fov = this.S.fov - (F.state === 'aim' ? F.draw * 18 : 0) + this.fovKick;
     if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 10); cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
     this.camProxy.target.set(FP_ORIGIN.x + P.x, P.y, FP_ORIGIN.z + P.z);
@@ -402,12 +415,13 @@ export class FPMode {
       ammo: F.isBow ? `arrows ${this.arrows}` : this.C.kunai ? `kunai ${this.kunai}` : '' });
     I.endFrame();
   }
+  stopDraw() { if (this.drawSnd) { this.drawSnd.stop(); this.drawSnd = null; } }
   use() {
     const P = this.player, rk = this.yard.rack, K = this.sensei;
     if (!this.bout && Math.hypot(K.x - P.x, K.z - P.z) < 3 && !this.fighter.isBow) { this.startBout(); return; }
     if (Math.hypot(rk.x - P.x, rk.z - P.z) < 3) {
       const refill = (this.C.arrows && this.arrows < this.C.arrows) || (this.C.kunai && this.kunai < this.C.kunai);
-      if (refill) { this.arrows = this.C.arrows || 0; this.kunai = this.C.kunai || 0; this.sound.play('stepWood'); this.hud.message('Refilled.', 1.2); }
+      if (refill) { this.arrows = this.C.arrows || 0; this.kunai = this.C.kunai || 0; this.sound.play('stepWood'); this.sound.play('fullDraw', 0.5); }
       else this.pause();    // the armoury: choose who to be
     }
   }

@@ -453,3 +453,17 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - The red or orange ring when anyone in reach winds up at you.
   - **Red ink at the screen's edge** when you're struck from outside your view, by a blade or an arrow.
   - A shield raised toward an archer catches his arrows.
+- **Feel over words:**
+  - Fights no longer show text like "Guard broken!".
+  - **Blocks** throw sparks where the blades meet, with a clang and a jolt.
+  - A **broken guard** bursts in a bigger shower of sparks, with a heavy crack and the camera knocked back.
+  - **Kicks, hits and arrows** jolt the camera; a dodge whooshes.
+  - Being out of breath gives a heavy breath, and an empty quiver makes the count flash.
+- **No health bars for now:**
+  - The enemy's name and health bar are gone, and so is your own health stroke. Your stamina stroke stays.
+  - Being badly hurt shows as red ink that stays and pulses at the screen's edges, with a pounding heartbeat.
+- **The bow, Zelda-style:**
+  - A creak swells as you draw, and a bright ping sounds at full draw while the crosshair glows.
+  - Releasing gives a twang and a small kick. The arrow flies with a white streak, lands with a wooden thunk and quivers where it sticks.
+  - A bullseye plays a rising chime, throws a few sparks and makes the target jump.
+- **The bandit camp** now sits in its own levelled clearing at the end of the trail, well inside the valley, with no trees or rocks in it.

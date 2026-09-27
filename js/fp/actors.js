@@ -53,24 +53,24 @@ export class Actor {
     this.aggro = true; this.alertOthers();
     const faced = this.facing(P.x, P.z) <= F.guardArc / 2 + 0.15;
     if (F.state === 'guard' && faced) {
-      if (h.heavy) { F.spend(h.dmg * 0.6, now); F.hurt(h.dmg * 0.35, now); F.stagger(0.9, now); this.checkDown(); return { sound: 'clash', text: 'Guard broken!', broke: true }; }
+      if (h.heavy) { F.spend(h.dmg * 0.6, now); F.hurt(h.dmg * 0.35, now); F.stagger(0.9, now); this.checkDown(); return { sound: 'break', broke: true, sparks: 2.6 }; }
       F.spend(h.dmg * 0.8, now);
-      if (F.st <= 0) { F.hurt(h.dmg * 0.5, now); F.stagger(1.0, now); this.checkDown(); return { sound: 'clash', text: 'Out of breath — his guard breaks!', broke: true }; }
+      if (F.st <= 0) { F.hurt(h.dmg * 0.5, now); F.stagger(1.0, now); this.checkDown(); return { sound: 'break', broke: true, sparks: 2.2 }; }
       F.counterUntil = now + 1.0; this.counterNow = true;
-      return { sound: 'clash', blocked: true };
+      return { sound: 'clash', blocked: true, sparks: 1 };
     }
     F.hurt(h.dmg, now);
     if (F.state === 'windup' || F.state === 'active' || F.state === 'aim') F.stagger(0.45, now);
     // a little push back
     this.vx += h.fx * (h.heavy ? 3 : 1.5); this.vz += h.fz * (h.heavy ? 3 : 1.5);
     this.checkDown();
-    return { sound: 'flesh', ink: h.heavy ? 12 : 7, text: this.dead && this.team !== 'spar' ? `${this.name} falls.` : null };
+    return { sound: 'flesh', ink: h.heavy ? 12 : 7 };
   }
   onKick(h) {
     if (this.dead) return null;
     const F = this.fighter, now = this.fp.now; this.aggro = true;
     this.vx += h.fx * 4; this.vz += h.fz * 4;
-    if (F.state === 'guard') { F.stagger(0.7, now); F.blockUp(); return { sound: 'kick', text: 'Kicked through his guard!' }; }
+    if (F.state === 'guard') { F.stagger(0.7, now); F.blockUp(); return { sound: 'break', sparks: 1 }; }
     F.stagger(0.5, now); return { sound: 'kick' };
   }
   parried() { this.fighter.stagger(1.3, this.fp.now); this.plan = []; this.holdUntil = 0; }
@@ -80,7 +80,7 @@ export class Actor {
     this.aggro = true; this.alertOthers();
     this.fighter.hurt(dmg, this.fp.now); if (this.fighter.state === 'windup' || this.fighter.state === 'aim') this.fighter.stagger(0.4, this.fp.now);
     this.checkDown();
-    return { sound: 'flesh', ink: 5, text: this.dead ? `${this.name} falls.` : null };
+    return { sound: 'flesh', ink: 5 };
   }
   checkDown() {
     const F = this.fighter;
@@ -95,7 +95,7 @@ export class Actor {
     const dx = P.x - this.x, dz = P.z - this.z, d = Math.hypot(dx, dz);
     if (!this.aggro) {
       const range = (this.o.aggroRange || 20) * (P.crouch ? 0.55 : 1);
-      if (d < range && this.team === 'foe') { this.aggro = true; this.alertOthers(); fp.hud.message(`${this.name}: "Who goes there?!"`, 1.8, 'bad'); fp.sound.play('bell', 0.5); }
+      if (d < range && this.team === 'foe') { this.aggro = true; this.alertOthers(); fp.sound.play('alarm'); }
       return;
     }
     if (this.archer) return this.thinkArcher(now, d);
@@ -216,11 +216,9 @@ export function makeSensei(fp) {
 
 // the bandit camp: across the bridge, at the end of the trail — tents, a fire, stolen rice, and its people
 export function buildBanditCamp(fp) {
-  const T = fp.T, R = mulberry32(333), end = T.trail[T.trail.length - 1], prev = T.trail[T.trail.length - 6];
-  const ax = end.x - prev.x, az = end.z - prev.z, al = Math.hypot(ax, az) || 1;
-  // a little further on, where the ground is walkable
-  let cx = end.x + ax / al * 14, cz = end.z + az / al * 14;
-  for (let i = 0; i < 12 && !fp.player.walkable(cx, cz); i++) { cx -= ax / al * 2; cz -= az / al * 2; }
+  const T = fp.T, R = mulberry32(333), prev = T.trail[T.trail.length - 8];
+  // the clearing the terrain levelled for the camp, at the end of the trail
+  const cx = T.camp.x, cz = T.camp.z, ax = cx - prev.x, az = cz - prev.z, al = Math.hypot(ax, az) || 1;
   const g = new THREE.Group(); fp.world.add(g);
   const m = new Mesher(334, 0.07), gy = (x, z) => T.groundAt(x, z);
   // the fire: a ring of stones, logs, glowing embers

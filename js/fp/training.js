@@ -101,10 +101,10 @@ export class SparringPost {
   }
   onHit(h) {
     this.hitsLanded++;
-    if (this.state === 'tell') { this.state = 'stagger'; this.t = 0; this.stagFor = 1.0; return { sound: 'thud', chaff: 0, text: 'Interrupted! A strike during its wind-up stops it.' }; }
+    if (this.state === 'tell') { this.state = 'stagger'; this.t = 0; this.stagFor = 1.0; return { sound: 'break', chaff: 0, sparks: 1.6 }; }
     return { sound: 'thud', chaff: 0 };
   }
-  onKick() { if (this.state === 'tell') { this.state = 'stagger'; this.t = 0; this.stagFor = 1.1; return { sound: 'kick', text: 'Kicked out of its swing!' }; } return { sound: 'kick' }; }
+  onKick() { if (this.state === 'tell') { this.state = 'stagger'; this.t = 0; this.stagFor = 1.1; return { sound: 'break', sparks: 1.2 }; } return { sound: 'kick' }; }
   parried() { this.state = 'stagger'; this.t = 0; this.stagFor = 1.5; }
   // fp: { px, pz, dist, strike(post, attack) }
   update(dt, fp) {
@@ -182,6 +182,8 @@ export class ArcheryTarget {
     return { at: new THREE.Vector3(x, y, z), dist };
   }
   score(dist) { return dist < 0.1 ? 10 : dist < 0.22 ? 7 : dist < 0.36 ? 5 : 2; }
+  pulse(big) { this.pulseT = 0.3; this.pulseBig = big; }
+  update(dt) { if (!(this.pulseT > 0)) return; this.pulseT -= dt; const k = Math.max(0, this.pulseT / 0.3); this.mesh.scale.setScalar(1 + Math.sin(k * Math.PI) * (this.pulseBig ? 0.12 : 0.05)); this.mesh.rotation.x = Math.sin(k * 20) * 0.04 * k; }
 }
 
 // the yard: sand floor, a bamboo fence with an opening toward the bridge, dummies, the post, a weapon rack,

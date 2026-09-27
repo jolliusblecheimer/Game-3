@@ -25,8 +25,10 @@ export class Projectiles {
   // pos, vel in the valley's local metres
   fire(kind, pos, vel) {
     const mesh = new THREE.Mesh(this.geo[kind], MAT.flat); mesh.castShadow = true;
+    if (!this.streakMat) { this.streakMat = new THREE.MeshBasicMaterial({ color: '#fff6dc', transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending }); this.streakGeo = new THREE.BoxGeometry(0.012, 0.012, 1); this.streakGeo.translate(0, 0, 0.5); }
+    const streak = new THREE.Mesh(this.streakGeo, this.streakMat); streak.scale.z = kind === 'arrow' ? Math.min(2.2, vel.length() * 0.03) : 0.6; mesh.add(streak);
     mesh.position.copy(pos); this.parent.add(mesh);
-    const p = { kind, mesh, pos: pos.clone(), vel: vel.clone(), life: 12, stuck: false, spin: kind === 'kunai' ? 0 : null };
+    const p = { kind, mesh, pos: pos.clone(), vel: vel.clone(), life: 12, stuck: false, spin: kind === 'kunai' ? 0 : null, streak };
     this.list.push(p); this.orient(p);
     if (this.list.length > 60) { const old = this.list.shift(); this.parent.remove(old.mesh); }
     return p;
@@ -38,14 +40,18 @@ export class Projectiles {
       const p = this.list[i];
       p.life -= dt;
       if (p.life <= 0) { this.parent.remove(p.mesh); this.list.splice(i, 1); continue; }
-      if (p.stuck) continue;
+      if (p.stuck) {
+        // a stuck arrow quivers for a moment
+        if (p.wob > 0) { p.wob -= dt; p.mesh.quaternion.copy(p.baseQ); p.mesh.rotateX(Math.sin(p.wob * 70) * 0.05 * p.wob / 0.45); p.mesh.rotateY(Math.cos(p.wob * 63) * 0.04 * p.wob / 0.45); }
+        continue;
+      }
       const from = p.pos.clone();
       p.vel.y -= G * (p.grav ?? 1) * dt;
       p.pos.addScaledVector(p.vel, dt);
       const r = hit(p, from, p.pos);
-      if (r) { if (r.at) p.pos.copy(r.at); p.stuck = true; p.life = r.stick ? 20 : 0.01; p.mesh.position.copy(p.pos); continue; }
+      if (r) { if (r.at) p.pos.copy(r.at); p.stuck = true; p.life = r.stick ? 20 : 0.01; p.mesh.position.copy(p.pos); p.streak.visible = false; p.baseQ = p.mesh.quaternion.clone(); p.wob = r.stick ? 0.45 : 0; continue; }
       const g = ground(p.pos.x, p.pos.z);
-      if (p.pos.y <= g + 0.02) { p.pos.y = g + 0.05; p.stuck = true; p.life = 15; p.mesh.position.copy(p.pos); if (p.onGround) p.onGround(p); continue; }
+      if (p.pos.y <= g + 0.02) { p.pos.y = g + 0.05; p.stuck = true; p.life = 15; p.mesh.position.copy(p.pos); p.streak.visible = false; p.baseQ = p.mesh.quaternion.clone(); p.wob = 0.3; if (p.onGround) p.onGround(p); continue; }
       p.mesh.position.copy(p.pos); this.orient(p);
     }
   }

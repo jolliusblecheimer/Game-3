@@ -66,7 +66,7 @@ export class FPHud {
     X.toggle('counter', info.now < F.counterUntil || info.now < F.riposteUntil);
     X.toggle('incoming', !!info.incoming && !info.incomingHeavy);
     X.toggle('incomingHeavy', !!info.incomingHeavy);
-    X.toggle('bow', F.isBow);
+    X.toggle('bow', F.isBow); X.toggle('full', F.isBow && F.state === 'aim' && F.draw >= 1);
     const charging = F.state === 'windup' && F.hold && !F.isBow;
     const k = F.isBow ? (F.state === 'aim' ? F.draw : 0) : charging ? Math.min(1, F.t / 0.3) : F.state === 'windup' && F.heavy ? 1 : 0;
     this.chargeEl.style.strokeDasharray = `${k * 100} 100`;
@@ -74,7 +74,9 @@ export class FPHud {
     if (F.isBow) this.cross.style.transform = `scale(${1.25 - (F.state === 'aim' ? F.draw : 0) * 0.55})`; else this.cross.style.transform = '';
     this.ammo.textContent = info.ammo || '';
     this.sayT -= dt; if (this.sayT <= 0 && this.say.classList.contains('on')) this.say.classList.remove('on');
-    this.hurtA = Math.max(0, this.hurtA - dt * 1.4); this.vig.style.opacity = Math.min(1, this.hurtA);
+    this.hurtA = Math.max(0, this.hurtA - dt * 1.4);
+    const ratio = F.hp / F.maxHp, low = ratio < 0.5 ? (0.5 - ratio) * 1.8 * (0.85 + 0.15 * Math.sin(info.now * 6)) : 0;   // badly hurt: the red ink stays and pulses
+    this.vig.style.opacity = Math.min(1, Math.max(this.hurtA, low));
     this.vig.classList.toggle('down', F.state === 'down');
     if (F.state === 'down') this.vig.style.opacity = 1;
     this.flashA = Math.max(0, this.flashA - dt * 4); this.flashEl.style.opacity = this.flashA * 0.55;
@@ -85,9 +87,10 @@ export class FPHud {
     this.card.append(h('b', null, title), ...rows.map(r => h('div', { class: 'row' }, h('span', null, r[0]), h('em', null, String(r[1])))));
   }
   setFoe(a) {
-    this.foe.hidden = !a; if (!a) return;
+    this.foe.hidden = true; return;   // no health bars for now: you read the fight, not a number
     this.foeName.textContent = a.name; this.foeHp.style.width = `${Math.max(0, a.fighter.hp / a.fighter.maxHp * 100)}%`;
   }
+  emptyAmmo() { const el = this.ammo; el.classList.remove('empty'); void el.offsetWidth; el.classList.add('empty'); }
   edge(side) { const el = side < -0.3 ? this.edgeL : side > 0.3 ? this.edgeR : this.edgeB; el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); }
   setPrompt(text) { this.prompt.hidden = !text; if (text) this.prompt.textContent = text; }
   // the pause screen: who you fight as, continue, the settings for each device, and the way back

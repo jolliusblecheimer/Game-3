@@ -21,6 +21,7 @@ export class FPTerrain {
     this.makeRiver();
     this.makeYard();
     this.makeTrail();
+    this.makeCamp();
     this.bakeHeights();
     this.colliders = [];   // circles { x, z, r } and boxes { x0, z0, x1, z1 }
   }
@@ -108,6 +109,26 @@ export class FPTerrain {
     line(y, end1, 20); line(end2, { x: end2.x - b.ax * s * 60, z: end2.z - b.az * s * 60 }, 30);
     this.trail = pts;
   }
+  // the bandit camp: past the far end of the bridge, on the far side, kept well inside the valley and off the river
+  makeCamp() {
+    const b = this.bridge, s = this.side, lim = HALF - 30;
+    let best = null;
+    for (const dist of [55, 50, 45, 40, 35, 30]) for (const turn of [0, 0.4, -0.4, 0.8, -0.8]) {
+      const ax = -b.ax * s, az = -b.az * s, c = Math.cos(turn), sn = Math.sin(turn), dx = ax * c - az * sn, dz = ax * sn + az * c;
+      const x = b.x + dx * (b.len / 2 + dist), z = b.z + dz * (b.len / 2 + dist);
+      if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
+      if (this.riverAt(x, z).d < this.width(this.riverAt(x, z).s) / 2 + 18) continue;
+      if (Math.hypot(x - this.yard.x, z - this.yard.z) < this.yard.r + 30) continue;
+      best = { x, z, r: 13 }; break;
+    }
+    if (!best) best = { x: b.x - b.ax * s * 40, z: b.z - b.az * s * 40, r: 13 };
+    this.camp = best;
+    // the trail goes on from the bridge to the camp
+    const e2 = { x: b.x - b.ax * s * (b.len / 2 + 1), z: b.z - b.az * s * (b.len / 2 + 1) };
+    const i = this.trail.findIndex(p => Math.hypot(p.x - e2.x, p.z - e2.z) < 0.5);
+    this.trail.length = Math.max(0, i);
+    for (let k = 0; k <= 30; k++) this.trail.push({ x: lerp(e2.x, best.x, k / 30), z: lerp(e2.z, best.z, k / 30) });
+  }
   trailDist(x, z) { let d = 1e9; for (const p of this.trail) d = Math.min(d, (p.x - x) ** 2 + (p.z - z) ** 2); return Math.sqrt(d); }
   // the bridge deck: a gentle arch; returns its height, or null when not on it
   deckAt(x, z) {
@@ -129,6 +150,8 @@ export class FPTerrain {
     // the training yard is levelled
     const y = this.yard, dy = Math.hypot(x - y.x, z - y.z);
     if (dy < y.r + 10) h = lerp(this.yardY ?? h, h, smoothstep(y.r, y.r + 10, dy));
+    const cp = this.camp, dc = cp ? Math.hypot(x - cp.x, z - cp.z) : 1e9;   // and so is the bandits' clearing
+    if (dc < cp?.r + 12) h = lerp(this.campY ?? h, h, smoothstep(cp.r, cp.r + 12, dc));
     // the flood plain and the channel
     const w = this.width(s) / 2, dep = this.depth(s);
     h = lerp(0.62, h, smoothstep(w + 1.5, w + 16, d));
@@ -141,6 +164,7 @@ export class FPTerrain {
   }
   bakeHeights() {
     this.yardY = null; this.yardY = Math.max(0.9, this.rawHeight(this.yard.x, this.yard.z));
+    this.campY = null; this.campY = Math.max(0.9, Math.min(8, this.rawHeight(this.camp.x, this.camp.z)));
     const N = SEG + 1, H = new Float32Array(N * N);
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) H[j * N + i] = this.rawHeight(-SIZE / 2 + i * CELL, -SIZE / 2 + j * CELL);
     this.H = H;
@@ -228,6 +252,7 @@ export class FPTerrain {
       const { d, s } = this.riverAt(x, z);
       if (d < this.width(s) / 2 + clear) return false;
       if (Math.hypot(x - this.yard.x, z - this.yard.z) < this.yard.r + 3) return false;
+      if (Math.hypot(x - this.camp.x, z - this.camp.z) < this.camp.r + 4) return false;
       if (this.trailDist(x, z) < 2.4) return false;
       if (Math.hypot(x - this.bridge.x, z - this.bridge.z) < this.bridge.len / 2 + 4) return false;
       return true;
@@ -256,7 +281,7 @@ export class FPTerrain {
       const { d, s } = this.riverAt(x, z), w = this.width(s) / 2;
       const nearWater = d > w - 1 && d < w + 4 && this.depth(s) > 1;
       if (!nearWater && (R() < 0.7 || !ok(x, z, 4))) continue;
-      if (Math.hypot(x - this.yard.x, z - this.yard.z) < this.yard.r + 3 || this.trailDist(x, z) < 2.4) continue;
+      if (Math.hypot(x - this.yard.x, z - this.yard.z) < this.yard.r + 3 || Math.hypot(x - this.camp.x, z - this.camp.z) < this.camp.r + 4 || this.trailDist(x, z) < 2.4) continue;
       const sc = nearWater ? 0.5 + R() * 0.8 : 0.4 + R() * 1.3;
       rocks.push({ x, z, y: this.terrainAt(x, z) + sc * 0.2, s: sc, r: R() * 6 });
       if (sc > 0.7 && Math.abs(x) < HALF && Math.abs(z) < HALF) this.colliders.push({ x, z, r: sc * 0.85 });

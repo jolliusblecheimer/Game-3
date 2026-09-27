@@ -1,5 +1,5 @@
 {
-"v": "20260927-142217",
+"v": "20260927-194700",
 "files": [
 "css/style.css",
 "js/audio/music.js",
@@ -7,6 +7,7 @@
 "js/fp/classes.js",
 "js/fp/combat.js",
 "js/fp/controller.js",
+"js/fp/effects.js",
 "js/fp/fpmode.js",
 "js/fp/hud-fp.js",
 "js/fp/input-fp.js",
