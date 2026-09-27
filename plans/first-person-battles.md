@@ -45,11 +45,11 @@ You no longer watch battles from the sky. You **are** one of your soldiers: a sp
    - The screen fades from ink to colour, and you are standing with your squad at the edge of the valley. The enemy place lies ahead: fields, houses and a palisade, or a stone castle on a hill.
    - A scroll unrolls at the top: "**Take the village of Kawabata.** The gate faces south. A ford crosses the river to the east."
    - You can walk around and look, and give your first orders.
-   - Press **Enter** (or tap **Begin**) when ready. The horn sounds.
+   - Press **Enter** (or click / tap **Begin**) when ready. The horn sounds.
 5. **The fight.** Real time with no pause, but with the tactical view (§6.4). The enemy has not seen you yet: you can sneak up, or storm in.
 6. **The end:**
    - **Victory:** the enemy flees, surrenders, or you take their keep or banner. The camera rises slowly out of your hero's eyes into the sky: "Victory".
-   - **Defeat:** your squads are broken. You can **sound the retreat** at any time: hold **Backspace** / the retreat horn. Everyone runs for the valley edge, and whoever makes it out survives.
+   - **Defeat:** your squads are broken. You can **sound the retreat** at any time: hold **Backspace**. Everyone runs for the valley edge, and whoever makes it out survives.
    - **Your hero falls:** see §3.2.
 7. **Aftermath** (as today): losses, wounds, rank-ups, loot, then Plunder or Hold. Also new: a short **chronicle line** for your hero ("Hayato took the gate of Kawabata and felled 6").
 
@@ -81,62 +81,123 @@ You no longer watch battles from the sky. You **are** one of your soldiers: a sp
 
 ## 4. Controls
 
-### 4.1 Keyboard and mouse (desktop, or iPad with a keyboard and trackpad)
+**There are three ways to play, and every battle must be fully playable with each of them:**
 
-The mouse is captured with the Pointer Lock API; **Esc** releases it.
+| Setup | Left hand | Right hand |
+|---|---|---|
+| **A. Keyboard + mouse** | keyboard | mouse: look, strike, block |
+| **B. Keyboard + trackpad** (e.g. iPad Magic Keyboard, laptop) | keyboard | trackpad: look, click to strike, two-finger click to block |
+| **C. Keyboard + touchscreen** (e.g. iPad with a keyboard case) | keyboard | screen: drag to look, on-screen strike and block buttons |
+
+- **The keyboard is always there and does the same thing in all three setups:** moving, dodging, orders, squads, abilities, the tactical view.
+- **Only looking, striking and blocking** change with the pointing device.
+- The game **detects the device on its own** from the pointer event type: mouse or trackpad give `pointerType 'mouse'`, a finger gives `'touch'`. The last used device wins, so you can switch mid-battle, e.g. from trackpad to touching the screen.
+- The settings show which setup is active and let you tune it.
+
+### 4.1 The keyboard (the same in all setups)
 
 | Key | What it does |
 |---|---|
 | **W A S D** | Walk |
 | **Shift** (hold) | Run (uses stamina) |
-| **Ctrl** / **C** | Crouch / sneak (quieter, harder to see; ninja much better at it) |
+| **C** | Crouch / sneak (toggle). Quieter, harder to see; the ninja is much better at it |
 | **Space** | Dodge-step in the direction you are moving (costs stamina). While down: take over another soldier |
-| **Mouse** | Look |
-| **Left click** | Strike. The **direction of your mouse movement just before the click** chooses the strike: from the left, from the right, or overhead (see §5.1). Spear: a quick thrust |
-| **Left hold** | Heavy strike: slower and harder, breaks blocks, costs more stamina |
-| **Right hold** | Block (the direction you hold the mouse toward chooses the guard). Tap right at the moment of impact to **parry** |
-| **Right hold** (archer) | Draw the bow; **left** looses, **R** puts the arrow back |
-| **F** | Use: open or close a door or gate, climb a ladder or tower, pick up arrows, pull a wounded friend, pick up a banner |
-| **E** | Kick / shield-bash (pushes an enemy back, breaks guard) |
-| **Q** (hold) | **Order wheel** (§6.2). Release on a slice |
-| **1 2 3 4** | Select squad 1–4 (5 = all). A short tap cycles through the squads |
-| **Z X C V** | Quick orders to the selected squad: **Z** Follow me · **X** Hold here (where you look) · **C** Charge (at what you look at) · **V** Form up (their shape: line / shield wall / loose) |
-| **G** | Special ability (§6.6), or throw a smoke bomb (ninja) / a stone (anyone, to distract) |
+| **F** | Use: open or close a door or gate, climb a ladder or tower, pick up arrows, pull a wounded friend, pick up a banner, finishing blow |
+| **E** | Kick / shield-bash (pushes an enemy back, breaks their guard) |
+| **R** | Archer: put the arrow back · ninja: throw a kunai |
+| **G** | Special ability (§6.6), smoke bomb (ninja) or a stone (anyone, to distract). Hold G to choose between several |
+| **Q** (hold) | **Order wheel** (§6.2): choose with the pointer or with W/A/S/D, release to give it |
+| **1 2 3 4** | Select squad 1–4. **5** = all squads |
+| **Z X V B** | Quick orders to the selected squad: **Z** Follow me · **X** Hold here (where you look) · **V** Charge (at what you look at) · **B** Form up (cycles line / shield wall / loose / wedge) |
 | **T** (hold) | Shout ("Tenka!"): raises your squad's morale, and alerts nearby enemies |
-| **Tab** | **Tactical view** (§6.4): slows time to 25% and shows the battle from above |
+| **Tab** | **Tactical view** (§6.4): time slows to 25%, the battle is shown from above |
 | **H** (hold) | Bind your wounds: slowly restores a little health, can't move (3 bandages per battle) |
 | **Backspace** (hold 2 s) | Sound the retreat |
-| **M** | Look at the objective scroll |
-| **Esc** | Pause menu (settings, sensitivity, invert, field of view, retreat) |
+| **M** | The objective scroll |
+| **Esc** | Pause menu: settings, sensitivity, invert, field of view, retreat. Also releases the mouse |
 
-### 4.2 iPad touch (the main platform — must work without a keyboard)
+**Keyboard backups for fighting** (so a trackpad or touchscreen never leaves you stuck):
+- **J / I / L** = strike from the left / overhead / from the right. Hold for a heavy strike.
+- **K** (hold) = block. The guard follows the last strike direction you pressed, or **auto-guard** (below).
+- The right hand can rest near J, K, L and I while the left hand is on WASD. This is the most precise way to choose a strike direction on a trackpad.
+
+### 4.2 Setup A — keyboard + mouse
+
+- **Look:** move the mouse. The mouse is captured with **Pointer Lock**; Esc releases it.
+- **Strike (left click):** the **direction the mouse was moving in just before the click** chooses the strike: from the left, from the right, or overhead (moving up). No movement means the last direction used.
+- **Heavy strike:** hold the left button for about 0.4 s, then release.
+- **Block (hold the right button):** the guard side follows the mouse direction while holding. **Tap** right at the moment of impact to **parry**.
+- **Archer:** hold right to draw the bow, left to loose.
+- **Mouse wheel:** switch squad (instead of 1–4). The middle button is the order wheel (instead of Q).
+
+### 4.3 Setup B — keyboard + trackpad
+
+A trackpad is less precise and makes holding a button harder, so this setup gets its own tuning.
+
+- **Look:** slide one finger. Pointer Lock works with a trackpad (desktop browsers and iPadOS Safari). The trackpad has its **own sensitivity** and optional **acceleration** in the settings.
+- **Strike: click** (or tap, if tap-to-click is on). The direction comes from the **finger movement in the last 0.15 s**, as with the mouse. Or use **J / I / L** for exact directions.
+- **Heavy strike:** press and hold the click, then release.
+- **Block: two-finger click** (the right button), held. Or hold **K**.
+- **Parry:** a **two-finger tap** at the moment of impact. Or tap **K**.
+- **Archer:** two-finger click and hold to draw, then click to loose. Or hold **K** to draw and press **J** to loose.
+- **Two-finger swipe up or down:** switch squad.
+- **Help for trackpads** (on by default in this setup, can be turned off):
+  - **Auto-guard:** while blocking, your guard turns by itself to the side the nearest enemy is striking from. You still need the timing for a parry.
+  - **Look assist:** looking slows down a little when the crosshair is over an enemy.
+
+### 4.4 Setup C — keyboard + touchscreen
+
+Move with the keys; look and fight with the right hand on the screen. **There's no move stick**, because W A S D do that.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ [Squads ①②③④]        ─ compass ─         [scroll] [≡]        │
+│ [① ② ③ ④ squads]       ─ compass ─          [scroll] [≡]     │
 │                                                              │
+│   (the whole screen, except the buttons: drag with one       │
+│    finger to look)                                           │
 │                                                              │
-│      (the whole right half: drag to look)                    │
-│                                                              │
-│                                          [ORDER]  [ABIL]     │
-│  ╭─────╮                               [BLOCK]     [KICK]    │
-│  │  ●  │  ← move stick (appears       [DODGE]   ( STRIKE )   │
-│  ╰─────╯     where your left thumb        [USE]              │
-│  [run: push to the rim]   [crouch]                           │
-│ ▰▰▰▰▰▰▱▱ health   ▰▰▰▰▱ stamina       arrows 18   bandages 3 │
+│                                              [ ORDER ]       │
+│                                     [ BLOCK ]      [ ABIL ]  │
+│                                          ( STRIKE )          │
+│                                     [ KICK ]      [ USE ]    │
+│ ▰▰▰▰▰▰▱▱ health   ▰▰▰▰▱ stamina         arrows 18  bandages 3│
 └──────────────────────────────────────────────────────────────┘
 ```
 
-- **Left thumb:** a floating move stick. Pushing it past the rim runs. Double-tap the left side to crouch.
-- **Right thumb drag:** look.
-- **STRIKE:** tap = light strike; the **direction of a swipe starting on the button** picks left, right or overhead. Hold = heavy strike.
-- **BLOCK:** hold to block. The guard follows your swipe direction; tap at the moment of impact to parry.
-- **ORDER:** hold, and a wheel opens under your thumb; slide and lift on an order. Tapping a squad badge at the top selects that squad.
-- **Tactical view:** a two-finger tap, or the map icon. In the tactical view, drag from a squad onto the ground to move it there, or onto an enemy to charge (easier than on desktop).
-- **Aim assist (touch only):** a small, gentle pull toward the nearest enemy you are facing, and the bow's aim slows down over a target. Can be turned off.
-- **Buttons can be moved and resized** in the settings, and are half-transparent. Lefty mode mirrors everything.
+- **Look:** drag one finger anywhere that isn't a button.
+- **STRIKE:**
+  - **Tap** = a light strike in the last direction.
+  - **Swipe off the button** left, right or up = strike from that side (the swipe is the direction).
+  - **Hold** = heavy strike.
+- **BLOCK:** hold; slide your finger left, right or up while holding to turn the guard. Tap at the moment of impact to parry.
+- **Two fingers at once:** your look finger can stay down while the other thumb presses STRIKE or BLOCK. The screen handles several touches at once.
+- **ORDER:** hold, and the wheel opens under your finger; slide, then lift. **Tap a squad badge** at the top to select that squad.
+- **Tactical view:** in the tactical view you can **drag a squad's banner** onto the ground (move there) or onto an enemy (charge). This is the easiest way to command by touch.
+- **Help for touch** (on by default in this setup): **auto-guard** as in 4.3, and a light **aim assist** (the view drifts a little toward the enemy you are facing, and the bow aim slows over a target).
+- **Layout:** the buttons are half-transparent, can be **moved and resized** in the settings, and there's a **left-handed** mirror.
+- **All keyboard keys still work** here (J I L K included), so you can mix.
 
-### 4.3 Game controller (optional, cheap to add with the Gamepad API)
+### 4.5 Settings for each setup
+
+| Setting | Mouse | Trackpad | Touchscreen |
+|---|---|---|---|
+| Look sensitivity | ✔ | ✔ (separate) | ✔ (separate) |
+| Invert up/down | ✔ | ✔ | ✔ |
+| Acceleration | — | ✔ | — |
+| Auto-guard | off | **on** | **on** |
+| Aim / look assist | off | light | light |
+| Strike direction from movement | ✔ | ✔ | swipe |
+| Button layout editor | — | — | ✔ |
+
+Also, the same for all setups:
+- **Field of view:** 60–95°.
+- **Comfort:** head bob, camera shake.
+- **Difficulty.**
+- **Show key hints:** small key letters on the HUD, e.g. `[F] Climb`, that change with the device: a key letter, a click icon, or a button.
+
+### 4.6 Later, if wanted: a game controller
+
+The Gamepad API is cheap to add:
 
 | Control | Action |
 |---|---|
@@ -152,6 +213,8 @@ The mouse is captured with the Pointer Lock API; **Esc** releases it.
 | D-pad ↑ ← → ↓ | Follow / Hold / Charge / Form up |
 | View button | Tactical view |
 | Start | Pause |
+
+This isn't part of the first milestones.
 
 ---
 
@@ -207,7 +270,8 @@ The mouse is captured with the Pointer Lock API; **Esc** releases it.
 | Enemies attacking you at once | 1 | 2 | 3 |
 | Enemy reaction | slow | human-like | fast, feints |
 | Downed hero | always recovered | 12 s to be dragged or taken over | no taking over |
-| Aim assist on touch | strong | light | off |
+| Auto-guard (trackpad / touch) | always | on by default | off by default |
+| Aim assist (trackpad / touch) | strong | light | off |
 
 The existing save difficulty (`DIFFICULTY`) picks the column, and can be changed in the battle settings.
 
@@ -226,7 +290,7 @@ The existing save difficulty (`DIFFICULTY`) picks the column, and can be changed
 
 ### 6.2 Orders
 
-Hold **Q** or the ORDER button to open the wheel; slide to a slice, release.
+Hold **Q** (or the middle mouse button, or the ORDER button on a touchscreen) to open the wheel. Point at a slice (pointer, finger or W/A/S/D) and release.
 
 ```
                  CHARGE
@@ -254,13 +318,13 @@ Hold **Q** or the ORDER button to open the wheel; slide to a slice, release.
 - **At 25 or below,** the squad **wavers**: it stops obeying far orders. **At 0** it **breaks** and runs. You can rally a broken squad by running to it and shouting (T) within 8 m.
 - **The enemy has the same system.** Breaking their morale is how most battles are won: kill their captain, burn their banner, surprise them from two sides.
 
-### 6.4 Tactical view (Tab / two-finger tap)
+### 6.4 Tactical view (Tab)
 
 - The camera lifts out of your hero's head to an ink-wash overhead map of the battlefield.
 - **Time slows to 25%.** It does not stop, so it stays challenging.
 - Squads are shown as banners, enemies as red marks, with seen and heard enemies only (the fog of war stays).
 - **Give orders:**
-  - Drag a squad onto the ground to move it there, or onto an enemy to charge it.
+  - Drag a squad's banner (mouse, trackpad or finger) onto the ground to move it there, or onto an enemy to charge it.
   - Drag a squad to a wall to scale it, or to a gate to ram it.
 - **Leave** with Tab again. You also leave it automatically if your hero is attacked.
 
@@ -278,7 +342,7 @@ Hold **Q** or the ORDER button to open the wheel; slide to a slice, release.
 
 ### 6.6 Commanders: their skill trees become your abilities
 
-When you play a commander, the skills you learned in the War Room turn into things **you** do. The **G** key or the ABIL button uses the active one; hold G to choose between several.
+When you play a commander, the skills you learned in the War Room turn into things **you** do. The **G** key (or the ABIL button on a touchscreen) uses the active one; hold G to choose between several.
 
 | Skill (War Room) | In first person |
 |---|---|
@@ -439,8 +503,9 @@ This is the second big complaint: today's enemy bases are a few level-1 pieces i
 js/fp/
   fpmode.js       entering/leaving the mode, the loop, win/lose, results → battleEnded
   controller.js   the player: capsule movement on the heightmap, stamina, crouch, dodge, climbing
-  input-fp.js     pointer lock, keys, mouse direction for strikes, gamepad
-  touch.js        the iPad controls (stick, look-drag, buttons, order wheel, aim assist)
+  input-fp.js     the keyboard, device detection (mouse / trackpad / touch), pointer lock,
+                  strike direction from pointer movement, J/I/L/K backups, auto-guard, look assist
+  touch.js        the touchscreen: look-drag, strike/block/order buttons, multi-touch, layout editor
   viewmodel.js    the hands and weapon in front of the camera + their animations
   melee.js        strikes, guards, parries, hit zones, stagger — shared by player and AI
   ranged.js       arrows, kunai, stones, catapult boulders (projectiles with drop)
@@ -489,8 +554,8 @@ Phase 2 (after the attack battles feel good):
 
 | # | Milestone | Done when… |
 |---|---|---|
-| **M0** | **Sandbox walk** | You can walk, run, crouch and look in first person over a generated valley with a winding river, on desktop **and** iPad (touch stick + look). 60 fps on the iPad |
-| **M1** | **Melee vs a dummy** | Directional strikes, guard, parry, stamina, the view model and hit sounds. It feels good hitting a straw dummy |
+| **M0** | **Sandbox walk** | You can walk, run, crouch and look in first person over a generated valley with a winding river, with **all three setups**: keyboard + mouse, keyboard + trackpad, keyboard + touchscreen. 60 fps on the iPad |
+| **M1** | **Melee vs a dummy** | Directional strikes, guard, parry, stamina, the view model and hit sounds, with every setup (mouse direction, trackpad click and two-finger click, touch buttons with swipes, J/I/L/K). It feels good hitting a straw dummy |
 | **M2** | **One enemy** | An AI swordsman who fights by the same rules: parry cues, feints on Hard. A 1v1 is winnable but tense |
 | **M3** | **Squads and orders** | You plus two squads against a group: Follow, Hold, Charge, Form up, the order wheel, morale and breaking, the tactical view |
 | **M4** | **Places** | The generator builds all place types from the village models, at their levels, with roads, fields, clan colours and civilians hiding |
@@ -508,7 +573,7 @@ Each milestone is committed and pushed separately. While the new mode isn't fini
 
 ## 14. Questions to decide before building
 
-1. **iPad:** do you play with a keyboard or trackpad attached, or touch only? This decides whether touch or keyboard gets tuned first (the plan supports both).
+1. ~~Controls~~ **Decided:** keyboard always, plus a mouse, a trackpad or the touchscreen (§4). Each milestone is tested with all three.
 2. **Gore:** the plan keeps it clean (ink splashes, no blood pools). OK?
 3. **Death of your hero:** the rules in §3.2 (down → dragged back or take over → can die for good). Too harsh, or harsh enough?
 4. **Real time with no pause** (only the 25% slow tactical view): is that the challenge you want?
