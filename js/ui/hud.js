@@ -1,5 +1,5 @@
 // All on-screen interface: resources, clan panel, build menu with info cards, selection panel, toasts, dialogs.
-import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, TECH_LANES, TECH_LANE, KEY_TECHS, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
+import { BUILDINGS, CATEGORIES, RES, JOBS, ECON, TOWNHALL, MAX_TH, COMMANDERS, TECHS, ERAS, TECH_LANES, TECH_LANE, KEY_TECHS, COMMAND_TREES, cmdNodeCost, warGamesCost, SITES, DOJO_TRAINS, CLANS, RANKS, rankOf, xpOf, DIFFICULTY, WONDER_BP } from '../game/data.js';
 import { GUIDE, ACHIEVEMENTS } from '../game/progress.js';
 import { SEASONS } from '../game/data.js';
 import { h, fmt, fmtTime } from '../util.js';
@@ -847,6 +847,64 @@ export class Hud {
     };
     draw(true);
     this.openModal('Research', body, [{ label: 'Close' }], { wide: true });
+    this.modal.querySelector('.sheet').classList.add('xwide', 'kake-sheet');
+  }
+
+  // The war room of the Strategy Hall: each commander's skill tree, learned with command points
+  openWarRoom() {
+    const g = this.game, NS = 'http://www.w3.org/2000/svg';
+    const body = h('div', { class: 'rs warroom' }), paper = h('div', { class: 'rs-paper' });
+    const scroll = h('div', { class: 'rs-scroll' }, h('div', { class: 'kake-roll top' }), paper, h('div', { class: 'kake-roll bottom' }));
+    body.append(scroll);
+    let sel = null;
+    const draw = () => {
+      paper.textContent = '';
+      const hall = g.hallLevel();
+      paper.append(h('div', { class: 'rs-head' },
+        h('div', { class: 'rs-title', style: 'margin-top:14px' }, h('span', { class: 'rs-kanji' }, '兵法'),
+          h('span', null, h('small', null, hall ? `Strategy Hall · level ${hall} of 3` : 'No Strategy Hall yet'), h('b', null, 'The War Room'),
+            h('em', null, 'Your commanders grow in battle: every battle they survive and every 5 enemies they fell earn a command point. Spend them here. The Hall’s level opens the deeper tiers.'))),
+        hall ? null : h('p', { class: 'why' }, 'Build a Strategy Hall (Military tab) to teach your commanders.')));
+      const cols = h('div', { class: 'wr-cols' });
+      for (const [type, T] of Object.entries(COMMAND_TREES)) {
+        const pts = g.state.cmd.pts[type] || 0, games = g.state.cmd.games[type] || 0, cost = warGamesCost(games);
+        const who = [...g.villagers.values()].find(v => v.job === type);
+        const col = h('div', { class: 'wr-col' },
+          h('div', { class: 'wr-head' }, art('person', T.look, null, 'face'), h('span', null, h('b', null, T.name), h('small', null, who ? `${who.name} · ${COMMANDERS[type].ability}` : 'Not appointed yet (at the Keep)')),
+            h('span', { class: 'wr-pts' }, h('b', null, String(pts)), h('small', null, 'points'))),
+          h('div', { class: 'wr-games' }, h('small', null, 'War games: +1 point'), costChips(g, cost, this.live), h('button', { class: 'btn small ghost', disabled: hall ? null : true, onclick: () => { if (g.warGames(type)) draw(); } }, 'Hold them')));
+        // three tiers, two paths, joined by golden branches
+        const W = 300, TIER_H = 116, R = 32, top = 46, H = top + 3 * TIER_H;
+        const tree = h('div', { class: 'rs-tree', style: `width:${W}px;height:${H}px` });
+        const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('class', 'rs-svg');
+        const at = n => ({ x: W / 2 + (n.col ? 70 : -70), y: top + (n.tier - 1) * TIER_H + 20 });
+        for (const n of T.nodes) if (n.req) {
+          const a = at(T.nodes.find(x => x.id === n.req)), b = at(n), p = document.createElementNS(NS, 'path');
+          p.setAttribute('d', `M${a.x} ${a.y + R} C${a.x} ${a.y + R + 30} ${b.x} ${b.y - R - 30} ${b.x} ${b.y - R}`);
+          p.setAttribute('class', 'rs-line ' + (g.cmdHas(type, n.id) ? 'done' : g.cmdHas(type, n.req) ? 'open' : 'dim')); svg.append(p);
+        }
+        tree.append(svg);
+        for (let t = 1; t <= 3; t++) tree.append(h('div', { class: 'wr-tier' + (hall >= t ? '' : ' shut'), style: `top:${top + (t - 1) * TIER_H - 30}px` }, ['I', 'II', 'III'][t - 1] + (hall >= t ? '' : ` · Hall level ${t}`)));
+        for (const n of T.nodes) {
+          const P = at(n), done = g.cmdHas(type, n.id), why = g.cmdBlock(type, n.id), can = !done && !why;
+          const st = done ? 'done' : can ? 'full' : (why.startsWith('Needs') && why.includes('point')) ? 'open' : 'locked';
+          tree.append(h('button', { class: `rs-node ${st}${sel && sel.n === n ? ' sel' : ''}`, style: `left:${P.x - R - 6}px;top:${P.y - R - 6}px;--p:${done ? 1 : 0}`, onclick: () => { sel = { type, n }; draw(); } }, h('span', null, ['壱', '弐', '参'][n.tier - 1])),
+            h('div', { class: 'rs-label ' + st, style: `left:${P.x - 70}px;top:${P.y + R + 8}px` }, n.name));
+        }
+        col.append(h('div', { class: 'rs-treewrap' }, tree));
+        cols.append(col);
+      }
+      paper.append(cols);
+      if (sel) {
+        const { type, n } = sel, done = g.cmdHas(type, n.id), why = g.cmdBlock(type, n.id);
+        paper.append(h('div', { class: 'rs-detail ' + (done ? 'done' : why ? 'locked' : 'full') },
+          h('div', { class: 'rd-medal ' + (done ? 'done' : why ? 'locked' : 'full') }, ['壱', '弐', '参'][n.tier - 1]),
+          h('div', { class: 'rd-text' }, h('b', null, n.name), h('small', null, `${COMMAND_TREES[type].name} · tier ${['I', 'II', 'III'][n.tier - 1]} · costs ${cmdNodeCost(n.tier)} point${n.tier > 1 ? 's' : ''}`), h('p', null, n.desc)),
+          h('div', { class: 'rd-act' }, done ? h('span', { class: 'hanko' }, '学') : why ? h('p', { class: 'why' }, why) : h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => { if (g.learnCmd(type, n.id)) draw(); } }, 'Learn it')))));
+      }
+    };
+    draw();
+    this.openModal('The War Room', body, [{ label: 'Close' }], { wide: true });
     this.modal.querySelector('.sheet').classList.add('xwide', 'kake-sheet');
   }
 

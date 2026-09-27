@@ -234,7 +234,7 @@ export const BUILDINGS = {
   shoin:      { name: 'Scholars\u2019 Pavilion', kanji: '書院', cat: 'village', size: [3, 3], cost: { wood: 80, stone: 30 }, time: 50, h: 6, th: 1, unique: true, maxLevel: 5,
                 desc: 'Scholars copy scrolls and argue by the pond. This is where your clan does its research: Wisdom gathers here, faster and with more room at every level.' },
   strategy:   { name: 'Strategy Hall', kanji: '兵法堂', cat: 'military', size: [3, 3], cost: { wood: 160, stone: 90, gold: 50 }, time: 80, h: 5, th: 2, unique: true, maxLevel: 3,
-                desc: 'Scholars gather Wisdom here: more Wisdom every minute, and room to store much more of it. Upgrade it for more.' },
+                desc: 'The war room of your clan: your commanders learn their skills here with the command points they earn in battle. Each level opens a deeper tier of skills — and its scholars add Wisdom.' },
   // ---- Great Buildings (wonders) ----
   kinkaku:  { name: 'Kinkaku-ji', kanji: '金閣寺', cat: 'wonder', size: [4, 4], cost: { wood: 400, stone: 250, gold: 300 }, time: 150, h: 9, th: 3, unique: true, wonder: { era: 3, bonus: 'mood' },
               desc: 'The Golden Pavilion beside its mirror pond. Your people are proud and content: more mood with every level.' },
@@ -328,8 +328,8 @@ export const TECH_LANE = {
   arch1: 'bow', arch2: 'bow', arch3: 'bow', arch4: 'bow', arch5: 'bow', arch6: 'bow',
   def1: 'wall', def2: 'wall', def3: 'wall', def4: 'wall', def5: 'wall',
   siege1: 'siege', siege2: 'siege', siege3: 'siege', siege4: 'siege',
-  tate: 'unit', ninjutsu: 'unit', sohei: 'unit', bushido: 'unit', catapults: 'unit', taisho: 'unit', cmd6: 'unit',
-  horse: 'cmd', cmd1: 'cmd', oni: 'cmd', cmd2: 'cmd', cmd5: 'cmd', cmd3: 'cmd', cmd4: 'cmd',
+  tate: 'unit', ninjutsu: 'unit', sohei: 'unit', bushido: 'unit', catapults: 'unit', horse: 'unit',
+  oni: 'cmd', taisho: 'cmd',
 };
 export const KEY_TECHS = ['keep2', 'keep3', 'keep4', 'keep5', 'mandate'];
 
@@ -367,30 +367,24 @@ export const TECHS = [
   { id: 'arch5', era: 4, row: 1, req: ['arch2', 'keep4'], name: 'Bodkin Points', desc: 'Arrows punch through armour: another 15% damage.', pts: 22, cost: { gold: 200, stone: 100 }, fx: { archDmg: 0.15 } },
   { id: 'def4', era: 4, row: 2, req: ['def2', 'keep4'], name: 'Bounty Hunters', desc: 'Double gold for every raider your people defeat.', pts: 20, cost: { gold: 160, wheat: 150 }, fx: { bounty: 1 } },
   { id: 'def5', era: 4, row: 3, req: ['def3', 'keep4'], name: 'Stone Keep', desc: 'Walls, gates and palisades another 30% stronger.', pts: 24, cost: { gold: 260, stone: 300 }, fx: { wallHp: 0.3 } },
-  { id: 'cmd1', era: 4, row: 4, req: ['keep4'], name: 'Iron Hide', desc: 'Commanders have 30% more health.', pts: 22, cost: { gold: 150, stone: 100 }, fx: { cmdHp: 0.3 } },
   { id: 'siege2', era: 4, row: 5, req: ['siege1', 'keep4'], name: 'Iron-Capped Ram', desc: 'Rams hit gates and walls 40% harder.', pts: 22, cost: { gold: 200, stone: 150 }, fx: { ramDmg: 0.4 } },
   { id: 'siege3', era: 4, row: 6, req: ['siege1', 'keep4'], name: 'Carpenters’ Guild', desc: 'Rams and catapults are built 40% faster.', pts: 20, cost: { gold: 150, wood: 200 }, fx: { ramBuild: 0.4 } },
   { id: 'log4', era: 4, row: 7, req: ['log3', 'keep4'], name: 'Supply Lines', desc: 'Marches cost half the wheat.', pts: 22, cost: { gold: 260, wheat: 200 }, fx: { supply: 1 } },
   { id: 'bushido', era: 4, row: 9, req: ['tate', 'keep4'], unit: true, name: 'Bushid\u014d', desc: 'The Dojo can train Samurai: sworn warriors in lacquered armour, twice as tough as a spearman.', pts: 22, cost: { gold: 200, iron: 30 }, fx: {} },
   { id: 'oni', era: 4, row: 10, req: ['keep4'], unit: true, name: 'Oni Captains', desc: 'You can appoint a Berserker commander at the Keep: he climbs walls and draws the enemy\u2019s fire.', pts: 24, cost: { gold: 200, wheat: 150 }, fx: {} },
   { id: 'catapults', era: 4, row: 11, req: ['siege1', 'keep4'], unit: true, name: 'Siege Engines', desc: 'The Siege Workshop can build catapults that smash walls and towers from afar.', pts: 24, cost: { wood: 300, gold: 150 }, fx: {} },
-  { id: 'keep5', era: 4, row: 8, key: true, req: ['def5', 'cmd1', 'siege2'], name: 'The Great Keep', desc: 'Opens the era of the Contender: the Keep can grow to level 5.', pts: 36, cost: { wood: 800, stone: 900, gold: 400 }, fx: {} },
+  { id: 'keep5', era: 4, row: 8, key: true, req: ['def5', 'siege2', 'bushido'], name: 'The Great Keep', desc: 'Opens the era of the Contender: the Keep can grow to level 5.', pts: 36, cost: { wood: 800, stone: 900, gold: 400 }, fx: {} },
   // era 5: contender for the realm
   { id: 'spear6', era: 5, row: 0, req: ['spear3', 'spear5', 'keep5'], name: 'Way of the Yari', desc: 'Spearmen hit another 20% harder.', pts: 32, cost: { gold: 380, wheat: 250 }, fx: { spearDmg: 0.2 } },
   { id: 'arch6', era: 5, row: 1, req: ['arch4', 'arch5', 'keep5'], name: 'Master of the Bow', desc: 'Archers shoot 15% further and 10% faster.', pts: 32, cost: { gold: 380, wood: 250 }, fx: { archRange: 0.15, archFast: 0.1 } },
-  { id: 'cmd2', era: 5, row: 2, req: ['cmd1', 'keep5'], name: 'Quick Climb', desc: 'Commander abilities recharge 30% faster.', pts: 30, cost: { gold: 240, wood: 150 }, fx: { cmdCd: 0.3 } },
-  { id: 'cmd5', era: 5, row: 3, req: ['cmd1', 'keep5'], name: 'War Council', desc: 'Commanders have another 20% more health.', pts: 30, cost: { gold: 240, stone: 150 }, fx: { cmdHp: 0.2 } },
   { id: 'siege4', era: 5, row: 4, req: ['siege2', 'siege3', 'keep5'], name: 'Swinging Crew', desc: 'Rams hit another 30% harder.', pts: 32, cost: { gold: 320, stone: 200 }, fx: { ramDmg: 0.3 } },
   { id: 'log5', era: 5, row: 5, req: ['log4', 'keep5'], name: 'Mountain Guides', desc: 'Scouts travel another 25% faster.', pts: 28, cost: { gold: 200, wheat: 150 }, fx: { scoutSpeed: 1 } },
   { id: 'granary', era: 5, row: 6, req: ['keep5'], name: 'Rice Tax Registers', desc: 'Your storehouses and Keep hold 25% more.', pts: 30, cost: { gold: 300, wood: 300 }, fx: { storageBoost: 0.25 } },
   { id: 'taisho', era: 5, row: 8, req: ['oni', 'keep5'], unit: true, name: 'The Taish\u014d', desc: 'You can appoint a Taish\u014d commander at the Keep: his banner makes nearby troops fight harder.', pts: 30, cost: { gold: 320, wood: 200 }, fx: {} },
-  { id: 'mandate', era: 5, row: 7, key: true, req: ['spear6', 'arch6', 'cmd5'], name: 'Imperial Mandate', desc: 'Opens the Shogunate era: the last Great Buildings — and the Emperor’s leave to march on the Shogun’s castle and rule the realm.', pts: 48, cost: { gold: 1000, sake: 100, iron: 100 }, fx: {} },
+  { id: 'mandate', era: 5, row: 7, key: true, req: ['spear6', 'arch6', 'taisho'], name: 'Imperial Mandate', desc: 'Opens the Shogunate era: the last Great Buildings — and the Emperor’s leave to march on the Shogun’s castle and rule the realm.', pts: 48, cost: { gold: 1000, sake: 100, iron: 100 }, fx: {} },
   // era 6: the shogunate
-  { id: 'cmd3', era: 6, row: 0, req: ['cmd2', 'mandate'], name: 'Bloodlust', desc: 'The Berserker heals with every enemy he fells.', pts: 45, cost: { gold: 360, wheat: 200 }, fx: { bloodlust: 1 } },
-  { id: 'cmd4', era: 6, row: 1, req: ['cmd5', 'mandate'], name: 'Banner of Courage', desc: 'The Taishō’s aura and rally are twice as strong.', pts: 45, cost: { gold: 400, stone: 250 }, fx: { banner: 1 } },
-  { id: 'cmd6', era: 6, row: 2, req: ['cmd3', 'cmd4'], name: 'Living Legend', desc: 'Commander abilities recharge another 20% faster.', pts: 55, cost: { gold: 600, wheat: 300 }, fx: { cmdCd: 0.2 } },
   { id: 'survey', era: 6, row: 3, req: ['mandate'], name: 'Taikō’s Land Survey', desc: 'All fields, camps, quarries and mines yield 20% more.', pts: 55, cost: { gold: 500, stone: 300 }, fx: { prodBoost: 0.2, farmBoost: 0.2 } },
-  { id: 'realm', era: 6, row: 4, req: ['survey', 'cmd6'], name: 'Rule of the Realm', desc: 'Peace under one banner: +15 mood in your village, and every clan thinks better of you.', pts: 70, cost: { gold: 800, sake: 150 }, fx: { realm: 1 } },
+  { id: 'realm', era: 6, row: 4, req: ['survey'], name: 'Rule of the Realm', desc: 'Peace under one banner: +15 mood in your village, and every clan thinks better of you.', pts: 70, cost: { gold: 800, sake: 150 }, fx: { realm: 1 } },
 ];
 
 // Great Buildings: unique wonders. Gather 5 blueprints (from raids you beat off, battles you win,
@@ -398,3 +392,27 @@ export const TECHS = [
 export const WONDER_BP = 5;
 export const WONDER_MAX = 10;
 export const wonderLevelCost = L => 10 + 8 * L;   // Wisdom to go from level L to L+1
+
+// Commanders' skill trees, learned at the Strategy Hall with command points. Commanders earn points by
+// fighting (every battle they survive, every 5 enemies they fell); war games at the Hall buy more.
+// Tier II and III need a Strategy Hall of level 2 and 3.
+export const COMMAND_TREES = {
+  berserker: { name: 'Berserker', look: 'berserker', nodes: [
+    { id: 'b_hide', tier: 1, col: 0, name: 'Iron Hide', desc: 'The Berserker has 30% more health.', fx: { hp: 0.3 } },
+    { id: 'b_str', tier: 1, col: 1, name: 'Oni Strength', desc: 'He hits 25% harder.', fx: { dmg: 0.25 } },
+    { id: 'b_climb', tier: 2, col: 0, req: 'b_hide', name: 'Quick Climb', desc: 'Scale the Wall recharges 35% faster.', fx: { cd: 0.35 } },
+    { id: 'b_cleave', tier: 2, col: 1, req: 'b_str', name: 'Great Cleave', desc: 'His swings reach 50% wider, and everyone caught takes full damage.', fx: { cleave: 1 } },
+    { id: 'b_blood', tier: 3, col: 0, req: 'b_climb', name: 'Bloodlust', desc: 'He heals with every enemy he fells.', fx: { bloodlust: 1 } },
+    { id: 'b_unstop', tier: 3, col: 1, req: 'b_cleave', name: 'Unstoppable', desc: 'Scale the Wall lasts twice as long, and meanwhile he takes only a quarter of the damage.', fx: { unstop: 1 } },
+  ] },
+  taisho: { name: 'Taish\u014d', look: 'taisho', nodes: [
+    { id: 't_council', tier: 1, col: 0, name: 'War Council', desc: 'The Taish\u014d has 30% more health.', fx: { hp: 0.3 } },
+    { id: 't_wide', tier: 1, col: 1, name: 'Tall Banner', desc: 'His banner and his rally reach 50% further.', fx: { aura: 0.5 } },
+    { id: 't_orders', tier: 2, col: 0, req: 't_council', name: 'Swift Orders', desc: 'Rally Banner recharges 35% faster.', fx: { cd: 0.35 } },
+    { id: 't_courage', tier: 2, col: 1, req: 't_wide', name: 'Banner of Courage', desc: 'His aura and his rally are twice as strong.', fx: { banner: 1 } },
+    { id: 't_legend', tier: 3, col: 0, req: 't_orders', name: 'Living Legend', desc: 'While he lives, every one of your soldiers in the battle strikes 10% harder.', fx: { legend: 1 } },
+    { id: 't_iron', tier: 3, col: 1, req: 't_courage', name: 'Iron Discipline', desc: 'Troops under his banner take 20% less damage.', fx: { discipline: 1 } },
+  ] },
+};
+export const cmdNodeCost = tier => tier;                  // command points
+export const warGamesCost = n => ({ gold: 150 + 100 * n, wheat: 100 + 50 * n });

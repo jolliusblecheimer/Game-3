@@ -429,8 +429,8 @@ export class Battle {
     const U = UNITS[type], mine = team === 0, rb = k => (mine ? this.rb(k) : 0);
     const spear = type === 'ashigaru', archer = type === 'archer', cmd = type === 'berserker' || type === 'taisho', ram = type === 'ram' || type === 'enemy_ram';
     return {
-      hp: U.hp * HP_SCALE * (1 + (mine ? (this.forge || 0) * 0.5 : 0) + (spear ? rb('spearHp') : 0) + (cmd ? rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
-      dmg: U.dmg * (1 + (mine ? this.forge || 0 : 0) + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
+      hp: U.hp * HP_SCALE * (1 + (mine ? (this.forge || 0) * 0.5 : 0) + (spear ? rb('spearHp') : 0) + (cmd && mine ? this.game.cmdFx(type, 'hp') + rb('cmdHp') : 0) + (ram ? rb('ramHp') : 0)),
+      dmg: U.dmg * (1 + (mine ? this.forge || 0 : 0) + (cmd && mine ? this.game.cmdFx(type, 'dmg') : 0) + (spear ? rb('spearDmg') : 0) + (archer ? rb('archDmg') : 0) + (ram ? rb('ramDmg') : 0)),
       cd: U.cd / (1 + (spear ? rb('spearFast') : 0) + (archer ? rb('archFast') : 0)),
       range: U.range * (1 + (archer ? rb('archRange') : 0)) * (this.cond.rain && U.ranged && !U.siege ? 0.85 : 1),
       speed: U.speed * (1 + (spear ? rb('spearFast') : 0)) * (this.cond.snow ? 0.88 : 1),
@@ -619,11 +619,12 @@ export class Battle {
   }
   ability(u, point) {
     if (u.dead || u.abilityCd > 0) return false;
-    const cdMult = 1 - this.rb('cmdCd');
+    const G = this.game;
     if (u.type === 'berserker') {
       if (!point) return false;
+      const long = G.cmdFx('berserker', 'unstop') ? 20 : 10;
       u.climbing = { x: point.x, z: point.z }; u.path = null; u.target = null; u.order = { kind: 'idle' }; u.post = null;
-      u.buffs.taunt = 10; u.buffs.shield = 10; u.abilityCd = 35 * cdMult;
+      u.buffs.taunt = long; u.buffs.shield = long; if (long > 10) u.buffs.iron = long; u.abilityCd = 35 * (1 - G.cmdFx('berserker', 'cd'));
       this.shout(u, 'Scale the Wall!');
       if (!this.alarm) this.raiseAlarm(u);
       return true;
@@ -640,9 +641,9 @@ export class Battle {
       return true;
     }
     if (u.type === 'taisho') {
-      const big = this.rb('banner') ? 2 : 1;
-      for (const o of this.units) if (o.team === 0 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < 14) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.3 * big); o.buffs.rally = 8 * big; }
-      u.abilityCd = 40 * cdMult; this.shout(u, 'Rally to the banner!');
+      const big = G.cmdFx('taisho', 'banner') ? 2 : 1, reach = 14 * (1 + G.cmdFx('taisho', 'aura'));
+      for (const o of this.units) if (o.team === 0 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < reach) { o.hp = Math.min(o.maxHp, o.hp + o.maxHp * 0.3 * big); o.buffs.rally = 8 * big; }
+      u.abilityCd = 40 * (1 - G.cmdFx('taisho', 'cd')); this.shout(u, 'Rally to the banner!');
       return true;
     }
     return false;
@@ -1047,7 +1048,12 @@ export class Battle {
       if (!t.dead) { t.sus = 1.2; this.raiseAlarm(t); }
       return;
     }
-    if (u.team === 0) for (const o of this.units) if (o.type === 'taisho' && !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < 10) { dmg *= this.rb('banner') ? 1.4 : 1.2; break; }
+    if (u.team === 0) {
+      const G = this.game, reach = 10 * (1 + G.cmdFx('taisho', 'aura'));
+      for (const o of this.units) if (o.type === 'taisho' && o.team === 0 && !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < reach) { dmg *= G.cmdFx('taisho', 'banner') ? 1.4 : 1.2; break; }
+      if (G.cmdFx('taisho', 'legend') && this.units.some(o => o.type === 'taisho' && o.team === 0 && !o.dead && !o.fled)) dmg *= 1.1;
+      if (u.type === 'berserker' && G.cmdFx('berserker', 'cleave')) u._bigCleave = true;
+    }
     // attacking gives you away
     if (u.team === 0 && !this.defend) {
       const near = this.units.some(o => o.team === 1 && !o.dead && Math.hypot(o.x - u.x, o.z - u.z) < (u.hidden ? 7 : 16));
@@ -1065,7 +1071,7 @@ export class Battle {
       u.swing = 0.5; return;
     }
     this.damage(t, dmg, u); u.swing = 0.35; this.game.sfx('clash');
-    if (u.U.cleave) for (const o of this.units) if (o.team !== u.team && !o.dead && o !== t && Math.hypot(o.x - t.x, o.z - t.z) < u.U.cleave && this.canHit(u, o)) this.damage(o, dmg * 0.6, u);
+    if (u.U.cleave) { const wide = u._bigCleave ? 1.5 : 1, share = u._bigCleave ? 1 : 0.6; for (const o of this.units) if (o.team !== u.team && !o.dead && o !== t && Math.hypot(o.x - t.x, o.z - t.z) < u.U.cleave * wide && this.canHit(u, o)) this.damage(o, dmg * share, u); }
   }
   damage(t, dmg, from) {
     if (t.isStruct) {
@@ -1077,6 +1083,8 @@ export class Battle {
     }
     if (t.dead) return;
     if (t.buffs.shield) dmg *= 0.5;
+    if (t.buffs.iron) dmg *= 0.5;
+    if (t.team === 0 && !t.isStruct && this.game.cmdFx('taisho', 'discipline')) { const reach = 10 * (1 + this.game.cmdFx('taisho', 'aura')); if (this.units.some(o => o.type === 'taisho' && o.team === 0 && !o.dead && Math.hypot(o.x - t.x, o.z - t.z) < reach)) dmg *= 0.8; }
     if (from && !from.U?.ranged) this.burst(t.x, (t.y || 0) + 1.3, t.z, Math.random() < 0.5 ? '#ffe2a8' : '#9e2a22', 3, 2);
     if (from && !from.isStruct && this.inside(t.x, t.z) && t.team === (this.defend ? 0 : 1) && !this.inside(from.x, from.z)) dmg *= FORTIFIED; // behind their own walls
     if (t.team === 0 && t.type === 'ashigaru' && t.order.kind === 'hold') dmg *= 1 - this.rb('spearWall');
@@ -1097,7 +1105,7 @@ export class Battle {
     if (t.hp <= 0) {
       this.kill(t);
       if (from && from.team === 0 && t.team === 1 && !from.isStruct) from.kills = (from.kills || 0) + 1;
-      if (from && from.type === 'berserker' && from.team === 0 && this.rb('bloodlust')) from.hp = Math.min(from.maxHp, from.hp + from.maxHp * 0.12);
+      if (from && from.type === 'berserker' && from.team === 0 && this.game.cmdFx('berserker', 'bloodlust')) from.hp = Math.min(from.maxHp, from.hp + from.maxHp * 0.12);
     }
   }
   kill(u) {

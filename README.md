@@ -296,3 +296,14 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Kyūdō Range and Dojo:** each level lets one more trainee train at a time, and training goes 25% faster.
   - The Range's masters drill **all** your archers: +5% range and +4% damage per level above 1. The Dojo's masters give all spearmen +4% damage per level.
   - Graduates of an upgraded school leave with experience. From level 3 they are already **Veterans ★**.
+
+## The War Room (Strategy Hall)
+- The Strategy Hall is where your **commanders learn their skills**. Each commander has his own skill tree, with three tiers of two paths:
+  - **Berserker:** Iron Hide, Oni Strength → Quick Climb, Great Cleave → Bloodlust, Unstoppable.
+  - **Taishō:** War Council, Tall Banner → Swift Orders, Banner of Courage → Living Legend, Iron Discipline.
+- **Command points:**
+  - Commanders earn them by fighting: every battle they survive, and every 5 enemies they fell.
+  - **War games** at the Hall buy extra points for goods, and cost more each time.
+  - Skills cost 1, 2 or 3 points by tier.
+- The Hall's level opens the tiers: level 2 opens tier II, level 3 opens tier III. Its scholars still add Wisdom.
+- Commander skills are no longer part of the era research. Anything already researched carries over.

@@ -722,3 +722,18 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 .upgrade .perk { margin: 2px 0 4px; font-size: 13px; color: #4a3f33; }
 .upgrade .perk b { color: #2b2118; }
+
+/* the war room */
+.wr-cols { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; padding: 6px 16px; }
+.wr-col { flex: 1 1 300px; max-width: 380px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: rgba(0, 0, 0, .25); border: 1px solid #5b4a2e; border-radius: 12px; padding: 10px; }
+.wr-head { display: flex; align-items: center; gap: 10px; width: 100%; }
+.wr-head span { display: flex; flex-direction: column; flex: 1; }
+.wr-head b { font: 700 18px var(--mincho); color: #f3e6c4; }
+.wr-head small { color: #a8987a; }
+.wr-pts { align-items: center; flex: 0 0 auto !important; background: #3a2a14; border: 1px solid #c9962f; border-radius: 10px; padding: 2px 10px; }
+.wr-pts b { color: #f3d58a !important; font-size: 20px !important; }
+.wr-games { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+.wr-games small { color: #a8987a; margin-right: auto; }
+.wr-games .cost .c { color: #e9dcc0; }
+.wr-tier { position: absolute; left: 0; width: 100%; text-align: center; font: 700 11px var(--mincho); letter-spacing: .2em; color: #c9962f; }
+.wr-tier.shut { color: #6e6352; }

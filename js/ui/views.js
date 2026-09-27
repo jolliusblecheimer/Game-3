@@ -716,10 +716,13 @@ export class Views {
         h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, icon('wisdom', 16), 'Open the research tree')));
     }
     if (b.type === 'strategy' && b.done) {
-      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, 'Scholars')),
-        h('p', { class: 'sub' }, `Wisdom: +${g.wisdomRate().toFixed(1)} a minute, room for ${g.wisdomCap()}. Every level of the hall adds more.`),
-        h('button', { class: 'btn', onclick: () => this.hud.openResearch() }, icon('wisdom', 16), 'Open research')));
+      const pts = Object.entries(g.state.cmd.pts).map(([t, n]) => `${t === 'berserker' ? 'Berserker' : 'Taishō'} ${n}`).join(' · ');
+      p.append(h('div', { class: 'jobs' }, h('div', { class: 'jrow' }, icon('katana', 20), h('b', null, 'The War Room')),
+        h('p', { class: 'sub' }, `Your commanders’ skill trees. Command points: ${pts}. Tier ${['I', 'II', 'III'][Math.min(3, b.level) - 1]} is open${b.level < 3 ? ' — upgrade the Hall for the next tier' : ''}.`),
+        h('button', { class: 'btn', onclick: () => this.hud.openWarRoom() }, icon('katana', 16), 'Open the war room'),
+        h('p', { class: 'sub' }, `Scholars here also add Wisdom: +${(0.6 * b.level).toFixed(1)} a minute.`)));
     }
+
     if (b.def.wonder && b.done) {
       const need = wonderLevelCost(b.level), have = b.gbPts || 0;
       p.append(h('div', { class: 'jobs wonderbox' }, h('div', { class: 'jrow' }, icon('wisdom', 20), h('b', null, `Great Building · level ${b.level} of ${WONDER_MAX}`)),

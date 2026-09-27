@@ -1,6 +1,6 @@
 // The village simulation: buildings (with levels), villagers, resources, time, saving.
 import * as THREE from 'three';
-import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
+import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY, COMMAND_TREES, cmdNodeCost, warGamesCost } from './data.js';
 
 // what the masters of the Dojo and the Kyūdō Range teach every soldier of their kind, per level above 1
 const DRILL_FX = { archRange: [['kyudojo', 0.05]], archDmg: [['kyudojo', 0.04]], spearDmg: [['dojo', 0.04]] };
@@ -38,7 +38,7 @@ export class Game {
     this.state = {
       seed, res: { ...START.res }, clock: 0, time: 0.3, day: 1, nextId: 1,
       settings: { welcome: true }, stats: { arrived: 0, trained: 0, raidsBeaten: 0 },
-      arriveT: 0, eatAcc: 0, research: { done: [], pts: {} }, wisdom: 3, blueprints: {},
+      arriveT: 0, eatAcc: 0, research: { done: [], pts: {} }, wisdom: 3, blueprints: {}, cmd: { skills: { berserker: [], taisho: [] }, pts: { berserker: 0, taisho: 0 }, games: { berserker: 0, taisho: 0 } },
     };
     this.listeners = new Set();
     this.version = 0;
@@ -160,6 +160,11 @@ export class Game {
     if (!v) return;
     const before = rankOf(v);
     v.kills = (v.kills || 0) + kills; v.battles = (v.battles || 0) + battles;
+    if (COMMAND_TREES[v.job]) {
+      const C = this.state.cmd, before = Math.floor((v.cmdKills || 0) / 5); v.cmdKills = (v.cmdKills || 0) + kills;
+      const got = battles + Math.floor(v.cmdKills / 5) - before;
+      if (got > 0) { C.pts[v.job] = (C.pts[v.job] || 0) + got; this.toast(`+${got} command point${got > 1 ? 's' : ''} for the ${COMMAND_TREES[v.job].name} \u2014 learn skills at the Strategy Hall`); }
+    }
     const now = rankOf(v);
     if (now > before) { const R = RANKS[now]; this.sfx('fanfare'); this.toast(`${v.name} is now ${now === 1 ? 'a' : 'an'} ${R.name} ${R.stars}!`); this.progress.log(`${v.name} rose to ${R.name}.`, 'war'); }
   }
@@ -229,6 +234,32 @@ export class Game {
   }
   startResearch(id) { return this.investTech(id); }
 
+  /* ---------- commanders' skill trees (Strategy Hall) ---------- */
+  cmdFx(type, key) { let v = 0; const T = COMMAND_TREES[type]; if (!T) return 0; for (const id of this.state.cmd.skills[type] || []) { const n = T.nodes.find(n => n.id === id); if (n && n.fx[key]) v += n.fx[key]; } return v; }
+  cmdHas(type, id) { return (this.state.cmd.skills[type] || []).includes(id); }
+  cmdBlock(type, id) {
+    const n = COMMAND_TREES[type].nodes.find(n => n.id === id);
+    if (this.cmdHas(type, id)) return 'Learned';
+    if (this.hallLevel() < n.tier) return this.hallLevel() ? `Needs a Strategy Hall of level ${n.tier}` : 'Build a Strategy Hall';
+    if (n.req && !this.cmdHas(type, n.req)) return `Needs ${COMMAND_TREES[type].nodes.find(x => x.id === n.req).name}`;
+    if ((this.state.cmd.pts[type] || 0) < cmdNodeCost(n.tier)) return `Needs ${cmdNodeCost(n.tier)} command point${n.tier > 1 ? 's' : ''}`;
+    return '';
+  }
+  learnCmd(type, id) {
+    const why = this.cmdBlock(type, id); if (why) { this.toast(why, 'warn'); return false; }
+    const n = COMMAND_TREES[type].nodes.find(n => n.id === id);
+    this.state.cmd.pts[type] -= cmdNodeCost(n.tier); this.state.cmd.skills[type].push(id);
+    this.sfx('fanfare'); this.toast(`The ${COMMAND_TREES[type].name} learns ${n.name}!`); this.progress.log(`Your ${COMMAND_TREES[type].name} learned ${n.name}.`, 'war');
+    this.emit('cmd'); return true;
+  }
+  // war games at the Strategy Hall: a command point for goods
+  warGames(type) {
+    if (!this.hallLevel()) { this.toast('Build a Strategy Hall first', 'warn'); return false; }
+    const C = this.state.cmd, cost = warGamesCost(C.games[type] || 0);
+    if (!this.canAfford(cost)) { this.toast('Not enough for the war games', 'warn'); return false; }
+    this.pay(cost); C.games[type] = (C.games[type] || 0) + 1; C.pts[type] = (C.pts[type] || 0) + 1;
+    this.toast(`War games at the Strategy Hall: +1 command point for the ${COMMAND_TREES[type].name}`); this.emit('cmd'); return true;
+  }
   /* ---------- Great Buildings ---------- */
   wonderLevel(type) { for (const b of this.buildings.values()) if (b.type === type && this.works(b)) return b.level; return 0; }
   blueprints(type) { return (this.state.blueprints || {})[type] || 0; }
@@ -719,7 +750,7 @@ export class Game {
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
       marks: [...this.clearMarks.values()].map(m => [m.kind, m.cx, m.cz]),
       raids: this.raids.serialize(),
-      research: { done: S.research.done, pts: S.research.pts || {} }, wisdom: +(+S.wisdom || 0).toFixed(2), blueprints: S.blueprints || {},
+      research: { done: S.research.done, pts: S.research.pts || {} }, wisdom: +(+S.wisdom || 0).toFixed(2), blueprints: S.blueprints || {}, cmd: S.cmd,
       country: this.country.serialize(),
       clans: this.clans.serialize(), progress: this.progress.serialize(), life: this.life.serialize(),
     };
@@ -785,6 +816,9 @@ export class Game {
       const A = s.research.active; if (A && this.researchNode(A.id) && !S.research.done.includes(A.id)) S.research.pts[A.id] = Math.ceil(this.researchNode(A.id).node.pts / 2);
     }
     S.wisdom = typeof s.wisdom === 'number' ? s.wisdom : 6; S.blueprints = s.blueprints || {};
+    if (s.cmd && s.cmd.skills) S.cmd = { skills: { berserker: [], taisho: [], ...s.cmd.skills }, pts: { berserker: 0, taisho: 0, ...(s.cmd.pts || {}) }, games: { berserker: 0, taisho: 0, ...(s.cmd.games || {}) } };
+    const oldCmd = { cmd1: [['berserker', 'b_hide'], ['taisho', 't_council']], cmd5: [['taisho', 't_council']], cmd2: [['berserker', 'b_hide'], ['berserker', 'b_climb'], ['taisho', 't_wide'], ['taisho', 't_orders']], cmd3: [['berserker', 'b_hide'], ['berserker', 'b_climb'], ['berserker', 'b_blood']], cmd4: [['taisho', 't_wide'], ['taisho', 't_courage']], cmd6: [['berserker', 'b_str'], ['berserker', 'b_cleave'], ['berserker', 'b_unstop'], ['taisho', 't_council'], ['taisho', 't_orders'], ['taisho', 't_legend']] };
+    for (const id of (s.research && s.research.done) || []) for (const [type, node] of oldCmd[id] || []) if (!S.cmd.skills[type].includes(node)) S.cmd.skills[type].push(node);
     // (old saves: a Keep that already grew counts as having reached those eras)
     for (let L = 2; L <= this.thLevel; L++) if (!S.research.done.includes('keep' + L)) S.research.done.push('keep' + L);
     // (old saves: troops that used to come with the Keep level stay available)
