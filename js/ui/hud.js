@@ -42,7 +42,7 @@ export class Hud {
     this.build();
     game.on((type, data) => this.onGame(type, data));
     game.onSfx = kind => this.sfx(kind);
-    this.root.classList.toggle('lefty', !!this.settings.lefty);
+    this.root.classList.toggle('lefty', !!this.settings.lefty); this.applySite();
   }
   raidOrder(kind) {
     const R = this.game.raids; if (!R.alarmed) return;
@@ -60,7 +60,15 @@ export class Hud {
     this.updBanner = h('div', { class: 'updbanner' }, h('b', null, 'A new version of Tenka is ready'), h('button', { class: 'btn small', onclick: go }, 'Update now'), h('button', { class: 'btn small ghost', onclick: () => { this.updBanner.remove(); } }, 'Later'));
     this.root.append(this.updBanner);
   }
-  applyLayout() { this.root.classList.toggle('lefty', !!this.settings.lefty); this.layout(); }
+  applyLayout() { this.root.classList.toggle('lefty', !!this.settings.lefty); this.applySite(); this.layout(); }
+  // "PC site" or "mobile site", like a browser's "request desktop site". Auto follows the screen.
+  applySite() {
+    const site = this.settings.site || 'auto', H = document.documentElement;
+    H.classList.toggle('site-pc', site === 'pc'); H.classList.toggle('site-mobile', site === 'mobile');
+    // the PC site on a small screen: lay the page out 1280 wide and let the browser shrink it, like a desktop page
+    const meta = document.querySelector('meta[name=viewport]'), small = Math.min(screen.width, screen.height) < 820 && Math.max(screen.width, screen.height) < 1100;
+    if (meta) meta.setAttribute('content', site === 'pc' && small ? 'width=1280, viewport-fit=cover' : 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+  }
   saveSettings() { try { localStorage.setItem('tenka.ui', JSON.stringify(this.settings)); } catch (_) { /* ignore */ } }
   attach(input, cam, saver) { this.input = input; this.cam = cam; this.saver = saver; }
 
@@ -959,6 +967,9 @@ export class Hud {
       toggle('Sound effects', () => this.settings.sound, v => { this.settings.sound = v; this.saveSettings(); this.sound('click'); }),
       h('div', { class: 'row' }, h('span', null, 'Difficulty: '), Object.entries(DIFFICULTY).map(([k, D]) => h('button', { class: 'btn small ' + ((s.difficulty || 'normal') === k ? '' : 'ghost'), title: D.desc, onclick: e => { s.difficulty = k; this.toast(`Difficulty: ${D.name} — ${D.desc}`); e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, D.name))),
       h('div', { class: 'row' }, h('span', null, 'Fastest game speed: '), [3, 5, 10].map(n => h('button', { class: 'btn small ' + ((this.settings.maxSpeed || 3) === n ? '' : 'ghost'), onclick: e => { this.settings.maxSpeed = n; if (this.speed > n) this.speed = n; this.saveSettings(); e.target.parentNode.querySelectorAll('button').forEach(b => b.classList.toggle('ghost', b !== e.target)); } }, n + '\u00d7'))),
+      h('div', { class: 'row sitepick' }, h('span', null, 'Site: '), [['auto', 'Auto'], ['pc', 'PC site'], ['mobile', 'Mobile site']].map(([k, label]) => h('button', { class: 'btn small ' + ((this.settings.site || 'auto') === k ? '' : 'ghost'),
+        title: { auto: 'Follows your screen size', pc: 'The full desktop layout, even on a small screen or a tablet', mobile: 'The compact touch layout with bigger buttons, even on a big screen' }[k],
+        onclick: e => { this.settings.site = k; this.saveSettings(); this.applyLayout(); for (const b of e.target.parentNode.querySelectorAll('button')) b.classList.toggle('ghost', b !== e.target); } }, label))),
       toggle('Left-handed layout (Map, Turn and Move buttons on the left)', () => this.settings.lefty, v => { this.settings.lefty = v; this.saveSettings(); this.applyLayout(); }),
       toggle('Keep it smooth: lower the resolution automatically when the game slows down', () => this.settings.autoRes !== false, v => { this.settings.autoRes = v; this.saveSettings(); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),

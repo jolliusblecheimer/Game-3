@@ -93,6 +93,7 @@ You no longer watch battles from the sky. You **are** one of your soldiers: a sp
 - **Only looking, striking and blocking** change with the pointing device.
 - The game **detects the device on its own** from the pointer event type: mouse or trackpad give `pointerType 'mouse'`, a finger gives `'touch'`. The last used device wins, so you can switch mid-battle, e.g. from trackpad to touching the screen.
 - The settings show which setup is active and let you tune it.
+- **The Menu's Site setting** (Auto / PC site / Mobile site, already in the game) sets the starting point: **Mobile site** shows the touchscreen buttons from the start; **PC site** hides them until you touch the screen.
 
 ### 4.1 The keyboard (the same in all setups)
 

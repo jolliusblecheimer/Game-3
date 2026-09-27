@@ -371,3 +371,9 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Mines:**
   - The gold mine has warm sandstone with glinting gold veins, a washing sluice with a pan, and a strongbox of nuggets.
   - The iron mine has dark rock with rust-red ore streaks, charcoal heaps, a bellows shed and a furnace with a glowing chimney.
+
+## PC site / mobile site
+- In the **Menu → Site**, choose **Auto** (follows your screen, as before), **PC site** or **Mobile site**, like a browser's "request desktop site".
+  - **PC site:** the full desktop layout even on a small screen or a tablet. On a phone the page is laid out 1280 wide and shrunk to fit.
+  - **Mobile site:** the compact touch layout with bigger buttons and no keyboard hints, even on a big screen.
+- The choice is remembered on the device.
