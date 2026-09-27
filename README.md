@@ -469,3 +469,18 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - Releasing gives a twang and a small kick. The arrow flies with a white streak, lands with a wooden thunk and quivers where it sticks.
   - A bullseye plays a rising chime, throws a few sparks and makes the target jump.
 - **The bandit camp** now sits in its own levelled clearing at the end of the trail, well inside the valley, with no trees or rocks in it.
+
+## A new look: ink, washi and lacquer
+- **The whole interface** now looks like Japanese craft:
+  - Warm **washi paper** with real grain and fibres.
+  - **Sumi-ink** double frames.
+  - **Black urushi lacquer** with gold hairlines and a faint wave pattern (seigaiha).
+  - **Vermilion seals.**
+  - Fonts: Shippori Mincho and Zen Kaku Gothic New.
+- **Tidier:**
+  - The resources sit on one lacquer plaque, and the day is shortened to "Day 29 秋 10:00".
+  - The **build menu** starts folded (tap 建 Build) and remembers.
+  - The **village panel** is a small hanging scroll that folds to Villagers and Mood; anything needing attention still shows.
+  - The building panel is a narrower scroll with wooden rods.
+  - Turn and Move are round lacquer seals, and the map button is a vermilion **地図** seal (**村** on the map, to go back).
+  - Dialogs, messages, quests and the map screen match.

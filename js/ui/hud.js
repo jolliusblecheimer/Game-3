@@ -32,9 +32,10 @@ export class Hud {
     this.game = game;
     this.root = $('#ui');
     this.cat = 'village';
-    this.buildOpen = true;
+    this.buildOpen = false;
     this.settings = { scrollPans: true, sound: false, music: true, musicVol: 0.6 };
     try { Object.assign(this.settings, JSON.parse(localStorage.getItem('tenka.ui') || '{}')); } catch (_) { /* no storage */ }
+    this.buildOpen = this.settings.buildOpen ?? false;   // the build menu remembers if it was open (closed at first: more valley to see)
     // scrolling now zooms by default (two-finger scroll / mouse wheel); drag to move
     if (!this.settings.zoomV) { this.settings.scrollPans = false; this.settings.zoomV = 1; this.saveSettings(); }
     this.speed = 1; this.paused = false;
@@ -98,7 +99,8 @@ export class Hud {
     const clock = this.live(h('button', { class: 'res clock', title: 'Pause (Space) · speed (F)', onclick: () => this.cycleSpeed() }), el => {
       const hr = Math.floor(g.state.time * 24); el.textContent = '';
       const L = g.life, sea = SEASONS[L.season];
-      el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${sea.kanji} ${sea.name}${L.weather !== 'clear' ? ' · ' + L.weather : ''} · ${String(hr).padStart(2, '0')}:00 · ${this.paused ? 'paused' : this.speed + '×'}`));
+      el.title = `${sea.name}${L.weather !== 'clear' ? ', ' + L.weather : ''} — click to pause or change the speed (Space · F)`;
+      el.append(icon(night() ? 'moon' : 'sun', 20), h('b', null, `Day ${g.state.day}`), h('small', null, ` ${sea.kanji} ${String(hr).padStart(2, '0')}:00${this.paused ? ' · paused' : this.speed !== 1 ? ` · ${this.speed}×` : ''}`));
     });
     const menu = h('button', { class: 'res menu', title: 'Menu', onclick: () => this.openMenu() }, icon('menu', 20));
     R.append(h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'kanji' }, '天下'), h('span', { class: 'word' }, 'Tenka')), res, h('div', { class: 'spacer' }), this.live(h('button', { class: 'res quests', title: 'Quests and tasks', onclick: () => this.openTasks() }, icon('scroll', 22), h('b', null, 'Quests'), h('small')), el => {
@@ -200,16 +202,21 @@ export class Hud {
       this.live(h('button', { class: 'crow link2', title: 'How your villagers feel', onclick: () => this.openMood() }, icon('people', 20), h('span', null, 'Mood'), h('b')), el => { const m = g.life.mood(); el.lastChild.textContent = `${m}%${g.life.festival ? ' 🏮' : ''}`; el.classList.toggle('attn', m < 30); }),
       this.live(h('button', { class: 'crow link2', title: 'Harmony: see where it comes from', onclick: () => this.openHarmony() }, icon('sakura', 20), h('span', null, 'Harmony'), h('b')), el => { el.lastChild.textContent = `+${g.harmony()}%`; }),
     );
+    // the scroll folds up to the essentials (anything that needs you still shows)
+    for (const r of C.querySelectorAll('.crow')) { const t = r.querySelector('span') && r.querySelector('span').textContent; if (t === 'Villagers' || t === 'Mood') r.classList.add('always'); }
+    const fold = () => { C.classList.toggle('mini', !this.settings.clanFull); foldBtn.textContent = this.settings.clanFull ? '︽ fold' : '︾ more'; };
+    const foldBtn = h('button', { class: 'clan-fold', title: 'Show more or less', onclick: () => { this.settings.clanFull = !this.settings.clanFull; this.saveSettings(); fold(); this.layout(); } });
+    C.append(foldBtn); fold();
   }
 
   /* ---------- build menu ---------- */
   renderBar() {
     const g = this.game, bar = this.bar; bar.textContent = ''; this.barTh = g.thLevel;
     this.hideInfo(true);
-    bar.classList.toggle('closed', !this.buildOpen);
+    bar.classList.toggle('closed', !this.buildOpen); if (this.settings.buildOpen !== this.buildOpen) { this.settings.buildOpen = this.buildOpen; this.saveSettings(); }
     const tabs = h('div', { class: 'tabs' },
       CATEGORIES.map(c => h('button', { class: 'tab' + (c.id === this.cat ? ' on' : ''), onclick: () => { this.cat = c.id; this.buildOpen = true; this.renderBar(); } }, icon(c.icon, 20), c.name)),
-      h('button', { class: 'tab toggle', title: 'Show / hide (B)', onclick: () => { this.buildOpen = !this.buildOpen; this.renderBar(); } }, icon(this.buildOpen ? 'down' : 'up', 18), this.buildOpen ? '' : 'Build'));
+      h('button', { class: 'tab toggle', title: 'Show / hide (B)', onclick: () => { this.buildOpen = !this.buildOpen; this.renderBar(); } }, icon(this.buildOpen ? 'down' : 'up', 18), this.buildOpen ? '' : '建 Build'));
     bar.append(tabs);
     if (!this.buildOpen) return;
     const row = h('div', { class: 'cards' });
