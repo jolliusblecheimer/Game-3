@@ -377,3 +377,27 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - **PC site:** the full desktop layout even on a small screen or a tablet. On a phone the page is laid out 1280 wide and shrunk to fit.
   - **Mobile site:** the compact touch layout with bigger buttons and no keyboard hints, even on a big screen.
 - The choice is remembered on the device.
+
+## First person — preview (milestones M0 + M1 of plans/first-person-battles.md)
+- **Open it** from **Menu → ⚔ First person (preview)**, or add `?fp=sandbox` to the address. **Back to the village** is in its pause screen. The village waits while you're away.
+- **The valley:**
+  - A river winds through it, with carved banks, gravel edges, reeds and two shallow **fords** with stepping stones (slow to wade).
+  - Deep water can't be crossed. An arched **plank bridge** with rails crosses the river.
+  - Hills, mountains, forests, rocks and grass.
+- **The training yard:**
+  - Sand floor, bamboo fence, and the village's own dojo, house and storehouse.
+  - **Three straw dummies** to cut. They wobble, shed straw, and fall when cut down.
+  - A **weapon rack** (F): yari or katana.
+  - A **sparring post** that strikes back from your left, right or overhead, after a red glow. The orange glow means a heavy strike.
+- **Fighting:**
+  - Strikes come from three sides. Hold for a heavy strike.
+  - Blocks must be on the matching side. A parry (block at the last moment) staggers the opponent, and your next strike does ×2.
+  - Stamina: running, strikes, dodges and blocked hits cost it; at zero your guard breaks.
+  - Heavy strikes break a guard.
+  - Also kick (E), dodge (Space), feint (block during your wind-up), and hit zones (head ×1.6, body, legs ×0.7).
+- **Controls:** keyboard + mouse, keyboard + trackpad, or keyboard + touchscreen.
+  - Mouse and trackpad: the strike side comes from the direction you moved just before clicking; the right button (or a two-finger click) blocks.
+  - Touchscreen: STRIKE (tap, or swipe ← ↑ →), BLOCK (hold, slide to turn), KICK, DODGE, USE, plus a move stick until you use W A S D.
+  - Keyboard backups: J / I / L strike, K blocks.
+  - Keys use their physical position, so QWERTZ keyboards work.
+- **Settings in the pause screen:** weapon, sparring difficulty, time of day, look speed (mouse and touch separately), field of view, invert, auto-guard (recommended for trackpad and touch), the red strike cue, head bob, sounds.

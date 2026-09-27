@@ -1,8 +1,17 @@
 {
-"v": "20260927-124217",
+"v": "20260927-130216",
 "files": [
 "css/style.css",
 "js/audio/music.js",
+"js/fp/combat.js",
+"js/fp/controller.js",
+"js/fp/fpmode.js",
+"js/fp/hud-fp.js",
+"js/fp/input-fp.js",
+"js/fp/sfx-fp.js",
+"js/fp/terrain.js",
+"js/fp/training.js",
+"js/fp/viewmodel.js",
 "js/game/battle.js",
 "js/game/clans.js",
 "js/game/country.js",

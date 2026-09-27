@@ -1,7 +1,7 @@
 # Tenka — *Blade & Banner* (刃と旗)
 ### A plan to replace the battle system with first-person battles in which you fight and command at once
 
-*Status: plan only. Nothing here is built yet. Backups of the game before this change: `/v1/`, `/v2/`, `/v3/`.*
+*Status: M0 and M1 are built (Menu → ⚔ First person (preview), or `?fp=sandbox`); the rest is still plan. Backups of the game before this change: `/v1/`, `/v2/`, `/v3/`.*
 
 ---
 
@@ -555,8 +555,8 @@ Phase 2 (after the attack battles feel good):
 
 | # | Milestone | Done when… |
 |---|---|---|
-| **M0** | **Sandbox walk** | You can walk, run, crouch and look in first person over a generated valley with a winding river, with **all three setups**: keyboard + mouse, keyboard + trackpad, keyboard + touchscreen. 60 fps on the iPad |
-| **M1** | **Melee vs a dummy** | Directional strikes, guard, parry, stamina, the view model and hit sounds, with every setup (mouse direction, trackpad click and two-finger click, touch buttons with swipes, J/I/L/K). It feels good hitting a straw dummy |
+| **M0** ✅ | **Sandbox walk** | You can walk, run, crouch and look in first person over a generated valley with a winding river, with **all three setups**: keyboard + mouse, keyboard + trackpad, keyboard + touchscreen. 60 fps on the iPad |
+| **M1** ✅ | **Melee vs a dummy** | Directional strikes, guard, parry, stamina, the view model and hit sounds, with every setup (mouse direction, trackpad click and two-finger click, touch buttons with swipes, J/I/L/K). It feels good hitting a straw dummy |
 | **M2** | **One enemy** | An AI swordsman who fights by the same rules: parry cues, feints on Hard. A 1v1 is winnable but tense |
 | **M3** | **Squads and orders** | You plus two squads against a group: Follow, Hold, Charge, Form up, the order wheel, morale and breaking, the tactical view |
 | **M4** | **Places** | The generator builds all place types from the village models, at their levels, with roads, fields, clan colours and civilians hiding |

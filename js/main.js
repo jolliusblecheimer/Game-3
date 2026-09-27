@@ -12,6 +12,7 @@ import { h } from './util.js';
 import { Music } from './audio/music.js';
 import { Weather, Smoke } from './render/weather.js';
 import { Bubbles } from './ui/bubbles.js';
+import { FPMode } from './fp/fpmode.js';
 
 const BACKUP_KEY = 'tenka.save.backup';
 
@@ -161,7 +162,10 @@ function boot() {
   document.getElementById('loading').remove();
   // debug: advance the game by hand (used for testing when the tab isn't animating)
   const advance = (sec = 1) => { for (let t = 0; t < sec; t += 0.05) { game.update(0.05); for (const f of hooks.frame) f(0.05); } step(0); };
-  window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks, music };
+  // first person (preview: the training yard). Opened from the Menu, or straight away with ?fp=sandbox
+  const fp = new FPMode({ game, stage, hud, views }); hud.openFP = () => fp.enter();
+  if (/[?&]fp=/.test(location.search)) setTimeout(() => fp.enter(), 300);
+  window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks, music, fp };
 }
 
 try { boot(); }

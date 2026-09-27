@@ -978,6 +978,7 @@ export class Hud {
       h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' or ', h('a', { href: 'v2/', target: '_self' }, 'backup v2'), ' or ', h('a', { href: 'v3/', target: '_self' }, 'backup v3'), ' — each keeps its own save.')),
       [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
        { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
+       ...(this.openFP ? [{ label: '⚔ First person (preview)', cls: 'ghost', fn: () => setTimeout(() => this.openFP(), 0) }] : []),
        { label: 'Save file / code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
        { label: 'Close' }]);
@@ -1033,6 +1034,7 @@ export class Hud {
 
   /* ---------- keyboard ---------- */
   onKey(k, e) {
+    if (window.tenkaFP && window.tenkaFP.active) return;   // first person has its own keys
     const I = this.input;
     if (this.keyHook && this.keyHook(k, e)) return;
     if (k === 'escape') {
