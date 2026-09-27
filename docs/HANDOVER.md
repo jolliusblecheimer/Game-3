@@ -132,6 +132,7 @@ js/fp/                FIRST PERSON (see §6)
   hud-fp.js           crosshair, stamina, card, messages, edge warnings, pause/settings screen, soldier chooser
   sfx-fp.js           all first-person sounds (synthesised WebAudio), incl. the bow's draw creak
 css/style.css         all styles (first-person styles at the end, prefixed fp-)
+css/theme.css         THE LOOK (ink, washi, lacquer, vermilion seals, Japanese fonts) layered over style.css — restyle here
 tools/stamp.py        writes version.json · tools/pre-commit + install-hooks.sh · tools/icons.py
 v1/ … v4/             playable backups
 ```
@@ -286,6 +287,7 @@ Soldier, sparring difficulty (also the enemies'), time of day, "I play with" (mo
 5. The **Taishō's war fan was scrapped**. It may come back only as a visual command signal.
 6. Research is **only** at the Scholars' Pavilion. Quests are **claimed**, with their own top-bar button.
 7. **Make backups (`vN/`)** at milestones and before big changes.
+8. **The interface should look Japanese and stay tidy** (the player's words: it shouldn't "scream AI" or fill the screen): washi paper, ink frames, lacquer with gold, vermilion seals, Shippori Mincho / Zen Kaku Gothic New (css/theme.css). The build menu and village scroll fold up and remember. No generic rounded web cards.
 
 ---
 
