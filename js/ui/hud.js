@@ -706,112 +706,71 @@ export class Hud {
       nijo: `+${3 * L} homes, +${8 * L}% tribute`,
     }[type] || '';
   }
-  // Research: a real tree on washi paper. Branches of ink grow from era to era; learned technologies
-  // are stamped with a vermilion seal and a plum blossom; what you can study now glows gold.
+  // Research: one long hanging scroll. Each era is a chapter with its own ink painting — the mountains
+  // grow taller as your clan climbs — then its technologies as plain cards. No tangle of lines:
+  // every card says what it needs, what it costs and what to do next.
   openResearch() {
-    const g = this.game, NS = 'http://www.w3.org/2000/svg';
-    const ERA_W = 350, LANE_H = 88, NW = 160, NH = 64, GUT = 118, TOP = 84;
-    const W = GUT + 6 * ERA_W + 24, H = TOP + TECH_LANES.length * LANE_H + 26;
-    const laneIx = Object.fromEntries(TECH_LANES.map((l, i) => [l.id, i]));
-    // where every technology sits: its era column, its branch (lane), side by side when two share a spot
-    const pos = {};
-    for (let e = 1; e <= 6; e++) for (const L of TECH_LANES) {
-      const here = TECHS.filter(t => t.era === e && (TECH_LANE[t.id] || 'unit') === L.id);
-      here.forEach((t, k) => { pos[t.id] = { x: GUT + (e - 1) * ERA_W + (here.length === 1 ? (ERA_W - NW) / 2 : 12 + k * (NW + 14)), y: TOP + laneIx[L.id] * LANE_H + (LANE_H - NH) / 2, lane: L }; });
-    }
+    const g = this.game;
+    const ERA_TEXT = [null,
+      'A handful of families under your banner. Farm well, drill your spearmen, send out scouts — then raise a proper Clan Hall.',
+      'Palisades become walls. Bows, shields and trade turn the village into a fortress.',
+      'A castle town grows around your Keep. Finer weapons, ninja, warrior monks and horses — and the first Great Buildings.',
+      'You rule a domain. Samurai, siege engines and commanders make your army a force the clans fear.',
+      'You contend for the whole realm. Master every weapon and win the Emperor’s mandate.',
+      'The Shogunate: legends, a surveyed land, and one realm under one banner.'];
     const state = t => g.hasResearch(t.id) ? 'done' : g.researchBlock(t.id) ? 'locked' : g.techPts(t.id) >= t.pts ? 'full' : 'open';
-    const body = h('div', { class: 'rtree' });
-    let sel = this.researchSel && TECHS.find(t => t.id === this.researchSel) || TECHS.find(t => state(t) === 'full') || TECHS.find(t => state(t) === 'open') || TECHS[0];
-    const wrap = h('div', { class: 'rt-wrap' }), detail = h('div', { class: 'rt-detail' });
-    const el = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
-    const drawTree = () => {
-      wrap.textContent = '';
-      const canvas = h('div', { class: 'rt-canvas', style: `width:${W}px;height:${H}px` });
-      const svg = el('svg', { width: W, height: H, class: 'rt-svg' });
-      // paper, ink-wash mountains, era columns
-      const defs = el('defs', {});
-      const grad = el('linearGradient', { id: 'rtmist', x1: 0, y1: 0, x2: 0, y2: 1 }); grad.append(el('stop', { offset: '0', 'stop-color': '#5b5046', 'stop-opacity': '0.16' }), el('stop', { offset: '1', 'stop-color': '#5b5046', 'stop-opacity': '0' }));
-      defs.append(grad); svg.append(defs);
-      for (const [k, amp, base, op] of [[0, 60, H - 40, 0.9], [1, 90, H - 10, 0.6]]) {
-        let d = `M0 ${H} L0 ${base}`;
-        for (let x = 0; x <= W; x += 60) d += ` Q${x + 30} ${base - amp * (0.5 + 0.5 * Math.sin(x * 0.013 + k * 2))} ${x + 60} ${base - amp * 0.3 * (1 + Math.cos(x * 0.021 + k))}`;
-        svg.append(el('path', { d: d + ` L${W} ${H} Z`, fill: 'url(#rtmist)', opacity: op }));
-      }
-      for (let e = 1; e <= 6; e++) {
-        const x0 = GUT + (e - 1) * ERA_W, cx = x0 + ERA_W / 2, now = e === g.era;
-        if (e > 1) svg.append(el('path', { d: `M${x0} ${TOP - 14} C${x0 + 6} ${H * 0.4} ${x0 - 5} ${H * 0.7} ${x0 + 2} ${H - 16}`, class: 'rt-sep' }));
-        if (now) svg.append(el('circle', { cx, cy: 36, r: 30, class: 'rt-sun' }));
-        const k = el('text', { x: cx, y: 50, class: 'rt-eraK' + (now ? ' now' : e < g.era ? ' past' : '') }); k.textContent = ERAS[e].kanji; svg.append(k);
-        const n = el('text', { x: cx, y: 72, class: 'rt-eraN' }); n.textContent = `${e} · ${ERAS[e].short}`; svg.append(n);
-      }
-      TECH_LANES.forEach((L, i) => {
-        const y = TOP + i * LANE_H + LANE_H / 2;
-        svg.append(el('line', { x1: GUT - 8, y1: y, x2: W - 10, y2: y, class: 'rt-lane' }));
-        const t = el('text', { x: 14, y: y + 5, class: 'rt-laneN' }); t.textContent = L.name; svg.append(t);
-        const s = el('text', { x: GUT - 30, y: y + 8, class: 'rt-laneK' }); s.textContent = L.seal; svg.append(s);
-      });
-      // the branches: tapered ink strokes from what you need to what it opens
-      for (const t of TECHS) for (const id of t.req || []) {
-        const a = pos[id], b = pos[t.id]; if (!a || !b) continue;
-        if (KEY_TECHS.includes(id) && !t.key && (t.req || []).length > 0 && TECH_LANE[t.id] !== 'key') continue;   // an era opening: shown by its column, not by a tangle of lines
-        const x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
-        const lit = g.hasResearch(id) && g.hasResearch(t.id) ? 'done' : g.hasResearch(id) ? 'open' : 'dim';
-        const d = `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`;
-        svg.append(el('path', { d, class: 'rt-br rt-br-back ' + lit }), el('path', { d, class: 'rt-br ' + lit }));
-        if (lit === 'done') {           // a plum blossom where the branch leaves a learned technology
-          const f = el('g', { transform: `translate(${x1 + 2} ${y1})`, class: 'rt-flower' });
-          for (let p = 0; p < 5; p++) { const an = p / 5 * Math.PI * 2; f.append(el('circle', { cx: Math.cos(an) * 4.2, cy: Math.sin(an) * 4.2, r: 3.4 })); }
-          f.append(el('circle', { cx: 0, cy: 0, r: 1.8, class: 'c' })); svg.append(f);
-        }
-      }
-      canvas.append(svg);
-      // the plaques
-      for (const t of TECHS) {
-        const P = pos[t.id]; if (!P) continue;
-        const st = state(t), frac = Math.min(1, g.techPts(t.id) / t.pts);
-        const node = h('button', { class: `rt-node ${st}${t.key ? ' key' : ''}${sel && sel.id === t.id ? ' sel' : ''}`, style: `left:${P.x}px;top:${P.y}px;width:${NW}px;height:${NH}px`, onclick: () => { sel = t; this.researchSel = t.id; drawTree(); drawDetail(); } },
-          h('span', { class: 'seal', style: `--p:${st === 'done' ? 1 : frac}` }, h('span', null, t.key ? '★' : P.lane.seal)),
-          h('span', { class: 'nm' }, h('b', null, t.name), h('small', null, st === 'done' ? 'Learned' : st === 'locked' ? 'Not yet' : st === 'full' ? 'Ready to complete' : `${g.techPts(t.id)} / ${t.pts} 智`)));
-        canvas.append(node);
-      }
-      wrap.append(canvas);
-    };
-    const drawDetail = () => {
-      detail.textContent = '';
-      const t = sel; if (!t) return;
-      const st = state(t), P = pos[t.id], pts = g.techPts(t.id), why = g.researchBlock(t.id);
-      const reqs = (t.req || []).map(id => { const r = g.researchNode(id).node; return h('span', { class: 'rq' + (g.hasResearch(id) ? ' ok' : '') }, (g.hasResearch(id) ? '✓ ' : '') + r.name); });
-      detail.append(h('div', { class: 'rd-seal ' + st }, t.key ? '★' : P.lane.seal),
-        h('div', { class: 'rd-text' },
-          h('div', { class: 'rd-head' }, h('b', null, t.name), h('small', null, `${ERAS[t.era].kanji} ${ERAS[t.era].name} · ${P.lane.name}`)),
-          h('p', null, t.desc),
-          reqs.length ? h('div', { class: 'rd-req' }, h('small', null, 'Grows from: '), ...reqs) : null),
-        h('div', { class: 'rd-act' },
-          st === 'done' ? h('span', { class: 'hanko' }, '学') :
-          st === 'locked' ? h('p', { class: 'why' }, why) :
-          [h('div', { class: 'bar' }, h('i', { style: `width:${Math.min(100, pts / t.pts * 100)}%` })), h('small', { class: 'sub' }, `${pts} / ${t.pts} Wisdom · you have ${Math.floor(g.state.wisdom)}`),
-            st === 'full' ? h('div', { class: 'row' }, costChips(g, t.cost, this.live), h('button', { class: 'btn', onclick: () => { if (g.completeTech(t.id)) { drawTree(); drawDetail(); drawHead(); } } }, 'Complete'))
-              : h('div', { class: 'row' }, h('button', { class: 'btn small ghost', onclick: () => { if (g.investTech(t.id, 1)) { drawTree(); drawDetail(); drawHead(); } } }, '+1'), h('button', { class: 'btn', onclick: () => { if (g.investTech(t.id)) { drawTree(); drawDetail(); drawHead(); } } }, icon('wisdom', 15), 'Invest Wisdom'))]));
-    };
-    const head = h('div', { class: 'rt-head' });
+    const laneOf = t => TECH_LANES.find(l => l.id === (TECH_LANE[t.id] || 'unit'));
+    const body = h('div', { class: 'kake' });
+    const head = h('div', { class: 'kake-head' }), paper = h('div', { class: 'kake-paper' });
     const drawHead = () => {
       head.textContent = '';
       const E = ERAS[g.era], w = Math.floor(g.state.wisdom), cap = g.wisdomCap();
-      head.append(h('div', { class: 'rt-era' }, h('span', { class: 'ek' }, E.kanji), h('span', null, h('small', null, `Era ${g.era} of 6`), h('b', null, E.name))),
-        h('div', { class: 'rt-wis' }, icon('wisdom', 24), h('span', null, h('b', null, `${w} / ${cap} Wisdom`), h('small', null, `+${g.wisdomRate().toFixed(2)} a minute${w >= cap ? ' — full, spend it' : ''}`)), h('div', { class: 'brush' }, h('i', { style: `width:${Math.min(100, w / cap * 100)}%` }))),
+      head.append(
+        h('div', { class: 'kh-era' }, h('span', { class: 'seal' }, E.kanji), h('span', null, h('small', null, `You are in era ${g.era} of 6`), h('b', null, E.name))),
+        h('div', { class: 'kh-wis' }, icon('wisdom', 24), h('span', null, h('b', null, `${w} / ${cap} Wisdom`), h('small', null, `+${g.wisdomRate().toFixed(2)} a minute`)), h('div', { class: 'brush' }, h('i', { style: `width:${Math.min(100, w / cap * 100)}%` }))),
+        h('div', { class: 'kh-legend' }, h('span', { class: 'lg done' }, '学'), 'learned', h('span', { class: 'lg open' }, '●'), 'can study now', h('span', { class: 'lg locked' }, '○'), 'not yet'),
         ...(g.pavilionLevel() ? [] : [h('p', { class: 'why' }, 'Build a Scholars’ Pavilion (Village tab) — without it Wisdom only trickles in.')]));
     };
-    drawHead(); drawTree(); drawDetail();
-    body.append(head, wrap, detail);
-    // drag the paper to look around (touch scrolls by itself)
-    let drag = null;
-    wrap.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' || e.target.closest('.rt-node')) return; drag = { x: e.clientX, y: e.clientY, l: wrap.scrollLeft, t: wrap.scrollTop }; wrap.classList.add('grab'); });
-    window.addEventListener('pointermove', e => { if (!drag) return; wrap.scrollLeft = drag.l - (e.clientX - drag.x); wrap.scrollTop = drag.t - (e.clientY - drag.y); });
-    window.addEventListener('pointerup', () => { drag = null; wrap.classList.remove('grab'); });
+    const card = t => {
+      const st = state(t), L = laneOf(t), pts = g.techPts(t.id), why = g.researchBlock(t.id);
+      const redraw = () => { drawHead(); drawAll(); };
+      const c = h('div', { class: `scard ${st}${t.key ? ' key' : ''}` },
+        h('div', { class: 'sc-top' },
+          h('span', { class: 'sc-seal', style: `--p:${st === 'done' ? 1 : Math.min(1, pts / t.pts)}` }, h('span', null, t.key ? '★' : L.seal)),
+          h('span', { class: 'sc-name' }, h('b', null, t.name), h('small', null, t.key ? 'The way to the next era' : L.name)),
+          h('span', { class: 'sc-tag ' + st }, st === 'done' ? 'Learned' : st === 'locked' ? 'Not yet' : st === 'full' ? 'Ready!' : 'Study')),
+        h('p', { class: 'sc-desc' }, t.desc));
+      if (st === 'locked') c.append(h('p', { class: 'sc-need' }, why.startsWith('Needs the') ? `Opens in a later era` : why));
+      if (st === 'open') c.append(h('div', { class: 'sc-prog' }, h('div', { class: 'brush' }, h('i', { style: `width:${pts / t.pts * 100}%` })), h('small', null, `${pts} / ${t.pts} Wisdom`)),
+        h('div', { class: 'sc-act' }, h('button', { class: 'btn small ghost', onclick: () => { if (g.investTech(t.id, 1)) redraw(); } }, '+1'), h('button', { class: 'btn small', onclick: () => { if (g.investTech(t.id)) redraw(); } }, icon('wisdom', 14), 'Invest Wisdom')));
+      if (st === 'full') c.append(h('div', { class: 'sc-act' }, h('small', null, 'Fully studied — pay to complete:'), costChips(g, t.cost, this.live), h('button', { class: 'btn small', onclick: () => { if (g.completeTech(t.id)) redraw(); } }, 'Complete')));
+      return c;
+    };
+    const drawAll = () => {
+      const top = paper.scrollTop;
+      paper.textContent = '';
+      for (let e = 1; e <= 6; e++) {
+        const techs = TECHS.filter(t => t.era === e), key = techs.find(t => t.key), rest = techs.filter(t => !t.key)
+          .sort((a, b) => TECH_LANES.findIndex(l => l === laneOf(a)) - TECH_LANES.findIndex(l => l === laneOf(b)));
+        const learned = techs.filter(t => g.hasResearch(t.id)).length, here = e === g.era;
+        const sec = h('section', { class: 'kake-era' + (here ? ' now' : e < g.era ? ' past' : ' future'), 'data-era': e },
+          h('div', { class: 'ke-side' }, h('span', { class: 'ke-kanji' }, ERAS[e].kanji), h('span', { class: 'ke-seal' }, String(e))),
+          h('div', { class: 'ke-main' },
+            h('div', { class: 'ke-paint', html: inkScene(e, here) }),
+            h('div', { class: 'ke-title' }, h('b', null, `Era ${e} · ${ERAS[e].name}`), h('small', null, `${learned} of ${techs.length} learned${here ? ' · you are here' : ''}`)),
+            h('p', { class: 'ke-text' }, ERA_TEXT[e]),
+            h('div', { class: 'ke-grid' }, ...rest.map(card)),
+            key ? h('div', { class: 'ke-key' }, card(key)) : null));
+        paper.append(sec);
+      }
+      paper.scrollTop = top;
+    };
+    drawHead(); drawAll();
+    body.append(h('div', { class: 'kake-roll top' }), head, paper, h('div', { class: 'kake-roll bottom' }));
     this.openModal('Research', body, [{ label: 'Close' }], { wide: true });
-    this.modal.querySelector('.sheet').classList.add('xwide', 'rt-sheet');
-    // start with the current era in view
-    requestAnimationFrame(() => { const p = pos[sel.id]; if (p) { wrap.scrollLeft = Math.max(0, p.x - wrap.clientWidth / 2 + NW / 2); wrap.scrollTop = Math.max(0, p.y - wrap.clientHeight / 2); } });
+    this.modal.querySelector('.sheet').classList.add('xwide', 'kake-sheet');
+    const toNow = () => { const s = paper.querySelector('.kake-era.now'); if (s) paper.scrollTop = s.offsetTop - paper.offsetTop - 6; };
+    requestAnimationFrame(toNow); setTimeout(toNow, 180);
   }
 
   /* ---------- dialogs ---------- */
@@ -939,4 +898,55 @@ export class Hud {
     if (k === 'm') return this.onMap && this.onMap();
     if ((k === 'delete' || k === 'backspace') && I.moveMode) return this.demolishSelected();
   }
+}
+
+// An ink-wash (sumi-e) landscape for one era of the research scroll: misty mountains that grow taller
+// as your clan climbs, pines on the ridges, and a settlement that grows from huts to a great castle.
+function inkScene(e, here) {
+  let seed = e * 7919 + 13; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const W = 800, H = 190, INK = '#2b2118';
+  const ridge = (base, amp, n, soft) => {
+    let d = `M0 ${H} L0 ${base}`, px = 0, py = base;
+    for (let i = 1; i <= n; i++) {
+      const x = i * W / n, y = base - amp * (0.25 + 0.75 * r());
+      d += soft ? ` Q${(px + x) / 2} ${Math.min(py, y) - amp * 0.25} ${x} ${y}` : ` L${x - W / n * (0.3 + 0.2 * r())} ${y - amp * 0.35 * r()} L${x} ${y}`;
+      px = x; py = y;
+    }
+    return d + ` L${W} ${H} Z`;
+  };
+  const pine = (x, y, s) => {
+    let p = `<path d="M${x} ${y} q${2 * s} ${-9 * s} ${-1 * s} ${-18 * s}" stroke="${INK}" stroke-width="${1.4 * s}" fill="none" opacity=".75"/>`;
+    for (let k = 0; k < 4; k++) p += `<ellipse cx="${x + (k % 2 ? 4 : -3) * s}" cy="${y - (5 + k * 4.5) * s}" rx="${(8 - k * 1.4) * s}" ry="${1.9 * s}" fill="${INK}" opacity="${0.55 + k * 0.08}"/>`;
+    return p;
+  };
+  const hut = (x, y, s) => `<rect x="${x - 7 * s}" y="${y - 7 * s}" width="${14 * s}" height="${7 * s}" fill="#f1e8d4" stroke="${INK}" stroke-width=".8" opacity=".9"/>` +
+    `<path d="M${x - 11 * s} ${y - 6 * s} L${x} ${y - 16 * s} L${x + 11 * s} ${y - 6 * s} Z" fill="${INK}" opacity=".62"/>`;
+  const keep = (x, y, s, tiers) => {
+    let p = `<path d="M${x - 16 * s} ${y} L${x - 12 * s} ${y - 8 * s} L${x + 12 * s} ${y - 8 * s} L${x + 16 * s} ${y} Z" fill="${INK}" opacity=".35"/>`;
+    let yy = y - 8 * s;
+    for (let t = 0; t < tiers; t++) {
+      const w = (11 - t * 2) * s;
+      p += `<rect x="${x - w}" y="${yy - 6 * s}" width="${2 * w}" height="${6 * s}" fill="#f4efe4" stroke="${INK}" stroke-width=".7"/>`;
+      p += `<path d="M${x - w - 4 * s} ${yy - 5 * s} Q${x} ${yy - 11 * s} ${x + w + 4 * s} ${yy - 5 * s} L${x + w} ${yy - 7 * s} L${x - w} ${yy - 7 * s} Z" fill="${INK}" opacity=".75"/>`;
+      yy -= 8 * s;
+    }
+    return p;
+  };
+  let s = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">`;
+  s += `<defs><linearGradient id="mist${e}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6efdd" stop-opacity="0"/><stop offset=".55" stop-color="#f6efdd" stop-opacity=".95"/><stop offset="1" stop-color="#f6efdd" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="fade${e}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${INK}" stop-opacity=".8"/><stop offset="1" stop-color="${INK}" stop-opacity=".12"/></linearGradient></defs>`;
+  if (here) s += `<circle cx="${640 + r() * 60}" cy="${34 + r() * 10}" r="20" fill="#b8342a" opacity=".85"/>`;
+  const tall = 34 + e * 13;
+  s += `<path d="${ridge(H * 0.55, tall * 0.7, 7, true)}" fill="${INK}" opacity=".18"/>`;                         // far range
+  s += `<path d="${ridge(H * 0.72, tall, 5 + e, e < 3)}" fill="url(#fade${e})" opacity=".8"/>`;                   // the mountains of this era
+  s += `<rect x="0" y="${H * 0.5}" width="${W}" height="${H * 0.3}" fill="url(#mist${e})"/>`;                        // mist
+  if (e >= 4) s += `<path d="M${520 + r() * 60} ${H * 0.3} q-3 30 2 60 q-2 20 1 40" stroke="#f6efdd" stroke-width="5" fill="none" opacity=".9"/>`;  // a waterfall
+  s += `<path d="${ridge(H * 0.9, 26, 6, true)}" fill="${INK}" opacity=".42"/>`;                                   // near hills
+  for (let i = 0; i < 7 + e; i++) s += pine(30 + r() * 740, H * (0.72 + r() * 0.2), 0.7 + r() * 0.6);
+  // the settlement of this era
+  const sx = 180 + r() * 120, sy = H * 0.86;
+  if (e === 1) { s += hut(sx, sy, 1.1) + hut(sx + 26, sy - 3, 0.9) + hut(sx + 48, sy + 1, 1); s += `<path d="M${sx + 90} ${sy - 4} L${sx + 170} ${sy - 4}" stroke="${INK}" stroke-width="1.6" opacity=".7"/>` + [0, 1, 2, 3].map(k => `<path d="M${sx + 95 + k * 22} ${sy - 4} l0 14" stroke="${INK}" stroke-width="1" opacity=".6"/>`).join(''); }
+  else if (e === 2) { for (let k = 0; k < 14; k++) s += `<path d="M${sx - 30 + k * 5} ${sy} l0 -${9 + (k % 3)}" stroke="${INK}" stroke-width="2" opacity=".6"/>`; s += keep(sx + 60, sy, 0.8, 1) + hut(sx + 20, sy - 2, 0.9); }
+  else s += keep(sx + 40, sy, 0.9 + (e - 3) * 0.12, Math.min(5, e - 1)) + hut(sx - 10, sy, 0.8) + hut(sx + 100, sy + 2, 0.8);
+  return s + '</svg>';
 }
