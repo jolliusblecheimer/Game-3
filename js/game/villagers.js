@@ -262,6 +262,7 @@ export function thinkVillager(game, v) {
       return goTo(game, v, spot, () => act(v, 5, archer ? 'shoot' : 'train', () => {
         v.train = (v.train || 0) + 5 * mult * (1 + game.rb('trainFast'));
         if (v.train >= game.trainInfo(work).time) {
+          v.drill = [0, 0, 3, 6, 10, 12][work.level] || 0;
           const to = game.trainInfo(work).to;
           game.setJob(v, to); game.state.stats.trained++;
           game.toast(`${v.name} has become ${/^[AEIOU]/.test(JOBS[to].name) ? 'an' : 'a'} ${JOBS[to].name}!`);

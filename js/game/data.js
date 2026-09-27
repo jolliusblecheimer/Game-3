@@ -107,7 +107,7 @@ export const RANKS = [
   { name: 'Elite', xp: 16, stars: '\u2605\u2605' },
   { name: 'Hero', xp: 35, stars: '\u2605\u2605\u2605' },
 ];
-export const xpOf = v => (v.kills || 0) + 2 * (v.battles || 0);
+export const xpOf = v => (v.kills || 0) + 2 * (v.battles || 0) + (v.drill || 0);
 export const rankOf = v => { const x = xpOf(v); let r = 0; RANKS.forEach((R, i) => { if (x >= R.xp) r = i; }); return r; };
 
 // Commanders are appointed at the Keep.

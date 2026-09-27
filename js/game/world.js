@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { BUILDINGS, JOBS, RES, START, ECON, TOWNHALL, MAX_TH, TECHS, ERAS, WISDOM, KEY_TECHS, WONDER_BP, WONDER_MAX, wonderLevelCost, DOJO_TRAINS, RANKS, rankOf, DIFFICULTY } from './data.js';
 
+// what the masters of the Dojo and the Kyūdō Range teach every soldier of their kind, per level above 1
+const DRILL_FX = { archRange: [['kyudojo', 0.05]], archDmg: [['kyudojo', 0.04]], spearDmg: [['dojo', 0.04]] };
 // what each Great Building adds to the bonuses, per level
 const WONDER_FX = { wallHp: [['himeji', 0.06]], trainFast: [['bell', 0.05]], earlyWarn: [['bell', 0.1]], spearDmg: [['osaka', 0.03]], archDmg: [['osaka', 0.03]], cmdHp: [['osaka', 0.04]], healFast: [['sanjusangendo', 0.12]], tradeBoost: [['itsukushima', 0.05]] };
 import { Grid, FREE, TREE, ROCK } from './grid.js';
@@ -185,6 +187,7 @@ export class Game {
   rb(key) {
     let v = 0; for (const id of this.state.research.done) { const r = this.researchNode(id); if (r && r.node.fx[key]) v += r.node.fx[key]; }
     const W = WONDER_FX[key]; if (W) for (const [type, per] of W) v += per * this.wonderLevel(type);
+    const D = DRILL_FX[key]; if (D) for (const [type, per] of D) { let L = 0; for (const b of this.buildings.values()) if (b.type === type && this.works(b)) L = Math.max(L, b.level); if (L > 1) v += per * (L - 1); }
     return v;
   }
   hallLevel() { let L = 0; for (const b of this.buildings.values()) if (b.type === 'strategy' && this.works(b)) L = Math.max(L, b.level); return L; }
@@ -710,7 +713,7 @@ export class Game {
       v: SAVE_VERSION, plot: PLOT.n, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
       buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined })).concat(this.keptBuildings || []),
-      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
+      villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, drill: v.drill || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null, catapults: S.catapults || 0, catBuild: S.catBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
       rocks: this.nature.rocks.filter(r => r.removed).map(r => [r.cx, r.cz]),
@@ -771,7 +774,7 @@ export class Game {
         if (v.away) { nv.away = v.away; nv.person.group.visible = false; }
         if (v.aid) nv.aid = true;
         if (v.born) nv.born = v.born;
-        if (v.kills) nv.kills = +v.kills; if (v.battles) nv.battles = +v.battles;
+        if (v.kills) nv.kills = +v.kills; if (v.battles) nv.battles = +v.battles; if (v.drill) nv.drill = +v.drill;
         if (typeof v.hpf === 'number' && v.hpf < 1) nv.hpf = Math.max(0.05, v.hpf);
       } catch (e) { console.warn('Skipped a villager while loading', v, e); this.keptVillagers.push(v); }
     }

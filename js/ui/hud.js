@@ -238,7 +238,11 @@ export class Hud {
     if (d.storage) row('storage', `Stores ${d.storage + 300 * (L - 1)} more of every resource`);
     if (d.jobs) {
       const J = JOBS[d.job], n = d.jobs + (L - 1);
-      if (d.trains) { const T = b ? g.trainInfo(b) : { to: d.trains, time: d.trainTime, cost: d.trainCost }; row('katana', `${n} trainees at a time → ${JOBS[T.to].name} after ${T.time}s (each costs ${this.costText(T.cost)})`); }
+      if (d.trains) {
+        const T = b ? g.trainInfo(b) : { to: d.trains, time: d.trainTime, cost: d.trainCost }; row('katana', `${n} trainees at a time → ${JOBS[T.to].name} after ${T.time}s (each costs ${this.costText(T.cost)})`);
+        if (L > 1) row('soldier', type === 'kyudojo' ? `Its masters drill all your archers: +${5 * (L - 1)}% range, +${4 * (L - 1)}% damage` : `Its masters drill all your spearmen: +${4 * (L - 1)}% damage`);
+        if (L > 1) row('up', L >= 3 ? 'Graduates leave as Veterans \u2605 (10% stronger)' : 'Graduates leave with some experience');
+      }
       else if (!J.res || !J.amount) row('worker', `Up to ${n} ${J.name.toLowerCase()}${n > 1 ? 's' : ''}${J.desc ? ' — ' + J.desc : ''}`);
       else row(J.res ? RES[J.res].icon : 'worker', `Up to ${n} ${J.name.toLowerCase()}s, each bringing ${J.amount} ${RES[J.res].name.toLowerCase()} per trip${L > 1 ? ` — ${Math.round((g.levelMult(b) - 1) * 100)}% faster` : ''}`);
     }
@@ -447,7 +451,11 @@ export class Hud {
     const d = b.def, t = b.type, out = [];
     if (d.housing) out.push(`+${d.housingUp || 2} homes`);
     if (d.storage) out.push('+300 storage');
-    if (d.jobs && d.trains) out.push('+1 trainee at a time');
+    if (d.jobs && d.trains) {
+      out.push('+1 trainee at a time', 'training 25% faster');
+      out.push(t === 'kyudojo' ? 'all your archers shoot 5% further and hit 4% harder' : 'all your spearmen hit 4% harder');
+      if (L === 3) out.push('graduates leave as Veterans \u2605'); else if (L >= 2) out.push('graduates leave with experience');
+    }
     else if (d.jobs) out.push(`+1 ${JOBS[d.job].name.toLowerCase()}`);
     if (d.jobs && JOBS[d.job].res) out.push('everyone here works 25% faster');
     const extra = {

@@ -293,3 +293,6 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Stone Wall:**
   - Level 2: a walkway for patrols and fighting from above.
   - Level 3: battlements, so soldiers on it take 35% less damage and strike 20% harder.
+- **Kyūdō Range and Dojo:** each level lets one more trainee train at a time, and training goes 25% faster.
+  - The Range's masters drill **all** your archers: +5% range and +4% damage per level above 1. The Dojo's masters give all spearmen +4% damage per level.
+  - Graduates of an upgraded school leave with experience. From level 3 they are already **Veterans ★**.
