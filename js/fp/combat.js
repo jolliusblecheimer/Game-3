@@ -24,7 +24,7 @@ const HEAVY_AFTER = 0.3;       // hold the strike this long and it becomes the h
 const MAX_HOLD = 1.3;
 const COMBO_RESET = 1.1;       // pause this long and the combo starts again from the left
 const COUNTER = 1.0, COUNTER_MULT = 1.5;
-const DRAW = 0.8;              // seconds to draw a bow fully
+const DRAW = 1.0;              // seconds to draw a bow fully (raise, then draw down to the cheek)
 
 export class Fighter {
   constructor(weapon = 'yari', { maxHp = 100, maxSt = 100, shield = false } = {}) {
@@ -50,10 +50,11 @@ export class Fighter {
     if (this.state === 'down' || this.state === 'stagger') return;
     if (this.isBow) {                                                       // bows: shoot — aimed, or a quick shot from the hip
       if (this.aiming) { this.loose = true; this.quick = false; }
-      else if (!this.busy) { this.state = 'aim'; this.t = 0; this.draw = 0.4; this.loose = true; this.quick = true; }
+      else if (!this.busy) { this.state = 'aim'; this.t = 0; this.draw = 0.45; this.loose = true; this.quick = true; }
+      else if (this.state === 'shoot') this.queuedShot = true;
       return;
     }
-    if (this.state === 'windup' || this.state === 'active' || (this.state === 'recover' && this.t < this.phase.rec * 0.5) || this.state === 'kick') { this.queued = { now }; return; }
+    if (this.state === 'windup' || this.state === 'active' || (this.state === 'recover' && this.t < this.phase.rec * 0.5) || this.state === 'kick') { this.queued = { now, released: false }; return; }
     if (this.st < 6) { this.flash = { kind: 'tired', t: now }; return; }
     if (this.state === 'guard') this.state = 'idle';
     if (now - this.lastStrikeEnd > COMBO_RESET) this.combo = 0;
@@ -61,7 +62,7 @@ export class Fighter {
     this.state = 'windup'; this.t = 0; this.heavy = false; this.hold = true; this.hitDone = false;
     this.spend(this.w.light.st, now);
   }
-  strikeUp() { this.hold = false; }
+  strikeUp() { this.hold = false; if (this.queued) this.queued.released = true; }   // a queued click that was let go stays a quick cut
   /* ---------- the block / aim button ---------- */
   blockDown(now) {
     this.blockHeld = true;
@@ -100,7 +101,7 @@ export class Fighter {
         break;
       case 'recover':
         if (this.t >= P.rec) { this.state = this.blockHeld ? 'guard' : 'idle'; this.t = 0; this.lastStrikeEnd = now; }
-        else if (this.queued && this.t >= P.rec * 0.45) { this.queued = null; this.state = 'idle'; this.strikeDown(now); }
+        else if (this.queued && this.t >= P.rec * 0.45) { const q = this.queued; this.queued = null; this.state = 'idle'; this.strikeDown(now); if (q.released) this.hold = false; }
         break;
       case 'kick':
         if (!this.hitDone && this.t >= 0.16) { this.hitDone = true; if (world) world.kick(this); }
@@ -119,10 +120,14 @@ export class Fighter {
         }
         break;
       case 'shoot':   // nocking the next arrow
-        if (this.t >= 0.45) { this.state = this.blockHeld ? 'aim' : 'idle'; this.t = 0; this.draw = 0; this.aiming = this.blockHeld; }
+        if (this.t >= 0.6) {
+          this.state = this.blockHeld ? 'aim' : 'idle'; this.t = 0; this.draw = 0; this.aiming = this.blockHeld;
+          if (this.queuedShot && !this.blockHeld) { this.state = 'aim'; this.draw = 0.45; this.loose = true; this.quick = true; }   // a click while nocking: the next quick shot
+          this.queuedShot = false;
+        }
         break;
       case 'idle':
-        if (this.queued) { this.queued = null; this.strikeDown(now); }
+        if (this.queued) { const q = this.queued; this.queued = null; this.strikeDown(now); if (q.released) this.hold = false; }
         if (this.isBow && this.loose) { this.loose = false; }
         break;
     }

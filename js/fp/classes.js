@@ -13,7 +13,7 @@ export const CLASSES = {
   sohei:     { name: 'Sōhei', kanji: '僧兵', role: 'Naginata', weapon: 'naginata', hp: 105, st: 100, ability: 'prayer', sleeve: robe('sohei'), desc: 'Wide sweeps that cut two at once. G: a prayer that heals you.' },
   cavalry:   { name: 'Cavalry', kanji: '騎馬', role: 'On horseback, with a lance', weapon: 'lance', hp: 120, st: 100, horse: true, sleeve: robe('cavalry'), desc: 'Gallop with Shift. The faster you ride, the harder the lance hits.' },
   berserker: { name: 'Berserker', kanji: '鬼', role: 'Commander — kanabō', weapon: 'kanabo', hp: 170, st: 120, ability: 'roar', commander: true, sleeve: robe('berserker'), desc: 'Slow and crushing. The heavy strike smashes everything in front. G: a war roar — your next heavy hits all around you.' },
-  taisho:    { name: 'Taishō', kanji: '大将', role: 'Commander — katana and war fan', weapon: 'katana', hp: 130, st: 110, ability: 'rally', fan: true, commander: true, sleeve: robe('taisho'), desc: 'A general who fights in front. G: a rally — full stamina and +25% damage for 8 seconds.' },
+  taisho:    { name: 'Taishō', kanji: '大将', role: 'Commander — katana', weapon: 'katana', hp: 130, st: 110, ability: 'rally', commander: true, sleeve: robe('taisho'), desc: 'A general who fights in front. G: a rally — full stamina and +25% damage for 8 seconds.' },
 };
 export const ABILITY = {
   kunai: { name: 'Throw a kunai', cd: 0.6 },

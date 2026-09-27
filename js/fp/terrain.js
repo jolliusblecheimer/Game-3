@@ -273,6 +273,7 @@ export class FPTerrain {
       if (Math.abs(p.s - this.bridgeS) < 8) continue;
       for (const sd of [-1, 1]) if (R() < 0.55) for (let n = 0; n < 3; n++) {
         const off = w + 0.2 + R() * 2.2, x = p.x - dz / L * sd * off + (R() - 0.5), z = p.z + dx / L * sd * off + (R() - 0.5);
+        if (Math.hypot(x - this.yard.x, z - this.yard.z) < this.yard.r + 3) continue;   // not inside the training yard
         reeds.push({ x, z, y: this.terrainAt(x, z) - 0.1, s: 0.7 + R() * 0.6, r: R() * 6 });
       }
     }

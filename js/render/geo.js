@@ -12,6 +12,9 @@ export function initMaterials() {
   MAT.ghostOk = new THREE.MeshBasicMaterial({ color: '#7be08f', transparent: true, opacity: 0.45, depthWrite: false });
   MAT.ghostBad = new THREE.MeshBasicMaterial({ color: '#ff6b5a', transparent: true, opacity: 0.45, depthWrite: false });
   MAT.select = new THREE.MeshBasicMaterial({ color: '#ffd76a', transparent: true, opacity: 0.55, depthWrite: false });
+  // smooth, rounder surfaces for things seen up close (first-person weapons): wood and cloth, and polished steel
+  MAT.smooth = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
+  MAT.steel = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.75 });
   MAT.hidden = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, transparent: true, opacity: 0.5, color: '#cfe8b8' });
 }
 
@@ -48,7 +51,7 @@ export class Mesher {
     g.deleteAttribute('uv');
     _m.compose(_p.fromArray(pos), _q.setFromEuler(_e.set(rot[0], rot[1], rot[2])), _s.fromArray(scl));
     g.applyMatrix4(_m);
-    g.computeVertexNormals();
+    if (!this.smooth) g.computeVertexNormals();   // (smooth meshers keep the primitive's rounded normals)
     const P = g.attributes.position.array, N = g.attributes.normal.array;
     _c.set(hex);
     for (let i = 0; i < P.length; i += 9) {

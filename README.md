@@ -425,3 +425,12 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - An archery range: three mato targets scoring 10, 7, 5 and 2 points, and a line of stones to shoot from.
   - An armoury by the gate: change soldier, or refill arrows and kunai.
 - **The red ring** means a strike is coming, so block. **Orange** means a heavy one that breaks blocks, so dodge (Space).
+- **Bow (kyūdō):**
+  - Holding the aim button **raises** the bow (uchiokoshi), then **draws** it down and apart until the string hand rests by your cheek (kai). The limbs bend as you draw.
+  - On release the **bow spins in the hand** (yugaeri) and the **hand flies back** (zanshin), then you nock the next arrow.
+  - Holding full draw for long makes your aim tremble.
+- **Weapons up close:** smooth, rounded shading, polished steel blades, curved katana and naginata blades, wrapped grips and round guards.
+- **Taishō:** the war fan is gone; he fights with the katana in both hands.
+- **Clicking fixed:**
+  - A click made while a cut was still finishing could turn into a slow heavy strike. Now a quick click stays a quick cut.
+  - If the browser refuses to capture the mouse, clicks now strike anyway (look around by dragging) instead of being swallowed.

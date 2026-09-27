@@ -21,6 +21,7 @@ export class FPInput {
     const on = (t, ev, fn, opt) => { t.addEventListener(ev, fn, opt); this._on.push([t, ev, fn, opt]); };
     on(window, 'keydown', e => this.key(e, true), true);
     on(window, 'keyup', e => this.key(e, false), true);
+    on(document, 'pointerlockerror', () => { this.lockFailed = true; });
     on(document, 'pointerlockchange', () => { this.locked = document.pointerLockElement === this.cv; if (!this.locked && this.active && this.onUnlock) this.onUnlock(); });
     on(window, 'mousemove', e => this.mouseMove(e));
     on(canvas, 'mousedown', e => this.mouseButton(e, true));
@@ -64,7 +65,12 @@ export class FPInput {
   }
 
   /* ---------- mouse and trackpad ---------- */
-  lock() { if (this.cv.requestPointerLock && !this.locked) { try { const p = this.cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (_) { /* not allowed */ } } }
+  // capture the mouse; if the browser refuses, carry on without it (clicks still strike, look by dragging)
+  lock() {
+    if (!this.cv.requestPointerLock || this.locked || this.lockFailed) return;
+    try { const p = this.cv.requestPointerLock(); if (p && p.catch) p.catch(() => { this.lockFailed = true; }); } catch (_) { this.lockFailed = true; }
+    clearTimeout(this.lockT); this.lockT = setTimeout(() => { if (!this.locked && this.active) this.lockTries = (this.lockTries || 0) + 1; if (this.lockTries >= 2) this.lockFailed = true; }, 600);
+  }
   unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
   mouseMove(e) {
     if (!this.active || e.pointerType === 'touch' || this.touching) return;
@@ -86,7 +92,7 @@ export class FPInput {
   }
   mouseButton(e, down) {
     if (!this.active || this.touching) return;
-    if (down && !this.locked) { this.lock(); if (this.cv.requestPointerLock) return; }   // the first click only captures the mouse
+    if (down && !this.locked && !this.lockFailed && this.cv.requestPointerLock) { this.lock(); return; }   // the first click only captures the mouse
     this.setDevice('mouse');
     // left: strike (hold for the heavy overhead) · right (or a two-finger click): block, or aim a bow
     if (e.button === 0) this.events.push({ t: down ? 'strikeDown' : 'strikeUp' });
