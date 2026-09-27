@@ -13,7 +13,7 @@ import { Music } from './audio/music.js';
 import { Weather, Smoke } from './render/weather.js';
 import { Bubbles } from './ui/bubbles.js';
 
-const BACKUP_KEY = 'tenka.save.backup';
+const BACKUP_KEY = 'tenka.v2.backup';
 
 function pickQuality() {
   let q = null;
@@ -22,11 +22,15 @@ function pickQuality() {
   const iPad = navigator.maxTouchPoints > 1 && /Mac|iPad/.test(navigator.platform || navigator.userAgent);
   return iPad ? 'medium' : 'high';
 }
-function readRaw() { try { return localStorage.getItem(SAVE_KEY); } catch (_) { return null; } }
-// before version 2 touches anything, keep a snapshot of the village for the classic (v1) backup at /v1/
-try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v1snapshot')) localStorage.setItem('tenka.v1snapshot', raw); } catch (_) { /* storage off */ }
-// ... and the same for the v2 backup at /v2/
-try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v2snapshot')) localStorage.setItem('tenka.v2snapshot', raw); } catch (_) { /* storage off */ }
+// this is the backup (v2) of the game: it keeps its own save. The first time it runs it starts from
+// the snapshot the main game took of your village when this backup was made (or, failing that, the current save).
+function readRaw() {
+  try {
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { raw = localStorage.getItem('tenka.v2snapshot') || localStorage.getItem('tenka.save.v1'); if (raw) localStorage.setItem(SAVE_KEY, raw); }
+    return raw;
+  } catch (_) { return null; }
+}
 
 function boot() {
   const quality = pickQuality();
@@ -67,7 +71,7 @@ function boot() {
   const checkUpdate = async () => {
     try {
       const r = await fetch('version.json', { cache: 'no-store' }); if (!r.ok) return;
-      const { v } = await r.json(); let have = null; try { have = localStorage.getItem('tenka.ver'); } catch (_) { /* */ }
+      const { v } = await r.json(); let have = null; try { have = localStorage.getItem('tenka.v2.ver'); } catch (_) { /* */ }
       if (v && have && v !== have) hud.updateReady(() => { saveNow(); location.reload(); });
     } catch (_) { /* offline */ }
   };

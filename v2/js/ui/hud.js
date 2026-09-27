@@ -958,8 +958,8 @@ export class Hud {
       toggle('Keep it smooth: lower the resolution automatically when the game slows down', () => this.settings.autoRes !== false, v => { this.settings.autoRes = v; this.saveSettings(); }),
       h('div', { class: 'row' }, h('span', null, 'Graphics: '), ['low', 'medium', 'high'].map(k => h('button', { class: 'btn small ' + (q === k ? '' : 'ghost'), onclick: () => { try { localStorage.setItem('tenka.quality', k); } catch (_) { /* */ } this.saver(); location.reload(); } }, k))),
       h('p', { class: 'sub' }, 'Your game saves automatically on this device, and a backup of the previous save is always kept. There is no cloud save (the game has no server): to carry your village to another device, use a save file or a save code.'),
-      h('p', { class: 'sub' }, `Version ${(() => { try { return localStorage.getItem('tenka.ver') || '?'; } catch (_) { return '?'; } })()}`),
-      h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' or ', h('a', { href: 'v2/', target: '_self' }, 'the backup (v2)'), ' — each keeps its own save.')),
+      h('p', { class: 'sub' }, `Version ${(() => { try { return localStorage.getItem('tenka.v2.ver') || '?'; } catch (_) { return '?'; } })()}`),
+      h('p', { class: 'sub' }, 'This is the backup (v2) with its own save. ', h('a', { href: '../', target: '_self' }, 'Back to the main game'))),
       [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
        { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
        { label: 'Save file / code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
@@ -969,14 +969,14 @@ export class Hud {
   openSaveCode() {
     this.saver();
     let code = '';
-    try { code = btoa(unescape(encodeURIComponent(localStorage.getItem('tenka.save.v1') || ''))); } catch (_) { /* */ }
+    try { code = btoa(unescape(encodeURIComponent(localStorage.getItem('tenka.v2.save') || ''))); } catch (_) { /* */ }
     const out = h('textarea', { readonly: true, rows: 4 }); out.value = code;
     const inp = h('textarea', { rows: 4, placeholder: 'Paste a save code here…' });
     const msg = h('p', { class: 'sub' });
     const loadJson = json => {
       const obj = JSON.parse(json); if (!obj || !obj.v || !obj.buildings) throw new Error('bad');
-      localStorage.setItem('tenka.save.backup', localStorage.getItem('tenka.save.v1') || '');
-      localStorage.setItem('tenka.save.v1', json); this.saver.block(); location.reload();
+      localStorage.setItem('tenka.v2.backup', localStorage.getItem('tenka.v2.save') || '');
+      localStorage.setItem('tenka.v2.save', json); this.saver.block(); location.reload();
     };
     const file = h('input', { type: 'file', accept: '.json,.tenka,application/json,text/plain', style: 'display:none', onchange: e => {
       const f = e.target.files && e.target.files[0]; if (!f) return;
@@ -984,7 +984,7 @@ export class Hud {
     } });
     const download = () => {
       try {
-        const blob = new Blob([localStorage.getItem('tenka.save.v1') || ''], { type: 'application/json' }), a = document.createElement('a');
+        const blob = new Blob([localStorage.getItem('tenka.v2.save') || ''], { type: 'application/json' }), a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = `tenka-day${this.game.state.day}.json`; document.body.append(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 4000); msg.textContent = 'Saved. On an iPad it goes to Files \u2192 Downloads.';
       } catch (_) { msg.textContent = 'Your browser could not save the file — use the save code instead.'; }
