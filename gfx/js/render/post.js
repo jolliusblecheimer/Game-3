@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { MAT } from './geo.js';
 
 const CDN = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/';
-const DEFAULTS = { ao: true, bloom: true, tilt: true, grade: true, wind: true, water: true, clouds: true, hdShadows: true };
+const DEFAULTS = { wind: true, water: true, clouds: true, hdShadows: true };   // (the screen filters are gone: this preview is about more detailed models)
 
 const INK_FILM = {
   uniforms: { tDiffuse: { value: null }, res: { value: new THREE.Vector2(1, 1) }, tilt: { value: 1 }, grade: { value: 1 }, time: { value: 0 } },
@@ -45,7 +45,6 @@ export class GfxPreview {
     this.time = { value: 0 }; this.fps = 60; this.ready = false;
     this.makeWind(); this.makeWater(); this.makeClouds(); this.applyShadows();
     this.panel();
-    this.loadPost();
   }
   save() { try { localStorage.setItem('tenka.gfx.opts', JSON.stringify(this.O)); } catch (_) { /* */ } }
 
@@ -124,6 +123,7 @@ export class GfxPreview {
     const N = this.nature;
     for (const im of Object.values(N.forestMesh || {})) im.material = this.windTree;
     for (const im of Object.values(N.treeMesh || {})) im.material = this.windTree;
+    for (const im of Object.values(N.nearMesh || {})) im.material = this.windTree;
     if (N.grassMesh) N.grassMesh.material = this.windGrass;
   }
   /* ---------- water: small waves and glints of the sky ---------- */
@@ -174,8 +174,8 @@ export class GfxPreview {
   /* ---------- the panel: switch each effect, see the frame rate ---------- */
   panel() {
     const box = document.createElement('div'); box.className = 'gfxpanel';
-    const names = { ao: 'Ambient occlusion (soft contact shadows)', bloom: 'Bloom (lanterns glow at night)', tilt: 'Tilt-shift (miniature look)', grade: 'Warm film grade, vignette, grain', wind: 'Wind in trees and grass', water: 'Waves and glints on the water', clouds: 'Drifting clouds', hdShadows: 'Crisper, softer shadows' };
-    box.innerHTML = `<div class="gp-head"><b>Graphics preview</b><span class="gp-fps">— fps</span><button class="gp-min" title="Fold">–</button></div><div class="gp-body"></div><p class="gp-status">Loading the effects…</p>
+    const names = { wind: 'Wind in trees and grass', water: 'Waves and glints on the water', clouds: 'Drifting clouds', hdShadows: 'Crisper shadows (for the finer detail)' };
+    box.innerHTML = `<div class="gp-head"><b>Detail preview</b><span class="gp-fps">— fps</span><button class="gp-min" title="Fold">–</button></div><div class="gp-body"></div><p class="gp-note">More detailed roofs, posts, windows, trees, rocks, grass, flowers and people.</p><p class="gp-status"></p>
       <div class="gp-foot"><button class="gp-all">All off / on</button><button class="gp-copy">Copy my village again</button><a href="../">Main game</a></div>`;
     const body = box.querySelector('.gp-body');
     for (const [k, label] of Object.entries(names)) {
@@ -202,13 +202,6 @@ export class GfxPreview {
       s.position.set(f.x + u.x, u.y, f.z + u.z); s.material.opacity = 0.25 + 0.6 * day;
       s.material.color.setScalar(0.45 + 0.55 * day);
     }
-    if (this.ready) {
-      const fp = window.tenkaFP && window.tenkaFP.active;
-      this.film.uniforms.tilt.value = this.O.tilt && !fp ? 1 : 0;
-      this.film.uniforms.grade.value = this.O.grade ? 1 : 0;
-      this.film.uniforms.time.value = this.time.value;
-      this.film.enabled = this.O.tilt || this.O.grade;
-      this.composer.render(dt);
-    } else this.R.render(this.stage.scene, this.stage.camera);
+    this.R.render(this.stage.scene, this.stage.camera);
   }
 }

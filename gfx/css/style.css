@@ -955,3 +955,4 @@ html.site-mobile .keys { display: none; }
 .gfxpanel .gp-foot { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .gfxpanel .gp-foot a { color: #ffd98a; margin-left: auto; }
 .gfxpanel.min .gp-body, .gfxpanel.min .gp-foot, .gfxpanel.min .gp-status { display: none; }
+.gfxpanel .gp-note { margin: 6px 0 2px; color: #cdb98e; font-size: 12px; }

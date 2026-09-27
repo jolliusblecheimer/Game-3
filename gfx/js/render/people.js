@@ -100,13 +100,22 @@ export class Person {
     b.box(0.54, 0.62, 0.32, robe, [0, 1.25, 0]);                          // torso
     b.box(0.2, 0.3, 0.02, '#f2ece0', [0, 1.4, 0.165], [0, 0, 0.5]);        // collar
     b.box(0.58, 0.12, 0.35, L.armor ? '#1c1c1f' : '#2f2b28', [0, 0.97, 0]); // obi belt
+    if (!L.armor) { b.box(0.22, 0.14, 0.08, '#2f2b28', [0, 0.97, -0.2]); for (const s of [-1, 1]) b.box(0.1, 0.18, 0.05, '#2f2b28', [s * 0.09, 0.88, -0.21], [0, 0, s * 0.4]); }   // the knot
+    b.box(0.12, 0.34, 0.02, '#e9e1cf', [-0.04, 1.36, 0.163], [0, 0, 0.45]); b.box(0.12, 0.34, 0.02, robe, [0.05, 1.33, 0.166], [0, 0, -0.45]);   // crossed collar
+    for (const s of [-1, 1]) b.box(0.02, 0.45, 0.02, '#2a2420', [s * 0.14, 0.55, 0.235], [0.12, 0, 0]);   // folds in the skirt
     if (L.armor) {
       b.box(0.6, 0.5, 0.38, L.armor, [0, 1.2, 0]);
       for (let i = 0; i < 3; i++) b.box(0.64, 0.06, 0.4, '#18181b', [0, 1.02 + i * 0.16, 0]);
       b.frustum(0.66, 0.44, 0.6, 0.4, 0.35, L.armor, [0, 0.62, 0]);   // kusazuri skirt plates
     }
     b.box(0.3, 0.32, 0.3, skin, [0, 1.72, 0]);                            // head
-    b.box(0.31, 0.06, 0.02, '#2a2320', [0, 1.76, 0.155]);                  // eyes line
+    // a face: eyes, brows, a nose, a mouth, ears
+    for (const s of [-1, 1]) {
+      b.box(0.06, 0.035, 0.02, '#1e1814', [s * 0.07, 1.76, 0.155]); b.box(0.02, 0.02, 0.01, '#f4efe4', [s * 0.055, 1.765, 0.166]);
+      b.box(0.075, 0.018, 0.02, HAIR, [s * 0.07, 1.805, 0.155], [0, 0, -s * 0.12]);
+      b.box(0.04, 0.09, 0.07, skin, [s * 0.165, 1.73, 0]);
+    }
+    b.box(0.04, 0.06, 0.04, skin, [0, 1.72, 0.165]); b.box(0.08, 0.015, 0.02, '#8a4a3a', [0, 1.665, 0.155]);
     if (L.hat !== 'bald' && L.hat !== 'kabuto') { b.box(0.32, 0.14, 0.32, HAIR, [0, 1.87, -0.01]); b.box(0.32, 0.22, 0.08, HAIR, [0, 1.72, -0.14]); }
     switch (L.hat) {
       case 'none': b.box(0.08, 0.1, 0.18, HAIR, [0, 1.98, 0]); break;   // chonmage topknot
@@ -141,6 +150,8 @@ export class Person {
       const p = new THREE.Group(); p.position.set(s * 0.14, 0.82, 0);
       const m = new Mesher(seed + s, 0.03);
       m.box(0.22, 0.62, 0.24, L.pants, [0, -0.33, 0]); m.box(0.14, 0.24, 0.16, skin, [0, -0.72, 0]); m.box(0.16, 0.06, 0.28, '#b08d57', [0, -0.82, 0.04]);
+      for (const o of [-0.06, 0.02, 0.09]) m.box(0.015, 0.5, 0.02, '#1c1a18', [o, -0.3, 0.125]);   // hakama pleats
+      m.box(0.15, 0.03, 0.03, '#3a2418', [0, -0.78, 0.1], [0, 0, 0]); m.box(0.03, 0.03, 0.12, '#3a2418', [0, -0.78, 0.06]);   // sandal straps
       p.add(m.mesh(MAT.flat, true, false)); g.add(p); return p;
     });
     // arms (right arm holds the tool)
@@ -148,6 +159,7 @@ export class Person {
       const p = new THREE.Group(); p.position.set(s * 0.33, 1.5, 0);
       const m = new Mesher(seed + 3 * s, 0.03);
       m.box(0.2, 0.4, 0.26, L.armor || robe, [s * 0.03, -0.18, 0]);
+      if (!L.armor) m.box(0.12, 0.34, 0.4, robe, [s * 0.05, -0.3, -0.04], [0.1, 0, 0]);   // the wide kimono sleeve hanging from the arm
       if (L.armor) m.box(0.26, 0.28, 0.3, '#1c1c1f', [s * 0.05, -0.08, 0]);   // sode shoulder guard
       m.box(0.12, 0.3, 0.14, skin, [s * 0.02, -0.5, 0]);
       if (s === 1 && L.tool && L.tool !== 'yari') { const t = new Mesher(seed + 9, 0.02); toolMesh(t, L.tool); const tm = t.mesh(MAT.flat, true, false); tm.position.set(0.02, -0.62, 0.02); p.add(tm); }

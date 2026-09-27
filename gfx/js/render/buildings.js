@@ -22,7 +22,11 @@ function lattice(m, x, y, z, w, h, side = 0, hex = '#3b2619') {
     const o = -w / 2 + i * w / nx;
     if (side) m.box(0.04, h, 0.03, hex, [x + side * 0.03, y, z + o]); else m.box(0.03, h, 0.04, hex, [x + o, y, z + 0.03]);
   }
-  if (side) m.box(0.04, 0.04, w, hex, [x + side * 0.03, y, z]); else m.box(w, 0.04, 0.04, hex, [x, y, z + 0.03]);
+  const ny = Math.max(2, Math.round(h / 0.2));
+  for (let j = 1; j < ny; j++) { const oy = -h / 2 + j * h / ny; if (side) m.box(0.035, 0.025, w, hex, [x + side * 0.035, y + oy, z]); else m.box(w, 0.025, 0.035, hex, [x, y + oy, z + 0.035]); }
+  // the frame around it
+  if (side) { m.box(0.05, 0.05, w + 0.08, hex, [x + side * 0.035, y + h / 2, z]); m.box(0.05, 0.05, w + 0.08, hex, [x + side * 0.035, y - h / 2, z]); }
+  else { m.box(w + 0.08, 0.05, 0.05, hex, [x, y + h / 2, z + 0.035]); m.box(w + 0.08, 0.05, 0.05, hex, [x, y - h / 2, z + 0.035]); }
 }
 function stableHorse(m, x, z, col) {
   m.box(0.42, 0.5, 1.2, col, [x, 1.0, z]);
@@ -44,7 +48,8 @@ function backWindow(b, x, y, z, w, h, glow = '#ffcf7a') {
   b.g.box(w, h, 0.06, glow, [x, y, z]);
   const nx = Math.max(2, Math.round(w / 0.18));
   for (let i = 1; i < nx; i++) b.m.box(0.03, h, 0.04, '#3b2619', [x - w / 2 + i * w / nx, y, z - 0.03]);
-  b.m.box(w, 0.04, 0.04, '#3b2619', [x, y, z - 0.03]);
+  const ny = Math.max(2, Math.round(h / 0.2));
+  for (let j = 1; j < ny; j++) b.m.box(w, 0.025, 0.035, '#3b2619', [x, y - h / 2 + j * h / ny, z - 0.035]);
   b.m.box(w + 0.16, 0.08, 0.08, '#3b2619', [x, y - h / 2 - 0.04, z - 0.03]); b.m.box(w + 0.16, 0.08, 0.08, '#3b2619', [x, y + h / 2 + 0.04, z - 0.03]);
 }
 // straw rice bales (tawara)
@@ -56,7 +61,16 @@ function bales(m, x, z, n = 3) {
   }
 }
 function posts(m, w, d, h, y, hex, r = 0.13) {
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) m.box(r * 2, h, r * 2, hex, [sx * (w / 2 - r), y + h / 2, sz * (d / 2 - r)]);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const px = sx * (w / 2 - r), pz = sz * (d / 2 - r);
+    m.box(r * 2, h, r * 2, hex, [px, y + h / 2, pz]);
+    m.cyl(r * 1.7, r * 2, 0.16, 7, '#8f8a7f', [px, y + 0.06, pz]);                     // the footing stone
+    m.box(r * 2.9, 0.1, r * 2.9, '#3b2619', [px, y + h - 0.05, pz]);                   // the bracket block
+    m.box(r * 3.6, 0.08, r * 1.4, '#3b2619', [px, y + h - 0.12, pz]); m.box(r * 1.4, 0.08, r * 3.6, '#3b2619', [px, y + h - 0.12, pz]);
+  }
+  // tie beams between the posts
+  for (const sz of [-1, 1]) m.box(w - r * 2, 0.1, 0.1, '#3b2619', [0, y + h - 0.35, sz * (d / 2 - r)]);
+  for (const sx of [-1, 1]) m.box(0.1, 0.1, d - r * 2, '#3b2619', [sx * (w / 2 - r), y + h - 0.35, 0]);
 }
 function stoneLantern(b, x, z, s = 1) {
   const m = b.m;
@@ -285,7 +299,12 @@ const MODELS = {
       const z = -d / 2 + 0.75 + i * ((d - 1.5) / (rows - 1));
       for (let k = 0; k < 9; k++) {
         const x = -w / 2 + 0.8 + k * (w - 1.6) / 8;
-        c.cone(0.22, 0.9, 5, k % 3 ? '#d8b653' : '#c9a443', [x, 0.7, z], [0, k, 0]);
+        // a clump of rice / wheat: stalks leaning a little outward, each with a drooping ear of grain
+        for (let n = 0; n < 5; n++) {
+          const a = n * 1.26 + k, lx = x + Math.cos(a) * 0.09, lz = z + Math.sin(a) * 0.09, tilt = 0.12 + (n % 2) * 0.08;
+          c.cyl(0.014, 0.018, 0.8, 3, n % 2 ? '#a9a24a' : '#b7ad55', [lx, 0.72, lz], [Math.sin(a) * tilt, 0, -Math.cos(a) * tilt]);
+          c.cone(0.045, 0.24, 4, k % 3 ? '#d8b653' : '#c9a443', [lx + Math.cos(a) * 0.12, 1.08, lz + Math.sin(a) * 0.12], [Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9]);
+        }
       }
     }
     const crop = c.mesh(MAT.flat, true, true);
