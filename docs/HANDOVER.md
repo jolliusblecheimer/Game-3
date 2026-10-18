@@ -20,6 +20,7 @@
 **Plans** (in `plans/`)
 - `first-person-battles.md`: the big first-person plan. Controls for all three setups, weapons, squads, real enemy places, rivers, milestones M0–M11.
 - `combat-and-command.md`: the detailed plan for fighting and commanding **after** the training yard. The next steps (M3 squads…) are here.
+- `first-person-world.md`: **the next big shift.** The whole game on foot in your own village; walk into the Keep for the top-down desk. Phases W0–W7 and open decisions.
 - `tenka-2-age-of-steam.md`: an idea for a steampunk sequel. Nothing built.
 
 ---
