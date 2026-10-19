@@ -2,7 +2,7 @@
 
 ### The whole game becomes first person; the Keep is where you rule
 
-*Status: plan only. Nothing here is built yet. Written 18 October 2026. Read it with `first-person-battles.md` and `combat-and-command.md`; this plan changes where those happen.*
+*Status: plan only, **decisions made on 19 October 2026** (§7). Nothing is built yet, and the player asked **not to start building yet**. Written 18 October 2026. Read it with `first-person-battles.md` and `combat-and-command.md`; this plan changes where those happen.*
 
 ---
 
@@ -27,14 +27,14 @@ You no longer look down on your village from the sky: you **live in it**. You st
 | Part | Today | After the shift |
 |---|---|---|
 | **The village** | Seen from above; you build it | **The same village**, but you walk in it. Building happens at the lord's desk in the Keep |
-| **Building, upgrades, jobs** | Click buildings in the top-down view | At the desk, exactly as today. Later, partly on foot too (§3.4) |
+| **Building, upgrades, jobs** | Click buildings in the top-down view | **Only at the desk**, exactly as today. Nothing is built or placed on foot |
 | **Research, quests, diplomacy, War Room** | Menus | At the desk. Later also **in person** at the right place (Pavilion, notice board, map table, Strategy Hall) |
 | **First-person valley** (`js/fp/terrain.js`) | A separate valley far away | **Folded into the real village and the country.** The training yard becomes your Dojo and Kyūdō Range; the bandit camp becomes a place on the map |
 | **Raids on the village** (`raids.js`) | Top-down defence with clicks | **You defend in person**, with your soldiers fighting by the same rules as you |
 | **Battles abroad** (`battle.js`) | Top-down RTS | **First person** at the place itself (the plan already says this: M4–M9) |
-| **The country map** | A view you switch to | **A map table in the Keep** (and later, riding there yourself) |
-| **Time** | Runs while you build; paused in the first-person sandbox | **Runs all the time.** The village lives while you walk |
-| **Saves** | The village | The village **plus where you stand, who you are, your gear** |
+| **The country map** | A view you switch to | **At the desk in the Keep** (and later, riding there yourself) |
+| **Time** | Runs while you build; paused in the first-person sandbox | **Runs all the time, always at normal speed on foot.** The speed buttons work only at the desk |
+| **Saves** | The village | The village **plus the lord: where he stands, his weapon and gear, his wounds** |
 
 **What goes in the end:**
 - the separate training valley
@@ -61,12 +61,17 @@ You no longer look down on your village from the sky: you **live in it**. You st
 |---|---|---|
 | **How you get there** | Start of the game; step out of the Keep | Walk up the Keep's steps and through its door |
 | **Camera** | Your eyes, 1.6 m up | Today's top-down camera |
-| **What you can do** | Walk, run, talk, fight, use things (F), train | Everything you do today: build, move, upgrade, jobs, research, quests, diplomacy, map, War Room |
+| **What you can do** | Walk, run, talk, fight, use things (F), train. **No building** | Everything you do today: build, move, upgrade, jobs, research, quests, diplomacy, map, War Room |
 | **Screen** | The first-person look: crosshair, stamina, no health bar, no combat texts | Today's interface (the ink-and-lacquer look) |
-| **Time** | Runs | Runs (you can pause and change speed here, as today) |
+| **Time** | Runs, **always at normal speed** | Runs; you can pause and change speed here, as today. Stepping outside sets it back to normal speed |
 
 - **The transition:** walking into the door fades through ink to the desk view, which starts over the Keep. Leaving the desk (a "Step outside" seal, or **Esc**) fades back, and you stand on the Keep's steps facing the village.
-- **A shortcut for busy moments:** you can also open the desk from anywhere with a key or button. Your choice (§7): either you must walk back, which is immersive, or there's a shortcut, which is handy.
+- **No shortcut (decided):** the desk opens **only** through the Keep's door. Things that need you reach you on foot instead:
+  - the drum of a raid
+  - a messenger running up with news from the map
+  - the ink compass pointing home
+  - the Esc menu, which pauses, but never opens the desk
+- **That makes the Keep the heart of the village.** It stands in the middle, so you're never far from it: at most about 70 m, or 12 seconds' run.
 
 ### 3.3 The village up close
 
@@ -90,12 +95,12 @@ Each menu you use today gets a **place in the village** where it happens. The de
 
 | In the village | What happens there on foot |
 |---|---|
-| **The Keep** | The lord's desk: build, upgrade, jobs, quests, diplomacy, the country map |
+| **The Keep** | The lord's desk, **the only way in**: build, upgrade, jobs, quests, diplomacy, the country map |
 | **Scholars' Pavilion** | The research scroll (it's already "research only at the Pavilion") |
-| **Strategy Hall** | The War Room: commanders' skill trees, and later the **map table** for war |
+| **Strategy Hall** | The War Room: your generals' skill trees (also at the desk) |
 | **Dojo** | Sparring with Kenji, watching trainees, choosing what the Dojo trains |
 | **Kyūdō Range** | The archery targets from the training yard |
-| **Blacksmith** | The armoury: your weapon and armour, iron armour for soldiers |
+| **Blacksmith** | **The lord's armoury:** pick the weapon you carry, better armour as iron and research allow, iron armour for your soldiers |
 | **Market** | Trade face to face with the merchant (the offers today, as a stall) |
 | **Shrine** | Pray: a small blessing, and quiet music |
 | **Town Square** | The festival: join the Bon Odori in the evening |
@@ -113,19 +118,34 @@ Each menu you use today gets a **place in the village** where it happens. The de
 
 ### 3.6 Going to war
 
-- **The country map** stays the way to choose where to go: at the desk, or at the map table in the Strategy Hall.
+- **The country map** stays the way to choose where to go: **at the desk in the Keep.**
 - **Sending an army:**
-  1. You pick your hero (you, or a soldier) and squads at the **muster**.
+  1. **You, the lord, lead it.** You pick your squads and generals at the **muster**.
   2. The march happens on the map.
   3. On arrival you're **there in first person:** a real village, fort or castle, built from your own village's models, with rivers and fields (M4–M6 of the battle plan).
 - **Later:** you **ride out yourself** from the Stables across the country, a real journey, with ambushes on the road.
 
-### 3.7 Who you are
+### 3.7 Who you are — the lord (decided)
 
-This needs your decision (§7). The options:
-1. **You are the lord (daimyō).** One character, always you. You get better gear and skills, and take your clan banner into battle. If you fall, you're carried home wounded; Tenka doesn't kill the lord.
-2. **You are one of your soldiers,** as in the training yard today. You choose who before going out, and commanders once you have them.
-3. **Both:** you walk the village as the lord, and in battle you choose to fight as the lord or as one of your men.
+You are **the daimyō, the lord of the clan**: one character, always you, in the village and in every battle.
+
+- **The look:** a model of his own. Clan colours, a crested kabuto, armour that grows richer as you rise.
+- **Weapons:** the lord chooses **which weapon he carries** at his armoury (the Blacksmith). The soldier classes from the training yard become his weapon choices:
+  - katana
+  - yari
+  - yumi
+  - naginata
+  - kanabō
+  - sword and shield
+  - riding with a lance from the Stables
+
+  New weapons open with research and the Blacksmith's level. The ninja's tools (kunai, the quiet crouch) can come as a skill later.
+- **Growing stronger:** the lord's **rank** rises with battles and kills, as soldiers' ranks do today, and gives a little more health and stamina. **Iron armour** from the Blacksmith adds the +30%.
+- **When the lord falls:** he is **carried home wounded**, never killed. He wakes at the Keep and is slower and weaker for a few days until the healer has done her work.
+  - In a battle abroad, the lord falling hits your men's morale hard. The battle is likely lost unless a general rallies them.
+  - The "take over another soldier" idea from the battle plan is dropped.
+- **Your commanders become your generals.** The Berserker and the Taishō fight **beside** you as strong allies (actors), with the skills you bought them in the War Room. You never play them yourself.
+- **Saved with the village:** where the lord stands, his weapon, gear, rank and wounds.
 
 ### 3.8 Controls and screen
 
@@ -143,8 +163,8 @@ This needs your decision (§7). The options:
 
 ### 3.9 Saves and time
 
-- **Saved on top of the village:** where you stand and which way you look, your class and gear, and the squads you've formed.
-- **Time:** the village keeps living while you walk. At night most people sleep, as now, and the short night still applies.
+- **Saved on top of the village:** the lord (where he stands and looks, his weapon, gear, rank, wounds) and the squads you've formed.
+- **Time:** the village keeps living while you walk, **always at normal speed on foot.** At night most people sleep, as now, and the short night still applies. Only the desk has pause and the fast speeds.
 - **Coming back after being away** works as today ("While you were away…").
 
 ### 3.10 The code: what changes where
@@ -202,21 +222,22 @@ This needs your decision (§7). The options:
 | Step | What you get | Done when… |
 |---|---|---|
 | **W0** | **Backup `/v5/`** of today's game | It plays with its own save |
-| **W1** | **Walk your village.** You start on foot at the Keep, walk among the real buildings and people, and walk into the Keep for the desk. "Step outside" brings you back. Time runs. Collisions with buildings, walls, trees; gates and roads open | You can cross the village, enter the Keep, build something, step out and walk to it |
+| **W1** | **Walk your village, in detail.** You start on foot as the lord at the Keep, walk among the real buildings and people, and walk into the Keep for the desk. "Step outside" brings you back. Time runs at normal speed on foot. Collisions with buildings, walls, trees; gates and roads open. **The `/gfx/` detail comes in here**, with distance detail (full detail near you, simpler far away) | You can cross the village, enter the Keep, build something, step out and walk to it. It looks detailed up close and runs smoothly on the iPad |
 | **W2** | **Places to use (part 1):** the Dojo (Kenji and the dummies move here), the Kyūdō Range (targets), the Pavilion (research), the Strategy Hall (War Room), a notice board (quests) | Every place opens its thing with F |
-| **W3** | **Living people:** villagers step aside, bow, and talk (F). Soldiers patrol. Detail from `/gfx/` with distance detail | A walk through the village feels alive at 60 fps on the iPad |
+| **W3** | **Living people:** villagers step aside, bow to their lord, and talk (F). Soldiers patrol | A walk through the village feels alive |
 | **W4** | **Defend in person:** raids fought on foot with your soldiers as actors; climb towers, hold the gate. Squads (M3 of the combat plan) | A raid can be won by fighting it yourself |
-| **W5** | **Places to use (part 2):** the market, shrine, Town Square festival, blacksmith gear, stables (ride a horse in the village) | |
+| **W5** | **Places to use (part 2):** the market, shrine, Town Square festival, the lord's armoury at the Blacksmith (weapons and armour), the Stables (ride a horse in the village) | |
 | **W6** | **War abroad in first person:** muster → march → real enemy places (M4–M6) → aftermath. `battle.js` retired | Taking a bandit camp or a fort works end to end |
 | **W7** | **Ride out:** travel the country on horseback, with roads, ambushes and arriving at places | |
-| **later** | Interiors (the Keep's hall, the Dojo floor, the teahouse), named villagers' stories, the lord's gear and banner | |
+| **later** | Interiors (the Keep's hall, the Dojo floor, the teahouse), named villagers' stories, the lord's banner and richer armour | |
 
 ---
 
-## 7. Decisions for you
+## 7. Decisions (made 19 October 2026)
 
-1. **Who are you on foot:** the lord, a soldier, or both (§3.7)?
-2. **The desk:** only by walking into the Keep, or also a shortcut key / button from anywhere?
-3. **Can you build on foot** later (choose a building at the desk, then place it while standing in the village), or only at the desk?
-4. **Time:** should it keep running at the desk's speed setting while you walk (3× would make villagers rush around), or always 1× on foot?
-5. **The village's look up close:** do you want the `/gfx/` detail in as part of W1, or first walk the village as it is and add detail in W3?
+1. **Who you are on foot:** **the lord** (the daimyō), in the village and in battle (§3.7).
+2. **The desk:** **only by walking into the Keep.** No shortcut key or button.
+3. **Building:** **only at the desk.** Nothing is placed on foot.
+4. **Time on foot:** **always normal speed.** Pause and the fast speeds exist only at the desk.
+5. **Detail:** **the `/gfx/` detail comes in from the start** (W1), with distance detail for the iPad.
+6. **Don't start building yet** — the player will say when.

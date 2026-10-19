@@ -288,6 +288,11 @@ Soldier, sparring difficulty (also the enemies'), time of day, "I play with" (mo
 5. The **Taishō's war fan was scrapped**. It may come back only as a visual command signal.
 6. Research is **only** at the Scholars' Pavilion. Quests are **claimed**, with their own top-bar button.
 7. **Make backups (`vN/`)** at milestones and before big changes.
+9. **The world on foot (`plans/first-person-world.md`, decided 19 Oct 2026, not started — wait for the player's go):**
+   - You are **the lord**.
+   - The top-down **desk opens only by walking into the Keep**, and **building happens only at the desk**.
+   - **Time on foot is always normal speed.**
+   - The **`/gfx/` detail comes in from the start.**
 8. **The interface should look Japanese and stay tidy** (the player's words: it shouldn't "scream AI" or fill the screen): washi paper, ink frames, lacquer with gold, vermilion seals, Shippori Mincho / Zen Kaku Gothic New (css/theme.css). The build menu and village scroll fold up and remember. No generic rounded web cards.
 
 ---
