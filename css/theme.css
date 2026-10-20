@@ -154,3 +154,16 @@ h1, h2, h3 { font-family: var(--mincho); letter-spacing: .04em; }
 .mapbig { width: 96px !important; height: 96px !important; }
 @media (max-width: 1000px) { html:not(.site-pc) .mapbig { width: 84px !important; height: 84px !important; } html:not(.site-pc) .mapbig::before { font-size: 26px; } }
 html.site-mobile .mapbig { width: 84px !important; height: 84px !important; }
+
+/* the desk: a black ink seal above the map to step back outside the Keep */
+.stepout { position: fixed; right: 124px; bottom: calc(22px + env(safe-area-inset-bottom)); z-index: 10; width: 76px; height: 76px; border-radius: 50%; border: 0;
+  background: radial-gradient(circle at 40% 35%, #3a332c, #1d1915 70%); color: #fbecd8; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 3px rgba(251, 236, 216, .35), inset 0 0 0 5px #1d1915, inset 0 0 0 6px rgba(251, 236, 216, .25), var(--lift); cursor: pointer; }
+.stepout[hidden] { display: none; }
+.stepout::before { content: '外'; font: 800 26px/1 var(--mincho); margin-bottom: 3px; }
+.stepout b { font: 700 9px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: #fbecd8; }
+#ui.lefty .stepout { right: auto; left: 124px; }
+#ui.mode-map > .stepout, #ui.mode-battle > .stepout { display: none !important; }
+@media (max-width: 1000px) { html:not(.site-pc) .stepout { right: 108px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 68px; height: 68px; } html:not(.site-pc) #ui.lefty .stepout { left: 108px; } }
+html.site-mobile .stepout { right: 108px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 68px; height: 68px; }
+html.site-mobile #ui.lefty .stepout { left: 108px; }

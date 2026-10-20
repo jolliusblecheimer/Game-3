@@ -98,7 +98,8 @@ function boot() {
        { label: 'Start a new village (old one kept as backup)', cls: 'danger', fn: () => { blocked = false; try { localStorage.setItem(BACKUP_KEY, raw || ''); } catch (_) { /* */ } location.reload(); saveNow(true); } }],
       { locked: true });
   }
-  if (!game.buildings.size) { game.newGame(); if (!failed) setTimeout(() => hud.showHelp(), 600); }
+  let fresh = false;
+  if (!game.buildings.size) { game.newGame(); fresh = !failed; }
   hud.renderBar(); // the build menu was drawn before the save was loaded: redraw it for the real Keep level
   if (away) setTimeout(() => hud.showAway(away), 400);
 
@@ -108,7 +109,7 @@ function boot() {
   stage.resize();
 
   const weather = new Weather(stage.scene), bubbles = new Bubbles(game, stage), smoke = new Smoke(stage.scene);
-  let smokeSrc = [], smokeT = 0, slowT = 0, fastT = 0, avgDt = 1 / 60;
+  let lodT = 0, smokeSrc = [], smokeT = 0, slowT = 0, fastT = 0, avgDt = 1 / 60;
   // chimneys: homes smoke more in the cold, the forge and the brewery always
   const SMOKY = { house: 0.5, nagaya: 0.8, blacksmith: 1.6, sakebrewery: 1.1, teahouse: 0.5 };
   const chimneys = () => {
@@ -137,11 +138,11 @@ function boot() {
     else { cam.update(dt, input.keys); input.updateSelectionVisual(); }
     const c = view && view.active ? view.cam : cam;
     // the year in the valley: leaves, ground, falling petals / leaves / snow / rain, and what the villagers say
-    const inVillage = !(view && view.active), L = game.life;
+    const inVillage = !(view && view.active) || !!(view && view.village), L = game.life;
     game.viewFocus = cam.target;
     nature.setSeason(L.season);
     weather.update(dt, c.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage || views.mode === 'battle');
-    bubbles.update(dt, inVillage && hud.settings.bubbles !== false);
+    bubbles.update(dt, inVillage && !(view && view.village) && hud.settings.bubbles !== false);
     smokeT -= dt; if (smokeT <= 0) { smokeT = 2; smokeSrc = inVillage ? chimneys() : []; }
     smoke.update(dt, smokeSrc, inVillage);
     // keep it smooth on slower devices: step the resolution down when frames get slow, back up when there's room
@@ -152,6 +153,7 @@ function boot() {
       if (slowT > 4 && pr > 0.75) { R.setPixelRatio(Math.max(0.75, pr - 0.25)); stage.resize(); slowT = 0; }
       if (fastT > 12 && pr < maxPr) { R.setPixelRatio(Math.min(maxPr, pr + 0.25)); stage.resize(); fastT = 0; }
     }
+    lodT -= dt; if (lodT <= 0) { lodT = 0.4; nature.updateLOD(c.target, view && view.village ? 42 : 60); }
     stage.update(dt, c.target, stage.camera.position);
     stage.render();
     tickT += dt; if (tickT > 0.25) { tickT = 0; hud.tick(); music.setMood(views.mode === 'battle' && view && view.active ? 'battle' : game.raids.alarmed ? 'raid' : (game.state.time < 0.22 || game.state.time > 0.8) ? 'night' : 'day'); }
@@ -166,9 +168,16 @@ function boot() {
   document.getElementById('loading').remove();
   // debug: advance the game by hand (used for testing when the tab isn't animating)
   const advance = (sec = 1) => { for (let t = 0; t < sec; t += 0.05) { game.update(0.05); for (const f of hooks.frame) f(0.05); } step(0); };
-  // first person (preview: the training yard). Opened from the Menu, or straight away with ?fp=sandbox
-  const fp = new FPMode({ game, stage, hud, views }); hud.openFP = () => fp.enter();
-  if (/[?&]fp=/.test(location.search)) setTimeout(() => fp.enter(), 300);
+  // on foot: you are the lord, walking your own village. The Keep's door takes you to the desk (the village from
+  // above, where you build); "Step outside" brings you back. The training yard (the sandbox) is at ?fp=sandbox.
+  const fp = new FPMode({ game, stage, hud, views }); hud.openFP = () => fp.enter('yard');
+  hud.onStepOut = () => { hud.modal.hidden = true; if (hud.infoPinned) hud.hideInfo(true); fp.enter('village', { start: false }); };
+  fp.pendingHelp = fresh;
+  // where the lord stands is kept with the village (so a save code carries it too)
+  if (save && save.lord) fp.S.lord = save.lord;
+  window.tenkaExtraSave = s => { if (fp.active && fp.village) fp.saveLord(); if (fp.S.lord) s.lord = fp.S.lord; };
+  if (/[?&]fp=sandbox/.test(location.search)) setTimeout(() => fp.enter('yard'), 300);
+  else if (!failed) setTimeout(() => fp.enter('village'), 300);
   window.tenka = { game, stage, cam, input, hud, views, save: saveNow, advance, hooks, music, fp };
 }
 

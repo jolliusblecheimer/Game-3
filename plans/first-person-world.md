@@ -2,7 +2,7 @@
 
 ### The whole game becomes first person; the Keep is where you rule
 
-*Status: plan only, **decisions made on 19 October 2026** (§7). Nothing is built yet, and the player asked **not to start building yet**. Written 18 October 2026. Read it with `first-person-battles.md` and `combat-and-command.md`; this plan changes where those happen.*
+*Status: **W0 and W1 built on 20 October 2026** (the `/v5/` backup; walking the village as the lord, the Keep door to the desk, the `/gfx/` detail with distance detail). Next: W2. Decisions made on 19 October 2026 (§7). Written 18 October 2026. Read it with `first-person-battles.md` and `combat-and-command.md`; this plan changes where those happen.*
 
 ---
 
@@ -240,4 +240,4 @@ You are **the daimyō, the lord of the clan**: one character, always you, in the
 3. **Building:** **only at the desk.** Nothing is placed on foot.
 4. **Time on foot:** **always normal speed.** Pause and the fast speeds exist only at the desk.
 5. **Detail:** **the `/gfx/` detail comes in from the start** (W1), with distance detail for the iPad.
-6. **Don't start building yet** — the player will say when.
+6. ~~Don't start building yet~~ — the player said go on 20 October 2026.

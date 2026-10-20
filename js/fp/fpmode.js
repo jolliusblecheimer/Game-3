@@ -16,16 +16,17 @@ import { makeSensei, buildBanditCamp, SKILL } from './actors.js';
 import { Chaff } from './training.js';
 import { Sparks } from './effects.js';
 import { MAT } from '../render/geo.js';
+import { VillageGround } from './village.js';
 import { clamp } from '../util.js';
 
-const DEFAULTS = { sens: 1, touchSens: 0.45, invert: false, fov: 75, bob: true, cue: true, sound: true, diff: null, time: '0.3', trackpad: false, cls: 'ashigaru', parry: false };
+const DEFAULTS = { lord: null, sens: 1, touchSens: 0.45, invert: false, fov: 75, bob: true, cue: true, sound: true, diff: null, time: '0.3', trackpad: false, cls: 'ashigaru', parry: false };
 const ZONE_NAME = { head: 'Head', torso: 'Body', legs: 'Legs' };
 
 export class FPMode {
   constructor({ game, stage, hud, views }) {
     this.game = game; this.stage = stage; this.hud0 = hud; this.views = views;
     this.S = { ...DEFAULTS }; try { Object.assign(this.S, JSON.parse(localStorage.getItem('tenka.fp') || '{}')); } catch (_) { /* no storage */ }
-    if (!CLASSES[this.S.cls]) this.S.cls = 'ashigaru';
+    if (!CLASSES[this.S.cls] || CLASSES[this.S.cls].lord) this.S.cls = 'ashigaru';
     if (!this.S.diff) this.S.diff = (game.state.settings && game.state.settings.difficulty) || 'normal';
     this.active = false; this.paused = true; this.built = false;
     this.camProxy = { target: new THREE.Vector3() };
@@ -37,39 +38,63 @@ export class FPMode {
   get skill() { return SKILL[this.S.diff] || SKILL.normal; }
   saveSettings() { try { localStorage.setItem('tenka.fp', JSON.stringify(this.S)); } catch (_) { /* */ } }
 
-  build() {
+  // the places you can be on foot: your own village (the game), and the training valley far away (the sandbox)
+  makeYard() {
     const season = this.game.life ? this.game.life.season : 0;
-    this.T = new FPTerrain(((this.game.state && this.game.state.seed) || 7) % 9973 + 11);
-    this.world = new THREE.Group(); this.world.name = 'fp-world'; this.world.position.copy(FP_ORIGIN);
-    this.world.add(this.T.build(season));
-    this.yard = buildYard(this.T, this.world, this.S.diff);
-    this.T.colliders.push(...this.yard.colliders);
-    this.stage.scene.add(this.world);
-    this.proj = new Projectiles(this.world);
-    this.player = new Player(this.T);
+    const T = new FPTerrain(((this.game.state && this.game.state.seed) || 7) % 9973 + 11);
+    const world = new THREE.Group(); world.name = 'fp-world'; world.position.copy(FP_ORIGIN);
+    world.add(T.build(season));
+    const pl = { name: 'yard', T, world, origin: FP_ORIGIN, actors: [] };
+    pl.yard = buildYard(T, world, this.S.diff);
+    T.colliders.push(...pl.yard.colliders);
+    this.stage.scene.add(world);
+    pl.proj = new Projectiles(world);
+    pl.ink = new Chaff(world, '#3a0d0b', 0.8); pl.sparks = new Sparks(world);
+    this.goTo(pl);
     // people: Sensei Kenji in the yard, and the bandits across the river
-    this.actors = []; this.tokens = new Set();
-    this.sensei = makeSensei(this); this.actors.push(this.sensei);
-    this.camp = buildBanditCamp(this); this.actors.push(...this.camp.actors);
-    this.ink = new Chaff(this.world, '#3a0d0b', 0.8);
-    this.sparks = new Sparks(this.world);
+    pl.sensei = this.sensei = makeSensei(this); pl.actors.push(pl.sensei);
+    pl.camp = this.camp = buildBanditCamp(this); pl.actors.push(...pl.camp.actors);
+    pl.world.visible = false;
+    return pl;
+  }
+  makeVillage() {
+    const T = new VillageGround(this.game), world = new THREE.Group(); world.name = 'fp-village';
+    this.stage.scene.add(world);
+    const pl = { name: 'village', T, world, origin: new THREE.Vector3(), actors: [], camp: { actors: [] }, sensei: null };
+    pl.yard = { dummies: [], targets: [], post: null, rack: null, chaff: new Chaff(world, '#d8c690', 0.5) };
+    pl.proj = new Projectiles(world); pl.ink = new Chaff(world, '#3a0d0b', 0.8); pl.sparks = new Sparks(world);
+    return pl;
+  }
+  // step into a place: everything the fight and the camera use now points there
+  goTo(pl) {
+    if (this.pl && this.pl !== pl) this.pl.world.visible = this.pl.name === 'village';
+    this.pl = pl; this.village = pl.name === 'village';
+    for (const k of ['T', 'world', 'yard', 'proj', 'ink', 'sparks', 'actors', 'camp', 'sensei', 'origin']) this[k] = pl[k];
+    if (this.player) { this.player.T = pl.T; this.player.colliders = pl.T.colliders; }
+    this.tokens && this.tokens.clear();
+  }
+  build() {
+    this.tokens = new Set();
+    this.places = { village: this.makeVillage() };
+    this.goTo(this.places.village);
+    this.player = new Player(this.T);
     this.kick = 0; this.fovKick = 0;
     this.vm = new ViewModel(this.stage.camera);
     this.input = new FPInput(this.stage.renderer.domElement, this.S);
     this.hud = new FPHud(this);
     this.input.buttons(this.hud.root);
-    this.input.onUnlock = () => { if (this.active && !this.paused && this.input.device !== 'touch') this.pause(); };
+    this.input.onUnlock = () => { if (this.active && !this.paused && !this.holding && this.input.device !== 'touch') this.pause(); };
     this.input.onDevice = d => this.hud.setDevice(d);
     this.input.onKeyboard = () => this.hud.root.classList.add('haskeys');
     this.sound = new FPSound(() => { const H = this.hud0; return (H.ac = (H.music && H.music.ctx) || H.ac || new (window.AudioContext || window.webkitAudioContext)()); });
     this.built = true;
-    this.setClass(this.S.cls, true);
+    this.setClass(this.village ? 'lord' : this.S.cls, true);
     this.applySettings(false);
   }
   // become another kind of soldier
   setClass(k, quiet = false) {
     const C = CLASSES[k]; if (!C) return;
-    this.cls = k; this.C = C; this.S.cls = k; this.saveSettings();
+    this.cls = k; this.C = C; if (!C.lord) { this.S.cls = k; this.saveSettings(); }
     this.fighter = new Fighter(C.weapon, { maxHp: C.hp, maxSt: C.st, shield: !!C.shield });
     this.fighter.parryOn = !!this.S.parry; this.fighter.parryWindow = { easy: 0.3, normal: 0.2, hard: 0.15 }[this.S.diff] || 0.2;
     this.player.setClass(C);
@@ -80,52 +105,98 @@ export class FPMode {
     if (!quiet) this.hud.message(`${C.name} — ${C.desc}`, 4);
   }
 
-  enter() {
+  // where = 'village' (on foot in your own village: the game) or 'yard' (the training valley: the sandbox)
+  enter(where = 'yard', { start = true } = {}) {
     if (this.active) return;
     if (this.views.mode !== 'village') this.views.toVillage();
     if (!this.built) this.build();
+    if (where === 'yard' && !this.places.yard) this.places.yard = this.makeYard();
+    const pl = this.places[where]; this.goTo(pl);
     const cam = this.stage.camera;
     this.prev = { fov: cam.fov, near: cam.near, paused: this.hud0.paused };
     if (this.hud0.input && this.hud0.input.cancelPlacing) this.hud0.input.cancelPlacing();
-    this.hud0.paused = true;                                  // the village waits while you're away
+    if (this.hud0.input && this.hud0.input.select) this.hud0.input.select(null);
+    if (this.village) {
+      // on foot the village lives at its normal pace; pause and the fast speeds belong to the desk
+      this.hud0.speed = 1; this.hud0.paused = false;
+      if (this.cls !== 'lord') this.setClass('lord', true);
+      this.stepOutside(start);
+    } else {
+      this.hud0.paused = true;                                // the village waits while you're in the training valley
+      if (this.cls === 'lord') this.setClass(this.S.cls, true);
+      this.respawnAt();
+    }
+    this.hud0.showStepOut && this.hud0.showStepOut(false);
     if (!cam.parent) this.stage.scene.add(cam);               // the hands and weapon ride on the camera
     this.vm.attach(); this.world.visible = true;
     document.getElementById('ui').classList.add('mode-fp');
+    document.getElementById('ui').classList.toggle('mode-walk', this.village);
     this.hud.show(true);
     if (document.documentElement.classList.contains('site-mobile')) this.input.setDevice('touch');
     this.hud.setDevice(this.input.device);
     this.input.active = true; this.active = true;
     this.applySettings(false);
-    this.views.setView({ active: true, cam: this.camProxy, update: dt => this.update(dt) });
-    this.pause();
+    this.views.setView({ active: true, village: this.village, cam: this.camProxy, update: dt => this.update(dt) });
+    if (start || !this.village) this.pause(); else this.resume();   // stepping outside: the click on the seal captures the mouse
+  }
+  // out of the Keep's door, onto the front steps (or, with no Keep yet, the middle of the village)
+  stepOutside(fresh) {
+    const P = this.player, T = this.T, f = T.keepFront(), L = this.S.lord;
+    if (fresh && L && isFinite(L.x) && isFinite(L.z) && P.walkable(L.x, L.z)) { P.x = L.x; P.z = L.z; P.yaw = L.yaw || 0; }
+    else if (f) { P.x = f.x; P.z = f.z; P.yaw = f.yaw; }
+    else { P.x = 0; P.z = 8; P.yaw = 0; }
+    P.pitch = -0.04; P.vx = P.vz = 0; P.y = T.groundAt(P.x, P.z); P.crouch = false;
+    T.rebuild(); P.collide();
+    this.doorOk = false;                                      // walk off the steps before the door takes you in again
+  }
+  // walk in through the Keep's door: the lord's desk (the village seen from above, where you build and rule)
+  toDesk() {
+    const k = this.game.keep; this.saveLord();
+    this.exit();
+    const C = this.hud0.cam;
+    if (k && C) { const c = this.game.center(k); C.target.set(c.x, 0, c.z); C.follow = null; }
+    this.hud0.showStepOut && this.hud0.showStepOut(true);
+    if (this.pendingHelp) { this.pendingHelp = false; setTimeout(() => this.hud0.showHelp(), 300); }   // a new village: how to build
+  }
+  // the training yard (the sandbox) from the village, and back to walking the village
+  toYard() { this.saveLord(); this.exit(); this.enter('yard'); }
+  leaveYard() { this.exit(); this.enter('village', { start: false }); }
+  // the lord's place in the world, kept with the settings so he is where you left him
+  saveLord() {
+    if (!this.village || !this.player) return;
+    const P = this.player; this.S.lord = { x: +P.x.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(3) }; this.saveSettings();
   }
   exit() {
     if (!this.active) return;
     this.active = false; this.input.active = false; this.input.unlock();
     this.world.visible = false; this.vm.detach();
     const cam = this.stage.camera; cam.fov = this.prev.fov; cam.near = this.prev.near; cam.rotation.set(0, 0, 0); cam.updateProjectionMatrix();
-    this.hud0.paused = this.prev.paused;
+    this.hud0.paused = this.village ? false : this.prev.paused;
     document.getElementById('ui').classList.remove('mode-fp');
     this.hud.show(false); this.hud.showPause(false);
+    document.getElementById('ui').classList.remove('mode-walk');
     this.views.setView(null);
   }
-  pause() { this.paused = true; this.input.unlock(); this.hud.showPause(true); if (this.fighter) { this.fighter.blockUp(); this.fighter.strikeUp(); } }
+  pause() { this.paused = true; if (this.village) { this.hud0.paused = true; this.saveLord(); } this.input.unlock(); this.hud.showPause(true); if (this.fighter) { this.fighter.blockUp(); this.fighter.strikeUp(); } }
   resume() {
     this.paused = false; this.hud.showPause(false); this.input.events.length = 0;
+    if (this.village) { this.hud0.paused = false; this.hud0.speed = 1; }
     if (this.input.device !== 'touch') this.input.lock();
     if (!this.tips) { this.tips = 1; this.hud.message(this.fighter.isBow ? 'Hold the block button to aim, click to loose.' : 'Click to strike — left, right, left… Hold for a heavy overhead. Hold the other button to block.', 5); }
   }
-  respawn() {
-    const P = this.player, T = this.T; P.x = T.spawn.x; P.z = T.spawn.z; P.vx = P.vz = 0; P.yaw = Math.atan2(T.yard.x - T.spawn.x, T.yard.z - T.spawn.z) + Math.PI; P.pitch = -0.05;
+  respawnAt() {
+    const P = this.player, T = this.T;
+    if (this.village) { this.stepOutside(false); }
+    else { P.x = T.spawn.x; P.z = T.spawn.z; P.vx = P.vz = 0; P.yaw = Math.atan2(T.yard.x - T.spawn.x, T.yard.z - T.spawn.z) + Math.PI; P.pitch = -0.05; P.y = T.groundAt(P.x, P.z); }
     const F = this.fighter; F.hp = F.maxHp; F.st = F.maxSt; F.state = 'idle'; this.downT = 0;
-    this.resume();
   }
+  respawn() { this.respawnAt(); this.resume(); }
   applySettings(rerender = true) {
     const S = this.S; this.saveSettings();
     if (!this.built) return;
     const cam = this.stage.camera;
     if (this.active) { cam.fov = S.fov; cam.near = 0.05; cam.updateProjectionMatrix(); }
-    this.yard.post.setDifficulty(S.diff);
+    if (this.places.yard) this.places.yard.yard.post.setDifficulty(S.diff);
     this.fighter.parryOn = !!S.parry; this.fighter.parryWindow = { easy: 0.3, normal: 0.2, hard: 0.15 }[S.diff] || 0.2;
     this.sound.on = S.sound !== false && !this.hud0.settings.muted;
     this.hud.setDevice(this.input.device);
@@ -170,9 +241,9 @@ export class FPMode {
   }
   onKilled(a) {
     this.stats.kills++;
-    if (this.camp.actors.includes(a) && this.camp.actors.every(x => x.dead)) { this.hud.message('The bandit camp is cleared! (Pause \u2192 Reset the bandits to fight them again.)', 5, 'good'); this.sound.play('bell'); }
+    if (this.camp.actors.length && this.camp.actors.includes(a) && this.camp.actors.every(x => x.dead)) { this.hud.message('The bandit camp is cleared! (Pause \u2192 Reset the bandits to fight them again.)', 5, 'good'); this.sound.play('bell'); }
   }
-  resetCamp() { for (const a of this.camp.actors) a.reset(); this.tokens.clear(); }
+  resetCamp() { const c = this.places.yard && this.places.yard.camp; if (c) for (const a of c.actors) a.reset(); this.tokens.clear(); }
   // a bout with Sensei Kenji: wooden swords, until one of you has only a fifth of his strength left
   startBout() {
     const K = this.sensei, F = this.fighter; this.bout = true; K.reset(); K.aggro = true; F.hp = F.maxHp; F.st = F.maxSt;
@@ -335,10 +406,12 @@ export class FPMode {
     // the fight runs on its own clock, which stops while paused
     if (!this.paused) this.clock = (this.clock || 0) + dt;
     const now = this.now = this.clock || 0, P = this.player, F = this.fighter, I = this.input;
-    const tod = this.S.time === 'village' ? this.game.state.time : +this.S.time;
+    const tod = this.village || this.S.time === 'village' ? this.game.state.time : +this.S.time;
     this.stage.setTime(tod);
     const post = this.yard.post;
-    if (!this.paused) {
+    const held = this.village && this.hud0.modal && !this.hud0.modal.hidden;
+    if (held) { this.holding = true; this.input.unlock(); } else this.holding = false;
+    if (!this.paused && !held) {
       for (const ev of I.events) {
         if (ev.t === 'strikeDown') F.strikeDown(now);
         else if (ev.t === 'strikeUp') F.strikeUp();
@@ -363,18 +436,28 @@ export class FPMode {
       else { this.stopDraw(); if (F.state !== 'aim') this.fullPinged = false; }
       // badly hurt: your heart pounds
       if (F.hp / F.maxHp < 0.3 && F.state !== 'down' && now - (this.heartAt || -9) > 0.95) { this.heartAt = now; this.sound.play('heart'); }
-      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.hud.message('Back on your feet at the yard. Block when the ring turns red.', 3); } }
+      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.hud.message(this.village ? 'Your men carried you home to the Keep.' : 'Back on your feet at the yard. Block when the ring turns red.', 3); } }
       // the dummies, the sparring post, the straw, the arrows
       for (const t of this.yard.dummies) if (t !== post) t.update(dt);
-      post.update(dt, { px: P.x, pz: P.z, showCue: true, strike: (p, a) => this.enemyStrike(p, a), whiff: () => {} });
+      if (post) post.update(dt, { px: P.x, pz: P.z, showCue: true, strike: (p, a) => this.enemyStrike(p, a), whiff: () => {} });
       for (const a of this.actors) a.update(dt, now);
       this.ink.update(dt); this.sparks.update(dt); for (const t of this.yard.targets) t.update(dt); for (const it of this.ink.items) it.floor = this.T.groundAt(it.m.position.x, it.m.position.z) + 0.02;
-      P.dynamic = this.actors.filter(a => !a.dead).map(a => ({ x: a.x, z: a.z, r: 0.38 }));
+      P.dynamic = this.village ? this.T.people(P.x, P.z) : this.actors.filter(a => !a.dead).map(a => ({ x: a.x, z: a.z, r: 0.38 }));
       this.yard.chaff.update(dt);
       this.proj.update(dt, (p, a, b) => this.projHit(p, a, b), (x, z) => this.T.groundAt(x, z));
       // footsteps (hoofbeats on a horse)
       P.stepT += P.speed * dt;
       if (P.stepT > (P.onHorse ? 1.9 : P.speed > 5 ? 1.6 : 1.3)) { P.stepT = 0; this.sound.play(P.wet > 0.05 ? 'splash' : P.onBridge ? 'stepWood' : 'step', P.crouch ? 0.4 : P.onHorse ? 1.6 : 1); }
+      if (this.village) {
+        // the Keep's door: walk in for your desk
+        const T = this.T, k = this.game.keep, kf = k && T.keepFront(4.2), dk = kf ? Math.hypot(kf.x - P.x, kf.z - P.z) : 99;
+        if (dk > 2.6) this.doorOk = true;
+        if (this.doorOk && F.state === 'idle' && I.move().z > 0.3 && T.atKeepDoor(P.x, P.z, P.fwd)) { this.toDesk(); I.endFrame(); return; }
+        this.hud.setPrompt(dk < 4 ? (k.done ? 'Walk in through the door — your desk: build and rule the village' : 'The Keep is still being built') : '');
+        this.hud.setCard('', []);
+        this.walkT = (this.walkT || 0) + dt; this.hud.hint.hidden = this.walkT > 30;   // the keys, until you know them
+        this.game.viewFocus = this.hud0.cam.target.set(P.x, 0, P.z);   // the village's sounds, smoke and talk follow you
+      } else {
       // what's close enough to use
       const rk = this.yard.rack, nearRack = Math.hypot(rk.x - P.x, rk.z - P.z) < 3;
       const dP = Math.hypot(post.x - P.x, post.z - P.z);
@@ -386,23 +469,25 @@ export class FPMode {
       if (this.C.kunai) rows.push(['Kunai', `${this.kunai} / ${this.C.kunai}`]);
       if (this.C.ability && this.C.ability !== 'kunai') rows.push([ABILITY[this.C.ability].name, now >= this.abilityReady ? 'ready (G)' : `${Math.ceil(this.abilityReady - now)} s`]);
       this.hud.setCard(`${this.C.name} · training yard`, rows);
+      }
     } else I.events.length = 0;
     this.T.update(dt);
     // the camera: your eyes, with a little bob and a jolt when hit; bows zoom in a little as you draw
     const cam = this.stage.camera, bob = this.S.bob !== false ? Math.sin(this.vm.bob * 2) * (P.onHorse ? 0.06 : 0.03) * Math.min(1, P.speed / 4) : 0;
     const sh = this.S.bob !== false ? this.vm.shake * 0.02 : 0;
-    cam.position.set(FP_ORIGIN.x + P.x, P.y + P.eye + bob, FP_ORIGIN.z + P.z);
+    const O = this.origin;
+    cam.position.set(O.x + P.x, P.y + P.eye + bob, O.z + P.z);
     this.kick = Math.max(0, this.kick - dt * 0.6); this.fovKick *= Math.exp(-dt * 8);
     const kk = this.S.bob !== false ? this.kick : this.kick * 0.3;
     cam.rotation.set(P.pitch + kk + (Math.random() - 0.5) * sh, P.yaw + (Math.random() - 0.5) * sh, 0, 'YXZ');
     const fov = this.S.fov - (F.state === 'aim' ? F.draw * 18 : 0) + this.fovKick;
     if (Math.abs(cam.fov - fov) > 0.05) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 10); cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
-    this.camProxy.target.set(FP_ORIGIN.x + P.x, P.y, FP_ORIGIN.z + P.z);
+    this.camProxy.target.set(O.x + P.x, P.y, O.z + P.z);
     this.vm.arrowsLeft = this.arrows;
     this.vm.update(dt, F, { speed: P.speed, bobScale: this.S.bob !== false ? 1 : 0, turnX: I.look.x, turnY: I.look.y });
-    const dP = Math.hypot(post.x - P.x, post.z - P.z);
-    let coming = this.S.cue !== false && post.state === 'tell' && dP < 4, heavyComing = coming && post.heavy, foe = null, bestD = 14;
+    const dP = post ? Math.hypot(post.x - P.x, post.z - P.z) : 99;
+    let coming = this.S.cue !== false && !!post && post.state === 'tell' && dP < 4, heavyComing = coming && post.heavy, foe = null, bestD = 14;
     for (const a of this.actors) {
       if (a.dead || (a.team === 'spar' && !this.bout) || !a.aggro) continue;
       const d = Math.hypot(a.x - P.x, a.z - P.z);
@@ -418,6 +503,7 @@ export class FPMode {
   stopDraw() { if (this.drawSnd) { this.drawSnd.stop(); this.drawSnd = null; } }
   use() {
     const P = this.player, rk = this.yard.rack, K = this.sensei;
+    if (!rk || !K) return;
     if (!this.bout && Math.hypot(K.x - P.x, K.z - P.z) < 3 && !this.fighter.isBow) { this.startBout(); return; }
     if (Math.hypot(rk.x - P.x, rk.z - P.z) < 3) {
       const refill = (this.C.arrows && this.arrows < this.C.arrows) || (this.C.kunai && this.kunai < this.C.kunai);

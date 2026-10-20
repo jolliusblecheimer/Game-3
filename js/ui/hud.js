@@ -154,6 +154,8 @@ export class Hud {
     this.info = h('div', { class: 'info', hidden: true }); R.append(this.info);
     this.renderBar();
     // bottom-right: map
+    this.outBtn = h('button', { class: 'stepout', hidden: true, title: 'Step outside the Keep and walk your village (Esc)', onclick: () => this.onStepOut && this.onStepOut() }, h('b', null, 'Outside'));
+    R.append(this.outBtn);
     this.mapBtn = h('button', { class: 'mapbig', title: 'Country map (M)', onclick: () => this.onMap && this.onMap() }, icon('map', 34), h('b', null, 'Map'));
     R.append(this.mapBtn);
     // right edge: turn the camera, and move mode
@@ -950,6 +952,7 @@ export class Hud {
     m.append(h('div', { class: 'scrim', onclick: () => { if (!opts.locked) close(); } }), h('div', { class: 'sheet' + (opts.wide ? ' wide' : '') }, h('h2', null, title), body,
       h('div', { class: 'actions' }, buttons.map(b => h('button', { class: 'btn ' + (b.cls || ''), onclick: () => { if (b.fn) b.fn(); if (!b.keep) close(); } }, b.label)))));
   }
+  showStepOut(on) { this.outBtn.hidden = !on; }
   showHelp() {
     const rows = [['Drag the ground', 'Move the camera'], ['Scroll wheel / two fingers', 'Zoom'], ['Pinch  /  Z X', 'Zoom'], ['Q / E  /  Turn buttons', 'Turn the camera'], ['Sideways two-finger swipe  /  Option+drag', 'Turn the camera'], ['G  /  Move button', 'Move mode: drag buildings around'], ['W A S D  /  arrows', 'Move the camera'],
       ['Click', 'Select a building or villager'], ['Hover a build card', 'See what it does (or tap its ⓘ)'], ['B', 'Show / hide the build menu'], ['R', 'Rotate while placing'],
@@ -985,7 +988,7 @@ export class Hud {
       h('p', { class: 'sub' }, 'Prefer the older game? ', h('a', { href: 'v1/', target: '_self' }, 'Play the classic version (v1)'), ' or ', h('a', { href: 'v2/', target: '_self' }, 'backup v2'), ' or ', h('a', { href: 'v3/', target: '_self' }, 'backup v3'), ' or ', h('a', { href: 'v4/', target: '_self' }, 'backup v4 (first-person training yard)'), ' or ', h('a', { href: 'v5/', target: '_self' }, 'backup v5 (before the world on foot)'), ' — each keeps its own save.')),
       [{ label: 'Chronicle', cls: 'ghost', fn: () => setTimeout(() => this.openChronicle(), 0) },
        { label: 'How to play', cls: 'ghost', fn: () => setTimeout(() => this.showHelp(), 0) },
-       ...(this.openFP ? [{ label: '⚔ First person (preview)', cls: 'ghost', fn: () => setTimeout(() => this.openFP(), 0) }] : []),
+       ...(this.openFP ? [{ label: '⚔ Training yard (sandbox)', cls: 'ghost', fn: () => setTimeout(() => this.openFP(), 0) }] : []),
        { label: 'Save file / code', cls: 'ghost', keep: true, fn: () => this.openSaveCode() },
        { label: 'Start over', cls: 'danger', keep: true, fn: () => this.confirmReset() },
        { label: 'Close' }]);
@@ -1050,6 +1053,7 @@ export class Hud {
       else if (this.infoPinned) this.hideInfo(true);
       else if (I.placing) { if (!I.endLine()) I.cancelPlacing(); }
       else if (I.moveMode) I.setMoveMode(false);
+      else if (!I.selected && !this.cam.follow && this.onStepOut && !this.outBtn.hidden) { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); this.onStepOut(); }   // the same Esc mustn't pause the walk
       else { I.select(null); this.cam.follow = null; }
       return;
     }

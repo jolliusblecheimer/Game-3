@@ -120,7 +120,8 @@ js/ui/
   views.js            switches village ↔ map ↔ battle; map UI; diplomacy; building extra panels
   input.js, camera.js the village camera and input
 js/fp/                FIRST PERSON (see §6)
-  fpmode.js           the mode: enter/exit, the loop, strikes, arrows, abilities, bouts, the camp, HUD info
+  fpmode.js           the mode: places ('village' = the game on foot, 'yard' = the sandbox), enter/exit, Keep door → desk, the loop, strikes, arrows, abilities, bouts, the camp, HUD info
+  village.js          VillageGround: the village as a place to walk (heightAt ground, colliders from buildings/trees/rocks/woods, the Keep's door, villagers stepping aside)
   combat.js           Fighter — the shared melee rules (combo, heavy, block, counter, stamina, bows) + WEAPONS
   classes.js          the playable soldiers (CLASSES) and abilities
   controller.js       the player's body: walking, running, crouch, dodge, slopes, fords, bridge, collisions; pushOut()
@@ -136,7 +137,7 @@ js/fp/                FIRST PERSON (see §6)
 css/style.css         all styles (first-person styles at the end, prefixed fp-)
 css/theme.css         THE LOOK (ink, washi, lacquer, vermilion seals, Japanese fonts) layered over style.css — restyle here
 tools/stamp.py        writes version.json · tools/pre-commit + install-hooks.sh · tools/icons.py
-v1/ … v4/             playable backups
+v1/ … v5/             playable backups
 ```
 
 **Conventions**
@@ -181,7 +182,17 @@ v1/ … v4/             playable backups
 
 ## 6. First person — where it stands
 
-Opened from **Menu → ⚔ First person (preview)** or `?fp=sandbox`. While you're there the village is paused; "Back to the village" is on the pause screen.
+**The game starts on foot in your own village (W1 of `plans/first-person-world.md`, built 20 Oct 2026):**
+- `FPMode` has two **places** (`fp.places.village`, `fp.places.yard`); `goTo(pl)` points `T`, `world`, `yard`, `proj`, `actors`, `origin`… at one. The village place uses `VillageGround` (js/fp/village.js) at the origin; the yard is the old valley at `FP_ORIGIN`.
+- You are **the lord** (`CLASSES.lord`, katana, 130 health; hidden from the sandbox's chooser). Boot calls `fp.enter('village')`; the pause screen is the start screen.
+- **The Keep's door** (`T.atKeepDoor`: in front of the door, facing in, walking forward) → `fp.toDesk()` → the old top-down game with the **外 Outside** seal (`hud.showStepOut`, `hud.onStepOut`; also Esc with nothing selected) → `fp.enter('village', { start: false })` on the steps (`T.keepFront()`).
+- **Time:** on foot `hud.speed = 1`, `hud.paused = false`; the pause screen pauses the village (`hud.paused = true`).
+- **Colliders** rebuild when `game.version` changes (every 1.5 s at most): building boxes (footprint − 0.3 m, the Keep 3.95 m), wall/palisade/hedge/spike cells, gate posts and guard walls, torii posts, the Town Square's tower; plot trees, rocks and `nature.woods` (forest trunks within FLAT+45). Open: roads, fields. Walkable to `PLOT.half + 30`.
+- **Windows from the village** show over the walk (`#ui.mode-walk` shows `.toasts`, `.modal`, `.updbanner`); while one is open you are held still (`fp.holding`).
+- **The lord's position** is saved in the village save (`save.lord`, via `window.tenkaExtraSave`) and in `tenka.fp`.
+- **Detail:** the `/gfx/` models are now in js/render (geo roof ribs, buildings, nature, people). LOD: `nature.updateLOD(focus, r)` every 0.4 s packs plot trees into the detailed mesh (near) or `treeMeshLow` (far); hill rocks are a separate simple mesh. On medium quality the walk renders about 1.0M triangles (shadows included).
+
+**The training yard (sandbox):** pause screen → Training yard, Menu → **⚔ Training yard (sandbox)** or `?fp=sandbox`. While you're there the village is paused; "Back to the village" (`fp.leaveYard()`) puts you back on foot.
 
 ### The world
 
@@ -289,7 +300,7 @@ Soldier, sparring difficulty (also the enemies'), time of day, "I play with" (mo
 5. The **Taishō's war fan was scrapped**. It may come back only as a visual command signal.
 6. Research is **only** at the Scholars' Pavilion. Quests are **claimed**, with their own top-bar button.
 7. **Make backups (`vN/`)** at milestones and before big changes.
-9. **The world on foot (`plans/first-person-world.md`, decided 19 Oct 2026, not started — wait for the player's go):**
+9. **The world on foot (`plans/first-person-world.md`, decided 19 Oct 2026; W0–W1 built 20 Oct 2026):**
    - You are **the lord**.
    - The top-down **desk opens only by walking into the Keep**, and **building happens only at the desk**.
    - **Time on foot is always normal speed.**

@@ -1,5 +1,5 @@
 {
-"v": "20261020-170522",
+"v": "20261020-172356",
 "files": [
 "css/style.css",
 "css/theme.css",
@@ -17,6 +17,7 @@
 "js/fp/terrain.js",
 "js/fp/training.js",
 "js/fp/viewmodel.js",
+"js/fp/village.js",
 "js/game/battle.js",
 "js/game/clans.js",
 "js/game/country.js",

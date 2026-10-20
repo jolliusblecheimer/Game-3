@@ -484,3 +484,16 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
   - The building panel is a narrower scroll with wooden rods.
   - Turn and Move are round lacquer seals, and the map button is a vermilion **地図** seal (**村** on the map, to go back).
   - Dialogs, messages, quests and the map screen match.
+
+## Walk your village (the world on foot, step 1)
+- **The game now starts on foot.** You are **the lord** of the clan, standing on the steps of your Keep, in your own village: the real houses, fields, walls and villagers, at their real size.
+- **Walk in through the Keep's door** to sit at your **desk**: the village seen from above, as before. That is the only place where you build, give out jobs, research and open the country map.
+- **Step outside** with the black **外 Outside** seal next to the map seal (or Esc when nothing is selected). You come out on the Keep's steps.
+- **Time on foot always runs at normal speed.** Pause and the fast speeds are only at the desk; stepping outside sets the speed back to normal. The pause screen (Esc, or ≡ on touch) stops the village too.
+- **Solid where it should be:** buildings, walls, towers, trees, rocks and the forest at the edge block you. Roads, fields, gates, torii and the Town Square are open (the festival tower in the middle is solid). Villagers step aside for their lord.
+- **News reaches you on foot:** messages still appear, and windows (a raid, a quest, news) hold you still until you close them.
+- **More detail everywhere** (from the `/gfx/` preview): tiled roofs with ribs, rafters and ridges; post footings and brackets; full shoji grids; trees with roots and layered foliage; mossy rocks; fuller grass and wildflowers; faces, sleeves and obi knots on people; wheat with ears.
+  - **Distance detail** keeps it smooth on the iPad: the village's own trees are detailed near where you are (or where the desk camera looks) and simpler further away; the far hills use simple trees and stones.
+- **Where you stand is saved** with the village.
+- The training yard sandbox is still there: the pause screen → **Training yard (sandbox)**, Menu → **⚔ Training yard (sandbox)**, or `?fp=sandbox`. "Back to the village" now puts you back on foot.
+- Backup of the game just before this change: **/v5/** (its own save).

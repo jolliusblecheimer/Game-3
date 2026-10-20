@@ -20,6 +20,7 @@ export function initMaterials() {
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _n = new THREE.Vector3();
+const _UP = new THREE.Vector3(0, 1, 0);
 
 // Closed frustum (tapered box): bottom w×d, top w2×d2, height h. Base sits on y=0.
 function frustumGeo(wb, db, wt, dt, h, offX = 0, offZ = 0) {
@@ -83,12 +84,27 @@ export class Mesher {
       const tile = ridgeHex, step = 0.34;
       for (const sz of [-1, 1]) for (let x = -W / 2 + 0.2; x <= W / 2 - 0.2; x += step) this.cyl(0.075, 0.075, 0.14, 6, tile, [cx + x, y + 0.02, cz + sz * D / 2], [Math.PI / 2, 0, 0]);
       for (const sx of [-1, 1]) for (let z = -D / 2 + 0.2 + step; z <= D / 2 - 0.2 - step; z += step) this.cyl(0.075, 0.075, 0.14, 6, tile, [cx + sx * W / 2, y + 0.02, cz + z], [0, 0, Math.PI / 2]);
-      // tile courses up the slope
-      for (const t of [0.22, 0.46, 0.7]) {
+      // kawara: rounded tile ribs running down every slope (the skirt and the main roof), a few tile courses across
+      const rib = (x0, y0, z0, x1, y1, z1, nx, nz) => {
+        const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, L = Math.hypot(dx, dy, dz); if (L < 0.05) return;
+        _d.set(dx / L, dy / L, dz / L); _q.setFromUnitVectors(_UP, _d); _e.setFromQuaternion(_q);
+        this.cyl(0.042, 0.042, L, 5, hex, [cx + (x0 + x1) / 2 + nx * 0.03, (y0 + y1) / 2 + 0.035, cz + (z0 + z1) / 2 + nz * 0.03], [_e.x, _e.y, _e.z]);
+      };
+      const slope = (bw, bd, by, tw, td, ty) => {
+        const nf = Math.max(3, Math.round(bw / 0.24)), ns = Math.max(2, Math.round(bd / 0.24));
+        for (let i = 0; i <= nf; i++) { const u = i / nf, xb = -bw / 2 + bw * u, xt = -tw / 2 + tw * u; for (const sz of [-1, 1]) rib(xb, by, sz * bd / 2, xt, ty, sz * td / 2, 0, sz); }
+        for (let i = 1; i < ns; i++) { const u = i / ns, zb = -bd / 2 + bd * u, zt = -td / 2 + td * u; for (const sx of [-1, 1]) rib(sx * bw / 2, by, zb, sx * tw / 2, ty, zt, sx, 0); }
+      };
+      slope(W, D, y, mW, mD, y + h1);
+      slope(mW, mD, y + h1, topW, topD, y + h);
+      for (const t of [0.33, 0.66]) {
         const ww = mW + (topW - mW) * t, dd = mD + (topD - mD) * t, yy = y + h1 + h2 * t;
-        this.box(ww + 0.04, 0.05, 0.07, tile, [cx, yy, cz + dd / 2 + 0.01]); this.box(ww + 0.04, 0.05, 0.07, tile, [cx, yy, cz - dd / 2 - 0.01]);
-        this.box(0.07, 0.05, dd + 0.04, tile, [cx + ww / 2 + 0.01, yy, cz]); this.box(0.07, 0.05, dd + 0.04, tile, [cx - ww / 2 - 0.01, yy, cz]);
+        this.box(ww + 0.04, 0.035, 0.06, tile, [cx, yy + 0.02, cz + dd / 2 + 0.02]); this.box(ww + 0.04, 0.035, 0.06, tile, [cx, yy + 0.02, cz - dd / 2 - 0.02]);
       }
+      // rafter ends under the eaves, and a tiled ridge
+      for (const sz of [-1, 1]) for (let x = -W / 2 + 0.3; x <= W / 2 - 0.3; x += 0.36) this.box(0.08, 0.08, 0.3, '#3b2619', [cx + x, y - 0.06, cz + sz * (D / 2 - 0.12)]);
+      for (let x = -topW / 2; x <= topW / 2; x += 0.2) this.cyl(0.1, 0.1, 0.12, 8, ridgeHex, [cx + x, y + h + 0.17, cz], [0, 0, Math.PI / 2]);
+      this.box(topW + 0.1, 0.06, topD + 0.34, ridgeHex, [cx, y + h - 0.05, cz]);
       // onigawara ridge-end tiles
       for (const s of [-1, 1]) this.box(0.22, 0.34, topD + 0.3, ridgeHex, [cx + s * (topW / 2 + 0.12), y + h + 0.12, cz]);
     }

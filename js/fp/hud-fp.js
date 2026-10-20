@@ -83,7 +83,7 @@ export class FPHud {
   }
   setCard(title, rows) {
     const key = title + rows.map(r => r.join(':')).join('|'); if (key === this.cardKey) return; this.cardKey = key;
-    this.card.textContent = '';
+    this.card.textContent = ''; this.card.hidden = !title;
     this.card.append(h('b', null, title), ...rows.map(r => h('div', { class: 'row' }, h('span', null, r[0]), h('em', null, String(r[1])))));
   }
   setFoe(a) {
@@ -102,10 +102,39 @@ export class FPHud {
     const toggle = (label, val, set) => h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: val ? true : null, onchange: e => set(e.target.checked) }), label);
     const dev = fp.input.device === 'touch' ? 'touch' : S.trackpad ? 'trackpad' : 'mouse';
     const C = CLASSES[fp.cls];
+    const settings = [
+      row('I play with', ...choice([['mouse', 'Mouse'], ['trackpad', 'Trackpad'], ['touch', 'Touchscreen']], dev, k => { S.trackpad = k === 'trackpad'; fp.input.setDevice(k === 'touch' ? 'touch' : 'mouse'); fp.applySettings(); })),
+      row('Look speed (mouse / trackpad)', slider(0.2, 3, 0.05, S.sens, v => { S.sens = v; fp.applySettings(false); })),
+      row('Look speed (touch)', slider(0.1, 1.5, 0.05, S.touchSens, v => { S.touchSens = v; fp.applySettings(false); })),
+      row('Field of view', slider(60, 95, 1, S.fov, v => { S.fov = v; fp.applySettings(false); })),
+      h('div', { class: 'fp-toggles' },
+        toggle('Invert up / down', S.invert, v => { S.invert = v; fp.applySettings(false); }),
+        toggle('Show the red warning when a strike is coming', S.cue !== false, v => { S.cue = v; fp.applySettings(false); }),
+        toggle('Head bob and camera shake', S.bob !== false, v => { S.bob = v; fp.applySettings(false); }),
+        toggle('Sounds', S.sound !== false, v => { S.sound = v; fp.applySettings(false); }),
+        toggle('Experimental: split-second parry (block just as the strike lands for a ×2 riposte)', !!S.parry, v => { S.parry = v; fp.applySettings(false); })),
+      h('h3', null, 'Controls'),
+      h('div', { class: 'fp-keys' }, ...HINTS[dev].map(([k, v]) => h('div', null, h('kbd', null, k), h('span', null, v))))];
+    if (fp.village) {
+      // your own village: the lord on foot. The desk is inside the Keep; the game waits while this is open
+      const g = fp.game, k = g.keep;
+      P.append(h('div', { class: 'fp-sheet' },
+        h('h2', null, '天下 Tenka ', h('small', null, `Day ${g.state.day} · the village waits`)),
+        h('p', { class: 'fp-classdesc' }, 'You are the lord of the clan, on foot in your own village. ',
+          k ? h('b', null, 'Walk in through the Keep’s door to sit at your desk') : h('b', null, 'Your Keep will be your desk'),
+          ' — that is where you build, give out jobs, research and look at the country map. Time runs at its normal pace while you walk.'),
+        h('button', { class: 'btn big', onclick: () => fp.resume() }, fp.input.device === 'touch' ? 'Continue' : 'Click to walk'),
+        h('h3', null, 'Settings'), ...settings,
+        h('div', { class: 'fp-actions' },
+          h('button', { class: 'btn ghost', onclick: () => { fp.respawnAt(); fp.resume(); } }, 'Back to the Keep’s steps'),
+          h('button', { class: 'btn ghost', onclick: () => fp.toYard() }, 'Training yard (sandbox)'),
+          h('button', { class: 'btn ghost', onclick: () => { fp.saveLord(); fp.hud0.openMenu ? fp.hud0.openMenu() : null; } }, 'Game menu'))));
+      return;
+    }
     P.append(h('div', { class: 'fp-sheet' },
       h('h2', null, 'Tenka — first person ', h('small', null, '(preview: the training yard)')),
       h('h3', null, 'Fight as'),
-      h('div', { class: 'fp-classes' }, ...Object.entries(CLASSES).map(([k, c]) => h('button', { class: 'fp-class' + (k === fp.cls ? ' on' : '') + (c.commander ? ' cmd' : ''), onclick: () => { fp.setClass(k); this.renderPause(); } },
+      h('div', { class: 'fp-classes' }, ...Object.entries(CLASSES).filter(([, c]) => !c.lord).map(([k, c]) => h('button', { class: 'fp-class' + (k === fp.cls ? ' on' : '') + (c.commander ? ' cmd' : ''), onclick: () => { fp.setClass(k); this.renderPause(); } },
         h('span', { class: 'k' }, c.kanji), h('b', null, c.name), h('small', null, c.role)))),
       h('p', { class: 'fp-classdesc' }, h('b', null, `${C.name}: `), C.desc, ` · Health ${C.hp}${C.ability ? ` · G: ${ABILITY[C.ability].name}` : ''}`),
       h('button', { class: 'btn big', onclick: () => fp.resume() }, fp.input.device === 'touch' ? 'Continue' : 'Click to play'),
@@ -119,19 +148,8 @@ export class FPHud {
         h('div', null, h('i', { class: 'lg bow' }), h('span', null, 'Bows: hold the block button to aim — the circle closes as you draw — then click to loose.'))),
       row('Sparring post', ...choice([['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']], S.diff, k => { S.diff = k; fp.applySettings(); })),
       row('Time of day', ...choice([['0.3', 'Morning'], ['0.5', 'Noon'], ['0.74', 'Dusk'], ['0.95', 'Night'], ['village', 'As in the village']], S.time, k => { S.time = k; fp.applySettings(); })),
-      row('I play with', ...choice([['mouse', 'Mouse'], ['trackpad', 'Trackpad'], ['touch', 'Touchscreen']], dev, k => { S.trackpad = k === 'trackpad'; fp.input.setDevice(k === 'touch' ? 'touch' : 'mouse'); fp.applySettings(); })),
-      row('Look speed (mouse / trackpad)', slider(0.2, 3, 0.05, S.sens, v => { S.sens = v; fp.applySettings(false); })),
-      row('Look speed (touch)', slider(0.1, 1.5, 0.05, S.touchSens, v => { S.touchSens = v; fp.applySettings(false); })),
-      row('Field of view', slider(60, 95, 1, S.fov, v => { S.fov = v; fp.applySettings(false); })),
-      h('div', { class: 'fp-toggles' },
-        toggle('Invert up / down', S.invert, v => { S.invert = v; fp.applySettings(false); }),
-        toggle('Show the red warning when a strike is coming', S.cue !== false, v => { S.cue = v; fp.applySettings(false); }),
-        toggle('Head bob and camera shake', S.bob !== false, v => { S.bob = v; fp.applySettings(false); }),
-        toggle('Sounds', S.sound !== false, v => { S.sound = v; fp.applySettings(false); }),
-        toggle('Experimental: split-second parry (block just as the strike lands for a ×2 riposte)', !!S.parry, v => { S.parry = v; fp.applySettings(false); })),
-      h('h3', null, 'Controls'),
-      h('div', { class: 'fp-keys' }, ...HINTS[dev].map(([k, v]) => h('div', null, h('kbd', null, k), h('span', null, v)))),
-      h('div', { class: 'fp-actions' }, h('button', { class: 'btn ghost', onclick: () => { fp.resetCamp(); this.renderPause(); } }, 'Reset the bandits'), h('button', { class: 'btn ghost', onclick: () => fp.respawn() }, 'Back to the start'), h('button', { class: 'btn danger', onclick: () => fp.exit() }, 'Back to the village'))));
+      ...settings,
+      h('div', { class: 'fp-actions' }, h('button', { class: 'btn ghost', onclick: () => { fp.resetCamp(); this.renderPause(); } }, 'Reset the bandits'), h('button', { class: 'btn ghost', onclick: () => fp.respawn() }, 'Back to the start'), h('button', { class: 'btn danger', onclick: () => fp.leaveYard() }, 'Back to the village'))));
   }
   showPause(on) { this.pauseEl.hidden = !on; if (on) this.renderPause(); }
 }

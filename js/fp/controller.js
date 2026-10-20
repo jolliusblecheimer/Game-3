@@ -47,7 +47,8 @@ export class Player {
   get right() { return { x: Math.cos(this.yaw), z: -Math.sin(this.yaw) }; }
   look(dx, dy) { this.yaw -= dx * 0.0025; this.pitch = clamp(this.pitch - dy * 0.0025, -1.35, 1.35); }
   walkable(x, z) {
-    if (Math.abs(x) > HALF || Math.abs(z) > HALF) return false;
+    const lim = this.T.half || HALF;
+    if (Math.abs(x) > lim || Math.abs(z) > lim) return false;
     if (this.T.deckAt(x, z) != null) return true;
     if (this.T.waterDepth(x, z) > 0.75) return false;                       // too deep to wade
     const g = this.T.terrainAt(x, z), s = Math.max(Math.abs(this.T.terrainAt(x + 0.5, z) - g), Math.abs(this.T.terrainAt(x, z + 0.5) - g)) / 0.5;

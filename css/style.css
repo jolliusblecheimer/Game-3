@@ -821,6 +821,11 @@ html.site-mobile .keys { display: none; }
 
 /* ================= first person ================= */
 #ui.mode-fp > * { display: none !important; }
+/* walking the village: news still reaches you (toasts), and its windows open over the view */
+#ui.mode-walk > .toasts, #ui.mode-walk > .updbanner { display: flex !important; }
+#ui.mode-walk > .updbanner { z-index: 41; }
+.fp-card[hidden], .fp-hint[hidden] { display: none !important; }
+#ui.mode-walk > .modal:not([hidden]) { display: flex !important; z-index: 40; }
 #fp-ui { position: fixed; inset: 0; pointer-events: none; z-index: 30; font-family: inherit; color: #f6efdf; user-select: none; -webkit-user-select: none; }
 #fp-ui[hidden] { display: none; }
 .fp-vig { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(150,18,12,.55) 80%, rgba(90,6,4,.85) 100%); }

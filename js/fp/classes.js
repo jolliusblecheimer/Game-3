@@ -5,6 +5,8 @@ import { LOOKS } from '../render/people.js';
 const robe = k => (LOOKS[k] && LOOKS[k].robe && LOOKS[k].robe[0]) || '#2e3440';
 
 export const CLASSES = {
+  // you, the lord of the clan, in your own village (not one of the soldiers to try in the training yard)
+  lord:      { name: 'The lord', kanji: '殿', role: 'Daimyō — katana', weapon: 'katana', hp: 130, st: 110, lord: true, sleeve: robe('taisho'), desc: 'You, the lord of the clan. A katana at your side; better arms come from your armoury later.' },
   ashigaru:  { name: 'Ashigaru', kanji: '足軽', role: 'Spearman', weapon: 'yari', hp: 100, st: 100, sleeve: robe('ashigaru'), desc: 'Long reach and quick thrusts — keep the enemy at the tip of your spear.' },
   shieldman: { name: 'Shield-bearer', kanji: '盾', role: 'Sword and shield', weapon: 'sword', shield: true, hp: 115, st: 100, sleeve: robe('shieldman'), desc: 'Raise the shield to stop strikes from a wide arc — even arrows. Slower, but hard to kill.' },
   archer:    { name: 'Archer', kanji: '弓', role: 'Yumi longbow', weapon: 'yumi', hp: 85, st: 100, arrows: 24, sleeve: robe('archer'), desc: 'Hold to aim and draw, click to loose. Arrows drop with distance. Kick anyone who gets too close.' },
