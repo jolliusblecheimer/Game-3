@@ -348,6 +348,7 @@ export class Raids {
     const g = this.game;
     if (u.dead) { u.deadT += dt; if (u.person) u.obj.rotation.x = -Math.min(Math.PI / 2, u.deadT * 4); else u.obj.scale.y = Math.max(0.25, 0.85 - u.deadT * 0.3); if (u.deadT > 6) u.obj.visible = false; return; }
     if (u.gone) return;
+    if (g.lordDuel && !u.ram && g.lordDuel(u, dt)) return;   // fighting the lord on foot (js/fp/raidfight.js)
     u.cd -= dt; u.repath -= dt;
     let pose = 'walk';
     const G = u.g;

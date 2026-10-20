@@ -17,7 +17,14 @@ export class VillageGround {
     this.ver = -1; this.t = 0;
     this.rebuild();
   }
-  groundAt(x, z) { return Math.max(heightAt(x, z), WATER - 0.6); }
+  groundAt(x, z) { return Math.max(heightAt(x, z), WATER - 0.6, this.stairAt(x, z)); }
+  // the Keep's front steps (8 steps of 0.29 m, 0.2 m deep, from 5.05 m in front of its middle up to the door)
+  stairAt(x, z) {
+    const k = this.keep; if (!k) return 0;
+    const dx = x - k.x, dz = z - k.z, lx = dx * k.ca - dz * k.sa, lz = dx * k.sa + dz * k.ca;
+    if (Math.abs(lx) > 0.8 || lz < 3.55 || lz > 5.15) return 0;
+    return (8 - Math.min(7, Math.max(0, Math.floor((lz - 3.55) / 0.2)))) * 0.2875;
+  }
   terrainAt(x, z) { return heightAt(x, z); }
   waterDepth(x, z) { return Math.max(0, WATER - heightAt(x, z)); }
   deckAt() { return null; }
@@ -39,13 +46,14 @@ export class VillageGround {
     const k = this.game.keep; if (!k || !k.done) return false;
     const c = this.game.center(k), a = k.rot * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a);
     const dx = x - c.x, dz = z - c.z, lx = dx * ca - dz * sa, lz = dx * sa + dz * ca;
-    if (Math.abs(lx) > 1.15 || lz > 4.75 || lz < 3.5) return false;
+    if (Math.abs(lx) > 1.15 || lz > 4.45 || lz < 3.5) return false;   // up the steps, at the door
     // facing the door: your forward against the Keep's outward direction
     return fwd.x * Math.sin(a) + fwd.z * Math.cos(a) < -0.35;
   }
 
   rebuild() {
     const G = this.game, out = this.colliders; out.length = 0; this.ver = G.version;
+    const kb = G.keep; if (kb) { const c = G.center(kb), a = kb.rot * Math.PI / 2; this.keep = { x: c.x, z: c.z, ca: Math.cos(a), sa: Math.sin(a) }; } else this.keep = null;
     const box = (b, lx, lz, hw, hd) => { const p = G.local(b, lx, lz); out.push({ x: p.x, z: p.z, hw, hd, ang: b.rot * Math.PI / 2 }); };
     const post = (b, lx, lz, r) => { const p = G.local(b, lx, lz); out.push({ x: p.x, z: p.z, r }); };
     for (const b of G.buildings.values()) {

@@ -167,3 +167,7 @@ html.site-mobile .mapbig { width: 84px !important; height: 84px !important; }
 @media (max-width: 1000px) { html:not(.site-pc) .stepout { right: 108px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 68px; height: 68px; } html:not(.site-pc) #ui.lefty .stepout { left: 108px; } }
 html.site-mobile .stepout { right: 108px; bottom: calc(18px + env(safe-area-inset-bottom)); width: 68px; height: 68px; }
 html.site-mobile #ui.lefty .stepout { left: 108px; }
+/* on narrow screens the village scroll makes room for the Outside seal */
+@media (max-width: 1000px) { html:not(.site-pc) #ui.desk .clan { right: 186px; } html:not(.site-pc) #ui.desk.lefty .clan { left: 186px; } }
+html.site-mobile #ui.desk .clan { right: 186px; }
+html.site-mobile #ui.desk.lefty .clan { left: 186px; }

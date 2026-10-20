@@ -23,7 +23,7 @@ export class FPHud {
     this.sideL = this.cross.querySelector('.side.l'); this.sideR = this.cross.querySelector('.side.r');
     this.hp = h('i'); this.st = h('i'); this.who = h('b'); this.ammo = h('span', { class: 'fp-ammo' });
     this.bars = h('div', { class: 'fp-bars' }, h('div', { class: 'fp-who' }, this.who, this.ammo), h('div', { class: 'fp-bar hp' }, this.hp), h('div', { class: 'fp-bar st' }, this.st));
-    this.card = h('div', { class: 'fp-card' });
+    this.card = h('div', { class: 'fp-card', hidden: true });
     this.hint = h('div', { class: 'fp-hint' });
     this.say = h('div', { class: 'fp-say' });
     this.prompt = h('div', { class: 'fp-prompt', hidden: true });

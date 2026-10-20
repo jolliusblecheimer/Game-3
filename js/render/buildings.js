@@ -148,7 +148,9 @@ const MODELS = {
     const m = b.m, L = b.level || 1;
     m.frustum(8, 8, 6.9, 6.9, 2.3, STONE, [0, 0, 0]);
     courses(m, 8, 8, 6.9, 6.9, 2.3, 0, 5);
-    for (let i = 0; i < 5; i++) m.box(1.6, 0.2, 0.5, STONE_D, [0, 0.1 + i * 0.22, 4.1 - i * 0.25]); // front steps
+    // front steps, all the way up the stone base to the door (village.js lets you climb them: keep the numbers in step)
+    for (let i = 0; i < 8; i++) { const hh = (i + 1) * 0.2875; m.box(1.6, hh, 0.2, STONE_D, [0, hh / 2, 3.65 + (7 - i) * 0.2]); }
+    for (const x of [-0.88, 0.88]) m.box(0.16, 0.4, 2.8, STONE, [x, 1.2, 4.35], [0.95, 0, 0]);   // the stone side rails
     m.box(6.3, 2.7, 6.3, PLASTER, [0, 2.3 + 1.35, 0]);
     for (const y of [2.4, 4.9]) m.box(6.45, 0.26, 6.45, WOOD, [0, y, 0]);
     posts(m, 6.45, 6.45, 2.6, 2.3, WOOD, 0.16);

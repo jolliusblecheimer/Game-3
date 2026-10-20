@@ -121,6 +121,7 @@ js/ui/
   input.js, camera.js the village camera and input
 js/fp/                FIRST PERSON (see §6)
   fpmode.js           the mode: places ('village' = the game on foot, 'yard' = the sandbox), enter/exit, Keep door → desk, the loop, strikes, arrows, abilities, bouts, the camp, HUD info
+  raidfight.js        RaidFight: raid bandits as foes on foot (game.lordDuel hook in raids.stepRaider steers a bandit fighting the lord; blocks, wind-ups, strikes)
   village.js          VillageGround: the village as a place to walk (heightAt ground, colliders from buildings/trees/rocks/woods, the Keep's door, villagers stepping aside)
   combat.js           Fighter — the shared melee rules (combo, heavy, block, counter, stamina, bows) + WEAPONS
   classes.js          the playable soldiers (CLASSES) and abilities
@@ -190,6 +191,8 @@ v1/ … v5/             playable backups
 - **Colliders** rebuild when `game.version` changes (every 1.5 s at most): building boxes (footprint − 0.3 m, the Keep 3.95 m), wall/palisade/hedge/spike cells, gate posts and guard walls, torii posts, the Town Square's tower; plot trees, rocks and `nature.woods` (forest trunks within FLAT+45). Open: roads, fields. Walkable to `PLOT.half + 30`.
 - **Windows from the village** show over the walk (`#ui.mode-walk` shows `.toasts`, `.modal`, `.updbanner`); while one is open you are held still (`fp.holding`).
 - **The lord's position** is saved in the village save (`save.lord`, via `window.tenkaExtraSave`) and in `tenka.fp`.
+- **Raids on foot:** `RaidFight` — bandits within 4.5 m notice you (`u.duel`), close to 1.55 m, wind up 0.55 s (heavy 0.85 s, 20%), strike for 1.5× their damage via `fp.enemyStrike`; 35% block light cuts they see coming. Released at 16 m, when you're down, paused or at the desk. Wounds mend at 3 hp/s after 6 s without a bandit within 10 m.
+- **The Keep's steps** (8 × 0.29 m, buildings.js townhall) are climbable: `VillageGround.stairAt`. The door takes you in at the top (local z < 4.45).
 - **Detail:** the `/gfx/` models are now in js/render (geo roof ribs, buildings, nature, people). LOD: `nature.updateLOD(focus, r)` every 0.4 s packs plot trees into the detailed mesh (near) or `treeMeshLow` (far); hill rocks are a separate simple mesh. On medium quality the walk renders about 1.0M triangles (shadows included).
 
 **The training yard (sandbox):** pause screen → Training yard, Menu → **⚔ Training yard (sandbox)** or `?fp=sandbox`. While you're there the village is paused; "Back to the village" (`fp.leaveYard()`) puts you back on foot.

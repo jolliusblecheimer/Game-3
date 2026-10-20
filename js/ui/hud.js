@@ -952,7 +952,7 @@ export class Hud {
     m.append(h('div', { class: 'scrim', onclick: () => { if (!opts.locked) close(); } }), h('div', { class: 'sheet' + (opts.wide ? ' wide' : '') }, h('h2', null, title), body,
       h('div', { class: 'actions' }, buttons.map(b => h('button', { class: 'btn ' + (b.cls || ''), onclick: () => { if (b.fn) b.fn(); if (!b.keep) close(); } }, b.label)))));
   }
-  showStepOut(on) { this.outBtn.hidden = !on; }
+  showStepOut(on) { this.outBtn.hidden = !on; this.root.classList.toggle('desk', on); }
   showHelp() {
     const rows = [['Drag the ground', 'Move the camera'], ['Scroll wheel / two fingers', 'Zoom'], ['Pinch  /  Z X', 'Zoom'], ['Q / E  /  Turn buttons', 'Turn the camera'], ['Sideways two-finger swipe  /  Option+drag', 'Turn the camera'], ['G  /  Move button', 'Move mode: drag buildings around'], ['W A S D  /  arrows', 'Move the camera'],
       ['Click', 'Select a building or villager'], ['Hover a build card', 'See what it does (or tap its ⓘ)'], ['B', 'Show / hide the build menu'], ['R', 'Rotate while placing'],

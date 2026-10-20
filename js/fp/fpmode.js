@@ -17,6 +17,7 @@ import { Chaff } from './training.js';
 import { Sparks } from './effects.js';
 import { MAT } from '../render/geo.js';
 import { VillageGround } from './village.js';
+import { RaidFight } from './raidfight.js';
 import { clamp } from '../util.js';
 
 const DEFAULTS = { lord: null, sens: 1, touchSens: 0.45, invert: false, fov: 75, bob: true, cue: true, sound: true, diff: null, time: '0.3', trackpad: false, cls: 'ashigaru', parry: false };
@@ -78,6 +79,7 @@ export class FPMode {
     this.places = { village: this.makeVillage() };
     this.goTo(this.places.village);
     this.player = new Player(this.T);
+    this.raid = new RaidFight(this);
     this.kick = 0; this.fovKick = 0;
     this.vm = new ViewModel(this.stage.camera);
     this.input = new FPInput(this.stage.renderer.domElement, this.S);
@@ -131,6 +133,7 @@ export class FPMode {
     this.vm.attach(); this.world.visible = true;
     document.getElementById('ui').classList.add('mode-fp');
     document.getElementById('ui').classList.toggle('mode-walk', this.village);
+    this.game.showSigns(!this.village);
     this.hud.show(true);
     if (document.documentElement.classList.contains('site-mobile')) this.input.setDevice('touch');
     this.hud.setDevice(this.input.device);
@@ -175,6 +178,7 @@ export class FPMode {
     document.getElementById('ui').classList.remove('mode-fp');
     this.hud.show(false); this.hud.showPause(false);
     document.getElementById('ui').classList.remove('mode-walk');
+    this.game.showSigns(true);
     this.views.setView(null);
   }
   pause() { this.paused = true; if (this.village) { this.hud0.paused = true; this.saveLord(); } this.input.unlock(); this.hud.showPause(true); if (this.fighter) { this.fighter.blockUp(); this.fighter.strikeUp(); } }
@@ -213,7 +217,7 @@ export class FPMode {
   hasToken(a) { return this.tokens.has(a); }
   releaseToken(a) { this.tokens.delete(a); }
   canSee(a) { const P = this.player; return Math.hypot(P.x - a.x, P.z - a.z) < 45; }
-  activeActors() { return this.actors.filter(a => !a.dead && (a.team !== 'spar' || this.bout)); }
+  activeActors() { if (this.village) return this.raid.foes(); return this.actors.filter(a => !a.dead && (a.team !== 'spar' || this.bout)); }
   actorStrike(a, F) {
     const P = this.player, dx = P.x - a.x, dz = P.z - a.z, d = Math.hypot(dx, dz);
     if (a.team === 'spar' && !this.bout) return;
@@ -347,7 +351,7 @@ export class FPMode {
       this.jolt(0.05);
       return { at, stick: false };
     }
-    for (const t of this.actors) {
+    for (const t of this.village ? this.raid.foes() : this.actors) {
       if (t.dead || t.team === 'spar') continue;
       const at = capsule(t, t.r + 0.06, t.h + 0.1); if (!at) continue;
       const rel = at.y - t.y, zone = rel > 1.48 ? 'head' : rel > 0.85 ? 'torso' : 'legs', dmg = Math.round((p.dmg || 20) * ZONES[zone]);
@@ -436,7 +440,7 @@ export class FPMode {
       else { this.stopDraw(); if (F.state !== 'aim') this.fullPinged = false; }
       // badly hurt: your heart pounds
       if (F.hp / F.maxHp < 0.3 && F.state !== 'down' && now - (this.heartAt || -9) > 0.95) { this.heartAt = now; this.sound.play('heart'); }
-      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.hud.message(this.village ? 'Your men carried you home to the Keep.' : 'Back on your feet at the yard. Block when the ring turns red.', 3); } }
+      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.raid.release(); this.hud.message(this.village ? 'You fell. Your men carried you home to the Keep.' : 'Back on your feet at the yard. Block when the ring turns red.', 3); } }
       // the dummies, the sparring post, the straw, the arrows
       for (const t of this.yard.dummies) if (t !== post) t.update(dt);
       if (post) post.update(dt, { px: P.x, pz: P.z, showCue: true, strike: (p, a) => this.enemyStrike(p, a), whiff: () => {} });
@@ -451,7 +455,15 @@ export class FPMode {
       if (this.village) {
         // the Keep's door: walk in for your desk
         const T = this.T, k = this.game.keep, kf = k && T.keepFront(4.2), dk = kf ? Math.hypot(kf.x - P.x, kf.z - P.z) : 99;
-        if (dk > 2.6) this.doorOk = true;
+        if (dk > 1.8) this.doorOk = true;
+        // the alarm drum: bandits in the village
+        const R = this.game.raids;
+        if (R.alarmed && !this.drumSaid) { this.drumSaid = true; this.hud.message('The alarm drum! Bandits in the village — draw your sword, or walk into the Keep to command your soldiers.', 6, 'bad'); this.sound.play('bell'); }
+        if (!R.active) this.drumSaid = false;
+        // out of the fight for a while, your wounds slowly mend
+        const near = R.active && this.raid.foes().some(f => Math.hypot(f.x - P.x, f.z - P.z) < 10);
+        this.calmT = near ? 0 : (this.calmT || 0) + dt;
+        if (this.calmT > 6 && F.hp < F.maxHp && F.state !== 'down') F.heal(3 * dt);
         if (this.doorOk && F.state === 'idle' && I.move().z > 0.3 && T.atKeepDoor(P.x, P.z, P.fwd)) { this.toDesk(); I.endFrame(); return; }
         this.hud.setPrompt(dk < 4 ? (k.done ? 'Walk in through the door — your desk: build and rule the village' : 'The Keep is still being built') : '');
         this.hud.setCard('', []);
@@ -494,6 +506,7 @@ export class FPMode {
       if (a.fighter.state === 'windup' && d < a.fighter.w.reach + 1.2 && a.facing(P.x, P.z) < 0.9 && this.S.cue !== false) { coming = true; if (a.fighter.heavy) heavyComing = true; }
       if (d < bestD) { bestD = d; foe = a; }
     }
+    if (this.village && this.S.cue !== false) { const inc = this.raid.incoming(); if (inc.light || inc.heavy) coming = true; if (inc.heavy) heavyComing = true; }
     this.hud.setFoe(foe);
     const nextSide = now - F.lastStrikeEnd > 1.1 ? 'l' : F.combo % 2 ? 'r' : 'l';
     this.hud.update(dt, F, { nextSide, incoming: coming && !heavyComing, incomingHeavy: heavyComing, now,

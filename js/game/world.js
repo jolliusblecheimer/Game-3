@@ -53,6 +53,7 @@ export class Game {
     this.life = new Life(this);
   }
   get season() { return this.life.season; }
+  showSigns(on) { this.hideSigns = !on; for (const b of this.buildings.values()) if (b.sign) b.sign.visible = on; }
   on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   emit(type, data) { this.version++; if (LINK_EVENTS.has(type)) this.linkDirty = true; for (const fn of this.listeners) fn(type, data); }
 
@@ -94,6 +95,7 @@ export class Game {
     }
     if (!b.sign) { b.sign = new THREE.Sprite(Game.signMat); b.sign.scale.set(1.8, 1.8, 1); b.sign.renderOrder = 30; this.scene.add(b.sign); }
     const c = this.center(b); b.sign.position.set(c.x, (b.def.h || 3) + 1.6, c.z);
+    b.sign.visible = !this.hideSigns;   // desk markers: not shown while you walk the village
   }
   // lay free dirt roads from a building to the nearest road that reaches the Keep (or to the Keep itself)
   autoRoad(b, quiet = false) {

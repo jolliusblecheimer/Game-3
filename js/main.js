@@ -141,7 +141,7 @@ function boot() {
     const inVillage = !(view && view.active) || !!(view && view.village), L = game.life;
     game.viewFocus = cam.target;
     nature.setSeason(L.season);
-    weather.update(dt, c.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage || views.mode === 'battle');
+    weather.update(dt, c.target, L.weather === 'rain' ? 'rain' : L.weather === 'snow' ? 'snow' : L.season === 0 ? 'petals' : L.season === 2 ? 'leaves' : null, inVillage || views.mode === 'battle', !!(view && view.active && view.village));
     bubbles.update(dt, inVillage && !(view && view.village) && hud.settings.bubbles !== false);
     smokeT -= dt; if (smokeT <= 0) { smokeT = 2; smokeSrc = inVillage ? chimneys() : []; }
     smoke.update(dt, smokeSrc, inVillage);

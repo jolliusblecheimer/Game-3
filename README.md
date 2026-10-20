@@ -497,3 +497,11 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Where you stand is saved** with the village.
 - The training yard sandbox is still there: the pause screen → **Training yard (sandbox)**, Menu → **⚔ Training yard (sandbox)**, or `?fp=sandbox`. "Back to the village" now puts you back on foot.
 - Backup of the game just before this change: **/v5/** (its own save).
+
+## Fixes and a first taste of defending on foot
+- **Fight raiders yourself:** when bandits raid while you walk, an alarm drum warns you. Bandits close to you turn on their lord: they wind up (the red ring warns you), strike, and sometimes block (a heavy overhead breaks through). Your cuts, kicks and arrows hurt them. If you fall, your men carry you home to the Keep. Away from a fight your wounds slowly mend.
+- **The Keep's stairs** now climb all the way up the stone base to the door, and you walk up them to go in.
+- **Falling petals, leaves, snow and rain** have real shapes (no more white squares) and are smaller when you're on foot.
+- **Desk markers** (the red 道 "no road" signs) only show at the desk, not floating in the sky while you walk.
+- The empty card in the top-left corner on foot is gone.
+- On a narrow screen (iPad upright) the village scroll makes room for the **外 Outside** seal.

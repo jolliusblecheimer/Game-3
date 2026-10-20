@@ -1,5 +1,5 @@
 {
-"v": "20261020-172356",
+"v": "20261020-173401",
 "files": [
 "css/style.css",
 "css/theme.css",
@@ -13,6 +13,7 @@
 "js/fp/hud-fp.js",
 "js/fp/input-fp.js",
 "js/fp/projectiles.js",
+"js/fp/raidfight.js",
 "js/fp/sfx-fp.js",
 "js/fp/terrain.js",
 "js/fp/training.js",
