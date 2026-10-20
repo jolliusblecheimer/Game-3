@@ -79,6 +79,7 @@ open http://localhost:8777/?fp=sandbox   # first person
 | `/v2/` | before the first-person project began (village features up to the Town Square era) |
 | `/v3/` | right before the first-person plan |
 | `/v4/` | the first-person training yard **before real opponents** (M0–M1, all classes, the kyūdō bow) |
+| `/v5/` | the game **just before the world on foot**: training yard with real opponents, bandit camp, the tidy Japanese look |
 
 - **How a backup is made:** copy `css/ js/ lib/ index.html version.json README.md` into `vN/`, then change inside the copy:
   - the save key → `tenka.vN.save`
@@ -86,7 +87,7 @@ open http://localhost:8777/?fp=sandbox   # first person
   - remove the service worker and manifest lines
   - its Menu text
 - In the main game, add a one-time snapshot line in `js/main.js` (`tenka.vNsnapshot`) and a Menu link.
-- The script used is in the chat history (`make_v4.py` pattern). Look at `v4/js/main.js` and `v4/index.html` to see the result.
+- The script used is in the chat history (`make_v4.py` / `make_v5.py` pattern). Look at `v4/js/main.js` and `v4/index.html` to see the result.
 
 ---
 
