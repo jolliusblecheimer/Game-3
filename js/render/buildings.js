@@ -295,22 +295,26 @@ const MODELS = {
     for (const z of [-0.8, 0.8]) m.box(0.08, 1.4, 0.08, BAMBOO, [rx, 0.7, z]); m.box(0.06, 0.06, 1.7, BAMBOO, [rx, 1.3, 0]);
     for (let i = 0; i < 5; i++) m.cone(0.16, 0.7, 5, '#d8b653', [rx, 0.95, -0.6 + i * 0.3], [Math.PI, 0, 0]);
     m.box(w - 0.6, 0.04, 0.3, '#3f6f84', [0, 0.1, d / 2 - 0.35]);
-    // crops live in their own mesh so they can grow
-    const c = new Mesher(11, 0.12);
+    // every row is a plot of its own (js/game/fields.js): green shoots that grow, and golden wheat when ripe
+    const out = [];
     for (let i = 0; i < rows; i++) {
-      const z = -d / 2 + 0.75 + i * ((d - 1.5) / (rows - 1));
+      const z = -d / 2 + 0.75 + i * ((d - 1.5) / (rows - 1)), gr = new Mesher(11 + i, 0.12), rp = new Mesher(31 + i, 0.12);
       for (let k = 0; k < 9; k++) {
         const x = -w / 2 + 0.8 + k * (w - 1.6) / 8;
         // a clump of rice / wheat: stalks leaning a little outward, each with a drooping ear of grain
         for (let n = 0; n < 5; n++) {
           const a = n * 1.26 + k, lx = x + Math.cos(a) * 0.09, lz = z + Math.sin(a) * 0.09, tilt = 0.12 + (n % 2) * 0.08;
-          c.cyl(0.014, 0.018, 0.8, 3, n % 2 ? '#a9a24a' : '#b7ad55', [lx, 0.72, lz], [Math.sin(a) * tilt, 0, -Math.cos(a) * tilt]);
-          c.cone(0.045, 0.24, 4, k % 3 ? '#d8b653' : '#c9a443', [lx + Math.cos(a) * 0.12, 1.08, lz + Math.sin(a) * 0.12], [Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9]);
+          rp.cyl(0.014, 0.018, 0.8, 3, n % 2 ? '#a9a24a' : '#b7ad55', [lx, 0.72, lz], [Math.sin(a) * tilt, 0, -Math.cos(a) * tilt]);
+          rp.cone(0.045, 0.24, 4, k % 3 ? '#d8b653' : '#c9a443', [lx + Math.cos(a) * 0.12, 1.08, lz + Math.sin(a) * 0.12], [Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9]);
+          gr.cone(0.03, 0.9, 3, n % 2 ? '#5f9a3a' : '#79b04a', [lx, 0.25 + 0.45, lz], [Math.sin(a) * tilt, 0, -Math.cos(a) * tilt]);   // young green blades (scaled up as they grow)
         }
       }
+      const green = gr.mesh(MAT.flat, true, true), ripe = rp.mesh(MAT.flat, true, true);
+      green.geometry.translate(0, -0.25, 0); green.position.y = 0.25; green.visible = false;   // grow up from the soil (ripe wheat shows by default, e.g. in the build menu)
+      out.push({ green, ripe });
     }
-    const crop = c.mesh(MAT.flat, true, true);
-    b.extra = { crop };
+    const crop = new THREE.Group(); for (const r of out) crop.add(r.green, r.ripe);
+    b.extra = { crop, rows: out };
   },
   lumber(b) {
     const m = b.m, L = b.level || 1;

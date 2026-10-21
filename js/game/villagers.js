@@ -1,6 +1,7 @@
 // Villager behaviour: each villager runs a little loop of "walk somewhere, do something".
 import { JOBS, ECON, RES } from './data.js';
 import { TREE } from './grid.js';
+import { field, rowTask, rowSpot, workRow, rowYield } from './fields.js';
 
 const PLOT_CELL = 2;
 
@@ -209,10 +210,14 @@ export function thinkVillager(game, v) {
   switch (v.job) {
     case 'farmer': {
       if (game.life.farmMult() <= 0) { const night = game.state.time < 0.22 || game.state.time > 0.8; if (night || Math.random() < 0.5) return goHome(game, v, 'Resting by the fire — the fields lie frozen until spring'); return act(v, 6, 'idle', null, 'The fields lie frozen until spring'); }
-      const spot = game.spotIn(work), planting = game.rand() < 0.5, crop = Math.max(1, Math.round(J.amount * game.life.farmMult() * (1 + game.rb('farmBoost'))));
-      return goTo(game, v, spot, () => act(v, J.work / mult * 0.5, planting ? 'kneel' : 'dig',
-        () => act(v, J.work / mult * 0.5, planting ? 'dig' : 'kneel', () => pickUp(v, 'wheat', crop), planting ? 'Hoeing the soil' : 'Binding the sheaves'),
-        planting ? 'Planting seedlings' : 'Cutting ripe wheat'), 'Walking to the field');
+      // the field's rows really grow (fields.js): cut what's ripe, sow what's bare, weed what's growing
+      const task = rowTask(work, v.id, game.state.clock);
+      if (!task) return act(v, 5, 'idle', null, 'Watching the wheat grow');
+      const row = field(work).rows[task.i]; row.by = v.id; row.byT = game.state.clock;
+      const spot = rowSpot(game, work, task.i), T = J.work / mult;
+      if (task.kind === 'harvest') return goTo(game, v, spot, () => act(v, T * 0.5, 'dig', () => act(v, T * 0.4, 'kneel', () => { const n = workRow(game, work, task.i, 'harvest', rowYield(game)); if (n) pickUp(v, 'wheat', n); }, 'Binding the sheaves'), 'Cutting ripe wheat'), 'Walking to the ripe wheat');
+      if (task.kind === 'plant') return goTo(game, v, spot, () => act(v, T * 0.4, 'dig', () => act(v, T * 0.35, 'kneel', () => workRow(game, work, task.i, 'plant'), 'Planting seedlings'), 'Hoeing the soil'), 'Walking to a bare row');
+      return goTo(game, v, spot, () => act(v, T * 0.5, 'kneel', () => workRow(game, work, task.i, 'tend'), 'Pulling weeds, watering the young wheat'), 'Walking to the young wheat');
     }
     case 'woodcutter': {
       const t = findTree(game, work, v);

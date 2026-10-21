@@ -2,6 +2,7 @@
 // it — buildings, walls, towers, trees, rocks, the forest near the edge. Roads, fields, gates and the Town Square
 // are open. It answers the same questions as the training valley (FPTerrain), so the player controller works here.
 import { heightAt, PLOT } from '../render/nature.js';
+import { canEnter } from './interiors.js';
 
 const WATER = -1.2;                 // the level of the lake and the sea (stage.water)
 const OPEN = new Set(['road', 'stoneroad', 'farm']);
@@ -51,6 +52,21 @@ export class VillageGround {
     return fwd.x * Math.sin(a) + fwd.z * Math.cos(a) < -0.35;
   }
 
+  // the door you're at: { b, into } — into when you're in the doorway, facing in. Null if no door is close.
+  doorAt(x, z, fwd) {
+    let best = null, bd = 1e9;
+    for (const b of this.game.buildings.values()) {
+      if (!canEnter(b)) continue;
+      const c = this.game.center(b), a = b.rot * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a);
+      const dx = x - c.x, dz = z - c.z, lx = dx * ca - dz * sa, lz = dx * sa + dz * ca;
+      const W = b.sw * PLOT.cell, D = b.sd * PLOT.cell, keep = b.type === 'townhall';
+      const front = keep ? 4.45 : D / 2 + 0.45, back = keep ? 3.5 : D / 2 - 0.6, reach = keep ? 6.4 : D / 2 + 2.2, half = keep ? 1.15 : Math.min(0.95, W / 2 - 0.25);
+      if (Math.abs(lx) > Math.max(half, 1.3) || lz < back || lz > reach) continue;
+      const d = Math.abs(lx) + (lz - back);
+      if (d < bd) { bd = d; best = { b, into: Math.abs(lx) <= half && lz <= front && fwd.x * Math.sin(a) + fwd.z * Math.cos(a) < -0.35 }; }
+    }
+    return best;
+  }
   rebuild() {
     const G = this.game, out = this.colliders; out.length = 0; this.ver = G.version;
     const kb = G.keep; if (kb) { const c = G.center(kb), a = kb.rot * Math.PI / 2; this.keep = { x: c.x, z: c.z, ca: Math.cos(a), sa: Math.sin(a) }; } else this.keep = null;

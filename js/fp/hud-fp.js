@@ -115,7 +115,7 @@ export class FPHud {
         toggle('Experimental: split-second parry (block just as the strike lands for a ×2 riposte)', !!S.parry, v => { S.parry = v; fp.applySettings(false); })),
       h('h3', null, 'Controls'),
       h('div', { class: 'fp-keys' }, ...HINTS[dev].map(([k, v]) => h('div', null, h('kbd', null, k), h('span', null, v))))];
-    if (fp.village) {
+    if (fp.home) {
       // your own village: the lord on foot. The desk is inside the Keep; the game waits while this is open
       const g = fp.game, k = g.keep;
       P.append(h('div', { class: 'fp-sheet' },

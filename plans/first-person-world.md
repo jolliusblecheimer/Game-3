@@ -236,7 +236,7 @@ You are **the daimyō, the lord of the clan**: one character, always you, in the
 ## 7. Decisions (made 19 October 2026)
 
 1. **Who you are on foot:** **the lord** (the daimyō), in the village and in battle (§3.7).
-2. **The desk:** **only by walking into the Keep.** No shortcut key or button.
+2. **The desk:** **only in the Keep** — since 21 Oct 2026 it's the lord's desk inside the Keep's hall (with his bed and armoury). No shortcut key or button.
 3. **Building:** **only at the desk.** Nothing is placed on foot.
 4. **Time on foot:** **always normal speed.** Pause and the fast speeds exist only at the desk.
 5. **Detail:** **the `/gfx/` detail comes in from the start** (W1), with distance detail for the iPad.

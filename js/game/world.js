@@ -12,6 +12,7 @@ import { buildModel, buildScaffold, SIZE_AWARE } from '../render/buildings.js';
 import { Person } from '../render/people.js';
 import { Mesher, MAT } from '../render/geo.js';
 import { thinkVillager, updateVillager } from './villagers.js';
+import { field, growFields, syncField, saveField, loadField } from './fields.js';
 import { Country } from './country.js';
 import { Raids } from './raids.js';
 import { Clans } from './clans.js';
@@ -704,6 +705,7 @@ export class Game {
     if (this.countryT > 0.2) { this.countryT = 0; this.country.update(); }
     if (this.linkDirty) this.computeLinks();
     this.raids.update(dt);
+    growFields(this, dt);
     this.clans.update(); this.progress.update(dt); this.life.update(dt);
     if (S.wisdom < this.wisdomCap()) S.wisdom = Math.min(this.wisdomCap(), S.wisdom + dt / 60 * this.wisdomRate());
     // the Thousand Gates: gold every minute
@@ -725,7 +727,7 @@ export class Game {
     }
     for (const b of this.buildings.values()) {
       if (b.extra.koi) for (const k of b.extra.koi) { k.a += dt * k.s; k.mesh.position.set(Math.cos(k.a) * k.r, 0.13, Math.sin(k.a) * k.r * 0.8); k.mesh.rotation.y = -k.a; }
-      if (b.extra.crop) { const ph = (S.clock / 140 + b.id * 0.37) % 1; b.extra.crop.scale.y = 0.35 + 0.65 * Math.min(1, ph * 1.4); }
+      if (b.extra.rows) syncField(b);
     }
   }
   // Work on a construction site or upgrade (called while a builder hammers).
@@ -770,7 +772,7 @@ export class Game {
     return {
       v: SAVE_VERSION, plot: PLOT.n, savedAt: Date.now(), seed: S.seed, res: S.res, clock: S.clock, time: S.time, day: S.day, nextId: S.nextId, settings: S.settings, stats: S.stats,
       arriveT: S.arriveT, eatAcc: S.eatAcc,
-      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined, wide: b.type === 'gate' && !b.narrow ? 1 : undefined })).concat(this.keptBuildings || []),
+      buildings: [...this.buildings.values()].map(b => ({ id: b.id, type: b.type, cx: b.cx, cz: b.cz, rot: b.rot, done: b.done, progress: +b.progress.toFixed(4), level: b.level, hp: Math.round(b.hp || 0), upg: b.upg, prio: b.prio ? 1 : 0, trainAs: b.trainAs || undefined, gbPts: b.gbPts || undefined, field: b.type === 'farm' ? saveField(b) : undefined, wide: b.type === 'gate' && !b.narrow ? 1 : undefined })).concat(this.keptBuildings || []),
       villagers: [...this.villagers.values()].map(v => ({ id: v.id, name: v.name, job: v.job, work: v.work, seed: v.seed, x: +v.pos.x.toFixed(2), z: +v.pos.z.toFixed(2), train: +(v.train || 0).toFixed(2), paid: !!v.paid, away: v.away || null, aid: v.aid ? 1 : 0, born: v.born || undefined, kills: v.kills || undefined, battles: v.battles || undefined, drill: v.drill || undefined, armour: v.armour || undefined, hpf: v.hpf != null ? +v.hpf.toFixed(3) : null })).concat(this.keptVillagers || []),
       rams: S.rams || 0, ramBuild: S.ramBuild || null, catapults: S.catapults || 0, catBuild: S.catBuild || null,
       trees: this.nature.trees.filter(t => t.removed || !t.alive || t.chops).map(t => [t.cx, t.cz, t.alive ? 1 : 0, Math.round(t.regrowAt), t.removed ? 1 : 0, t.chops || 0]),
@@ -820,6 +822,7 @@ export class Game {
         const nb = this.place(b.type, b.cx | 0, b.cz | 0, (b.rot | 0) % 4, { done: !!b.done, progress: clamp(+b.progress || 0, 0, 1), id: b.id, free: true, level: lvl, hp: b.hp || null, narrow: b.type === 'gate' && !b.wide });
         if (b.prio) nb.prio = true;
         if (b.trainAs) nb.trainAs = b.trainAs;
+        if (nb.type === 'farm') loadField(nb, b.field);   // older saves: the fields are already sown
         if (b.gbPts) nb.gbPts = +b.gbPts;
         if (b.upg && b.upg.level) { nb.upg = { level: b.upg.level, progress: clamp(+b.upg.progress || 0, 0, 1), time: +b.upg.time || 60, convert: !!b.upg.convert }; this.makeVisual(nb); }
       } catch (e) { console.warn('Skipped a building while loading', b, e); this.keptBuildings.push(b); }

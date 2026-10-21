@@ -17,6 +17,9 @@ import { Chaff } from './training.js';
 import { Sparks } from './effects.js';
 import { MAT } from '../render/geo.js';
 import { VillageGround } from './village.js';
+import { buildInterior } from './interiors.js';
+import { field, rowTask, workRow, rowYield, rowLocalZ } from '../game/fields.js';
+import { h } from '../util.js';
 import { RaidFight } from './raidfight.js';
 import { clamp } from '../util.js';
 
@@ -69,7 +72,7 @@ export class FPMode {
   // step into a place: everything the fight and the camera use now points there
   goTo(pl) {
     if (this.pl && this.pl !== pl) this.pl.world.visible = this.pl.name === 'village';
-    this.pl = pl; this.village = pl.name === 'village';
+    this.pl = pl; this.village = pl.name === 'village'; this.inside = pl.name === 'inside';
     for (const k of ['T', 'world', 'yard', 'proj', 'ink', 'sparks', 'actors', 'camp', 'sensei', 'origin']) this[k] = pl[k];
     if (this.player) { this.player.T = pl.T; this.player.colliders = pl.T.colliders; }
     this.tokens && this.tokens.clear();
@@ -90,7 +93,8 @@ export class FPMode {
     this.input.onKeyboard = () => this.hud.root.classList.add('haskeys');
     this.sound = new FPSound(() => { const H = this.hud0; return (H.ac = (H.music && H.music.ctx) || H.ac || new (window.AudioContext || window.webkitAudioContext)()); });
     this.built = true;
-    this.setClass(this.village ? 'lord' : this.S.cls, true);
+    this.setLordWeapon(this.S.lordWeapon || 'katana', true);
+    if (!this.village) this.setClass(this.S.cls, true);
     this.applySettings(false);
   }
   // become another kind of soldier
@@ -121,7 +125,7 @@ export class FPMode {
     if (this.village) {
       // on foot the village lives at its normal pace; pause and the fast speeds belong to the desk
       this.hud0.speed = 1; this.hud0.paused = false;
-      if (this.cls !== 'lord') this.setClass('lord', true);
+      if (this.cls !== 'lord') this.setLordWeapon(this.S.lordWeapon || 'katana', true);
       this.stepOutside(start);
     } else {
       this.hud0.paused = true;                                // the village waits while you're in the training valley
@@ -132,15 +136,16 @@ export class FPMode {
     if (!cam.parent) this.stage.scene.add(cam);               // the hands and weapon ride on the camera
     this.vm.attach(); this.world.visible = true;
     document.getElementById('ui').classList.add('mode-fp');
-    document.getElementById('ui').classList.toggle('mode-walk', this.village);
-    this.game.showSigns(!this.village);
+    if (this.village && this.returnInside) { const kb = this.game.buildings.get(this.returnInside); this.returnInside = null; if (kb) { this.goInside(kb); const ds = this.pl.spots[0]; this.player.x = ds.x; this.player.z = ds.z + 0.6; this.player.yaw = Math.PI; } }
+    document.getElementById('ui').classList.toggle('mode-walk', this.home);
+    this.game.showSigns(!this.home);
     this.hud.show(true);
     if (document.documentElement.classList.contains('site-mobile')) this.input.setDevice('touch');
     this.hud.setDevice(this.input.device);
     this.input.active = true; this.active = true;
     this.applySettings(false);
     this.views.setView({ active: true, village: this.village, cam: this.camProxy, update: dt => this.update(dt) });
-    if (start || !this.village) this.pause(); else this.resume();   // stepping outside: the click on the seal captures the mouse
+    if (start || !this.home) this.pause(); else this.resume();   // stepping outside: the click on the seal captures the mouse
   }
   // out of the Keep's door, onto the front steps (or, with no Keep yet, the middle of the village)
   stepOutside(fresh) {
@@ -155,11 +160,140 @@ export class FPMode {
   // walk in through the Keep's door: the lord's desk (the village seen from above, where you build and rule)
   toDesk() {
     const k = this.game.keep; this.saveLord();
+    this.returnInside = this.inside && this.pl.b.type === 'townhall' ? this.pl.b.id : null;   // "Stand up" brings you back to the hall
     this.exit();
     const C = this.hud0.cam;
     if (k && C) { const c = this.game.center(k); C.target.set(c.x, 0, c.z); C.follow = null; }
     this.hud0.showStepOut && this.hud0.showStepOut(true);
     if (this.pendingHelp) { this.pendingHelp = false; setTimeout(() => this.hud0.showHelp(), 300); }   // a new village: how to build
+  }
+  get home() { return this.village || this.inside; }
+  // ---------- inside your buildings (js/fp/interiors.js) ----------
+  goInside(b) {
+    if (this.places.inside) this.places.inside.dispose();
+    const pl = buildInterior(this, b); this.stage.scene.add(pl.world);
+    pl.yard = { dummies: [], targets: [], post: null, rack: null, chaff: new Chaff(pl.world, '#d8c690', 0.5) };
+    pl.proj = new Projectiles(pl.world); pl.ink = new Chaff(pl.world, '#3a0d0b', 0.8); pl.sparks = new Sparks(pl.world);
+    this.places.inside = pl; this.goTo(pl);
+    const P = this.player; P.x = pl.T.spawn.x; P.z = pl.T.spawn.z; P.yaw = 0; P.pitch = -0.05; P.vx = P.vz = 0; P.y = 0; P.crouch = false;
+    this.raid.release(); this.doorCool = 0.6; this.spot = null;
+    if (window.tenkaView) window.tenkaView.village = false;
+    this.sound.play('stepWood');
+  }
+  goOutside() {
+    const pl = this.places.inside, b = pl && pl.b;
+    if (pl) { pl.dispose(); this.places.inside = null; }
+    this.goTo(this.places.village);
+    if (window.tenkaView) window.tenkaView.village = true;
+    const P = this.player, T = this.T;
+    if (b && this.game.buildings.get(b.id)) {
+      const a = b.rot * Math.PI / 2, p = b.type === 'townhall' ? T.keepFront(6.0) : this.game.door(b, 0.9);
+      P.x = p.x; P.z = p.z; P.yaw = a + Math.PI;
+    } else this.stepOutside(false);
+    P.vx = P.vz = 0; P.y = T.groundAt(P.x, P.z); T.rebuild(); P.collide();
+    this.doorCool = 0.8; this.sound.play('stepWood');
+  }
+  // F outside: a row of a field, or a building close by (its panel)
+  nearThing() {
+    const P = this.player, G = this.game;
+    for (const b of G.buildings.values()) {
+      const c = G.center(b), W = b.sw * 2, D = b.sd * 2, a = b.rot * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a);
+      const dx = P.x - c.x, dz = P.z - c.z, lx = dx * ca - dz * sa, lz = dx * sa + dz * ca;
+      if (b.type === 'farm' && b.done && Math.abs(lx) < W / 2 && Math.abs(lz) < D / 2) {
+        // the row under your feet
+        let i = 0, best = 1e9; for (let k = 0; k < 7; k++) { const dd = Math.abs(rowLocalZ(b, k) - lz); if (dd < best) { best = dd; i = k; } }
+        const r = field(b).rows[i], lbl = r.s === 'b' ? 'sow this row' : r.s === 'r' ? 'cut the ripe wheat' : r.tend > 0 ? null : 'weed and water this row';
+        if (!lbl) return { label: `the wheat is growing (${Math.round(r.g * 100)}%)`, use: () => {} };
+        return { label: lbl, use: () => this.farmWork(b, i) };
+      }
+      if (['road', 'stoneroad'].includes(b.type)) continue;
+      if (Math.abs(lx) < W / 2 + 1.2 && Math.abs(lz) < D / 2 + 1.2) return { label: `the ${b.def.name}${b.done ? '' : ' (being built)'}`, use: () => this.openPanel(b) };
+    }
+    return null;
+  }
+  // helping in the fields: one row at a time
+  farmWork(b, i) {
+    if (this.now < (this.workCd || 0)) return;
+    const r = field(b).rows[i], F = this.fighter, P = this.player;
+    if (F.st < 6) { this.sound.play('tired'); return; }
+    this.workCd = this.now + 0.6; F.spend(6, this.now); this.jolt(0.03); this.vm.shake = 0.3;
+    const kind = r.s === 'b' ? 'plant' : r.s === 'r' ? 'harvest' : 'tend';
+    if (this.game.life.farmMult() <= 0 && kind !== 'harvest') { this.hud.message('The ground is frozen \u2014 nothing grows until spring.', 2.5); return; }
+    const n = workRow(this.game, b, i, kind, rowYield(this.game));
+    this.yard.chaff.burst(P.x + P.fwd.x * 0.8, P.y + 0.4, P.z + P.fwd.z * 0.8, kind === 'harvest' ? 8 : 4, -P.fwd.x, -P.fwd.z);
+    this.sound.play(kind === 'harvest' ? 'swish' : 'step');
+    if (n) { this.game.add('wheat', n); this.hud.message(`You cut the row and carry ${n} wheat to the stores.`, 2.2, 'good'); }
+    else this.hud.message(kind === 'plant' ? 'You sow the row. Now it needs time to grow.' : 'You pull the weeds and water the young wheat: it grows faster for a while.', 2.2);
+  }
+  // working with the people inside: dig, hammer, split, stir
+  doWork(sp) {
+    if (this.now < (this.workCd || 0)) return;
+    const F = this.fighter, P = this.player, W = sp.work, G = this.game, b = this.pl.b;
+    if (F.st < 6) { this.sound.play('tired'); return; }
+    this.workCd = this.now + 0.5; F.spend(6, this.now); this.sound.play(W.sound || 'thud'); this.jolt(0.03); this.vm.shake = 0.45;
+    const f = P.fwd; (W.fx === 'sparks' ? this.sparks : this.yard.chaff).burst(P.x + f.x * 0.8, P.y + 1.0, P.z + f.z * 0.8, W.fx === 'sparks' ? 0.7 : 5, -f.x, -f.z);
+    sp.hits = (sp.hits || 0) + 1; if (sp.hits < W.swings) return; sp.hits = 0;
+    const res = G.state.res;
+    if (W.kind === 'ore') { G.add(W.res, W.amount); this.hud.message(`You carry ${W.amount} ${W.res} to the stores.`, 2.2, 'good'); }
+    else if (W.kind === 'forge') {
+      if ((res.iron || 0) < 1) { this.hud.message('No iron left to forge \u2014 dig some in an Iron Mine.', 2.5); return; }
+      G.pay({ iron: 1 }); b.forgingUntil = Math.max(G.state.clock, b.forgingUntil || 0) + 45; this.sound.play('fullDraw');
+      this.hud.message('The forge roars. Your soldiers fight better while it burns.', 2.5, 'good');
+    } else if (W.kind === 'brew') {
+      if ((res.wheat || 0) < 6) { this.hud.message('There is no wheat to brew with.', 2.2); return; }
+      G.pay({ wheat: 6 }); G.add('sake', 3); this.hud.message('The mash is ready: 3 sake for the stores.', 2.2, 'good');
+    }
+  }
+  // a building's panel (workers, upgrades, everything from the desk) while you stand there
+  openPanel(b) {
+    this.hud0.input.select({ kind: 'building', id: b.id });
+    if (this.hud0.panel.hidden) return;
+    this.panelOpen = true; document.getElementById('ui').classList.add('walk-panel'); this.input.unlock();
+  }
+  openModal(fn) { fn(); this.input.unlock(); }
+  rest(n, text, key) {
+    const t = this.game.state.clock;
+    if (key && t < (this['restAt' + key] || -1)) { this.hud.message('You have only just had some.', 2); return; }
+    if (key) this['restAt' + key] = t + 90;
+    this.fighter.heal(n); this.hud.message(text, 2.6, 'good'); this.sound.play('breath', 0.5);
+  }
+  pray() {
+    const day = this.game.state.day;
+    if (this.prayedDay === day) { this.hud.message('You have already prayed today.', 2); return; }
+    this.prayedDay = day; this.sound.play('bell'); this.fighter.heal(20);
+    this.game.addWisdom ? this.game.addWisdom(1) : (this.game.state.wisdom = Math.min(this.game.wisdomCap(), this.game.state.wisdom + 1));
+    this.hud.message('You ring the bell and bow twice. The kami are listening. (+1 Wisdom)', 3, 'good');
+  }
+  stock() {
+    const r = this.game.state.res, names = { wheat: 'wheat', wood: 'wood', stone: 'stone', gold: 'gold', iron: 'iron', sake: 'sake' };
+    this.hud.message(Object.entries(names).filter(([k]) => r[k] != null).map(([k, n]) => `${Math.floor(r[k])} ${n}`).join(' \u00b7 '), 5);
+  }
+  // the bed: at night you sleep until morning (the village goes on, quickly); by day you rest a moment
+  sleep() {
+    const t = this.game.state.time, night = t > 0.76 || t < 0.2;
+    if (this.game.raids.alarmed) { this.hud.message('No sleep now \u2014 bandits are in the village!', 2.5, 'bad'); return; }
+    if (!night) { this.rest(30, 'It is day. You lie down for a moment and rest.', 'bed'); return; }
+    this.sleeping = true; this.hud0.speed = 10; this.fighter.hp = this.fighter.maxHp;
+    if (!this.sleepEl) { this.sleepEl = h('div', { class: 'fp-sleep' }, h('b', null, '\u7720'), h('span', null, 'You sleep\u2026')); this.hud.root.append(this.sleepEl); }
+    this.sleepEl.classList.add('on');
+  }
+  wake(alarm) {
+    this.sleeping = false; this.hud0.speed = 1; if (this.sleepEl) this.sleepEl.classList.remove('on');
+    this.hud.message(alarm ? 'The alarm drum wakes you!' : `Morning of day ${this.game.state.day}. You feel rested.`, 3, alarm ? 'bad' : 'good');
+  }
+  // the armoury in the Keep: what the lord carries
+  armoury() {
+    const W = [['katana', 'Katana', 'fast, strong cuts'], ['sword', 'Sword and shield', 'the shield stops strikes and arrows'], ['yari', 'Yari', 'the longest reach'],
+      ['naginata', 'Naginata', 'wide sweeps that hit two'], ['kanabo', 'Kanab\u014d', 'slow and crushing'], ['yumi', 'Yumi longbow', '24 arrows \u2014 refilled here']];
+    const cur = this.S.lordWeapon || 'katana';
+    this.openModal(() => this.hud0.openModal('The lord\u2019s armoury', h('div', { class: 'armoury' }, ...W.map(([k, n, d]) => h('p', null, h('b', null, n), ` \u2014 ${d}${k === cur ? ' (you carry this)' : ''}`))),
+      W.map(([k, n]) => ({ label: n, cls: k === cur ? '' : 'ghost', fn: () => { this.setLordWeapon(k); this.hud.message(`You take up the ${n.toLowerCase()}.`, 2); } })).concat([{ label: 'Close', cls: 'ghost' }]), { wide: true }));
+  }
+  setLordWeapon(k, quiet = false) {
+    const L = CLASSES.lord; L.weapon = k; L.shield = k === 'sword'; L.arrows = k === 'yumi' ? 24 : 0;
+    L.role = { katana: 'Daimy\u014d \u2014 katana', sword: 'Daimy\u014d \u2014 sword and shield', yari: 'Daimy\u014d \u2014 yari', naginata: 'Daimy\u014d \u2014 naginata', kanabo: 'Daimy\u014d \u2014 kanab\u014d', yumi: 'Daimy\u014d \u2014 yumi' }[k] || L.role;
+    this.S.lordWeapon = k; this.saveSettings();
+    this.setClass('lord', true);
   }
   // the training yard (the sandbox) from the village, and back to walking the village
   toYard() { this.saveLord(); this.exit(); this.enter('yard'); }
@@ -171,25 +305,28 @@ export class FPMode {
   }
   exit() {
     if (!this.active) return;
+    if (this.sleeping) this.wake(false);
+    if (this.places.inside && !this.returnInside) { this.places.inside.dispose(); this.places.inside = null; this.goTo(this.places.village); }
     this.active = false; this.input.active = false; this.input.unlock();
     this.world.visible = false; this.vm.detach();
     const cam = this.stage.camera; cam.fov = this.prev.fov; cam.near = this.prev.near; cam.rotation.set(0, 0, 0); cam.updateProjectionMatrix();
-    this.hud0.paused = this.village ? false : this.prev.paused;
+    this.hud0.paused = this.home ? false : this.prev.paused;
     document.getElementById('ui').classList.remove('mode-fp');
     this.hud.show(false); this.hud.showPause(false);
     document.getElementById('ui').classList.remove('mode-walk');
     this.game.showSigns(true);
     this.views.setView(null);
   }
-  pause() { this.paused = true; if (this.village) { this.hud0.paused = true; this.saveLord(); } this.input.unlock(); this.hud.showPause(true); if (this.fighter) { this.fighter.blockUp(); this.fighter.strikeUp(); } }
+  pause() { this.paused = true; if (this.home) { this.hud0.paused = true; this.saveLord(); } this.input.unlock(); this.hud.showPause(true); if (this.fighter) { this.fighter.blockUp(); this.fighter.strikeUp(); } }
   resume() {
     this.paused = false; this.hud.showPause(false); this.input.events.length = 0;
-    if (this.village) { this.hud0.paused = false; this.hud0.speed = 1; }
+    if (this.home) { this.hud0.paused = false; this.hud0.speed = this.sleeping ? 10 : 1; }
     if (this.input.device !== 'touch') this.input.lock();
     if (!this.tips) { this.tips = 1; this.hud.message(this.fighter.isBow ? 'Hold the block button to aim, click to loose.' : 'Click to strike — left, right, left… Hold for a heavy overhead. Hold the other button to block.', 5); }
   }
   respawnAt() {
     const P = this.player, T = this.T;
+    if (this.inside) this.goOutside();
     if (this.village) { this.stepOutside(false); }
     else { P.x = T.spawn.x; P.z = T.spawn.z; P.vx = P.vz = 0; P.yaw = Math.atan2(T.yard.x - T.spawn.x, T.yard.z - T.spawn.z) + Math.PI; P.pitch = -0.05; P.y = T.groundAt(P.x, P.z); }
     const F = this.fighter; F.hp = F.maxHp; F.st = F.maxSt; F.state = 'idle'; this.downT = 0;
@@ -410,11 +547,16 @@ export class FPMode {
     // the fight runs on its own clock, which stops while paused
     if (!this.paused) this.clock = (this.clock || 0) + dt;
     const now = this.now = this.clock || 0, P = this.player, F = this.fighter, I = this.input;
-    const tod = this.village || this.S.time === 'village' ? this.game.state.time : +this.S.time;
+    const tod = this.home || this.S.time === 'village' ? this.game.state.time : +this.S.time;
     this.stage.setTime(tod);
     const post = this.yard.post;
-    const held = this.village && this.hud0.modal && !this.hud0.modal.hidden;
+    // asleep: the night passes quickly until morning (or until the alarm)
+    if (this.sleeping && !this.paused) { const t = this.game.state.time; if ((t > 0.26 && t < 0.76) || this.game.raids.alarmed) this.wake(this.game.raids.alarmed); }
+    // a window or a building's panel from the village holds you still until it's closed (and so does sleep)
+    if (this.panelOpen && this.hud0.panel.hidden) { this.panelOpen = false; document.getElementById('ui').classList.remove('walk-panel'); }
+    const held = this.home && ((this.hud0.modal && !this.hud0.modal.hidden) || this.panelOpen || this.sleeping);
     if (held) { this.holding = true; this.input.unlock(); } else this.holding = false;
+    this.input.hold = held && !this.sleeping;
     if (!this.paused && !held) {
       for (const ev of I.events) {
         if (ev.t === 'strikeDown') F.strikeDown(now);
@@ -440,35 +582,49 @@ export class FPMode {
       else { this.stopDraw(); if (F.state !== 'aim') this.fullPinged = false; }
       // badly hurt: your heart pounds
       if (F.hp / F.maxHp < 0.3 && F.state !== 'down' && now - (this.heartAt || -9) > 0.95) { this.heartAt = now; this.sound.play('heart'); }
-      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.raid.release(); this.hud.message(this.village ? 'You fell. Your men carried you home to the Keep.' : 'Back on your feet at the yard. Block when the ring turns red.', 3); } }
+      if (F.state === 'down') { this.downT = (this.downT || 0) + dt; if (this.downT > 3) { this.respawn(); this.tokens.clear(); for (const a of this.camp.actors) if (!a.dead) { a.aggro = false; a.plan = []; a.reset(); } this.raid.release(); this.hud.message(this.home ? 'You fell. Your men carried you home to the Keep.' : 'Back on your feet at the yard. Block when the ring turns red.', 3); } }
       // the dummies, the sparring post, the straw, the arrows
       for (const t of this.yard.dummies) if (t !== post) t.update(dt);
       if (post) post.update(dt, { px: P.x, pz: P.z, showCue: true, strike: (p, a) => this.enemyStrike(p, a), whiff: () => {} });
       for (const a of this.actors) a.update(dt, now);
       this.ink.update(dt); this.sparks.update(dt); for (const t of this.yard.targets) t.update(dt); for (const it of this.ink.items) it.floor = this.T.groundAt(it.m.position.x, it.m.position.z) + 0.02;
-      P.dynamic = this.village ? this.T.people(P.x, P.z) : this.actors.filter(a => !a.dead).map(a => ({ x: a.x, z: a.z, r: 0.38 }));
+      P.dynamic = this.home ? this.T.people(P.x, P.z) : this.actors.filter(a => !a.dead).map(a => ({ x: a.x, z: a.z, r: 0.38 }));
       this.yard.chaff.update(dt);
       this.proj.update(dt, (p, a, b) => this.projHit(p, a, b), (x, z) => this.T.groundAt(x, z));
       // footsteps (hoofbeats on a horse)
       P.stepT += P.speed * dt;
       if (P.stepT > (P.onHorse ? 1.9 : P.speed > 5 ? 1.6 : 1.3)) { P.stepT = 0; this.sound.play(P.wet > 0.05 ? 'splash' : P.onBridge ? 'stepWood' : 'step', P.crouch ? 0.4 : P.onHorse ? 1.6 : 1); }
-      if (this.village) {
-        // the Keep's door: walk in for your desk
-        const T = this.T, k = this.game.keep, kf = k && T.keepFront(4.2), dk = kf ? Math.hypot(kf.x - P.x, kf.z - P.z) : 99;
-        if (dk > 1.8) this.doorOk = true;
+      if (this.home) {
         // the alarm drum: bandits in the village
         const R = this.game.raids;
-        if (R.alarmed && !this.drumSaid) { this.drumSaid = true; this.hud.message('The alarm drum! Bandits in the village — draw your sword, or walk into the Keep to command your soldiers.', 6, 'bad'); this.sound.play('bell'); }
+        if (R.alarmed && !this.drumSaid) { this.drumSaid = true; this.hud.message(this.inside ? 'The alarm drum! Bandits in the village \u2014 go out and fight, or sit at your desk to command.' : 'The alarm drum! Bandits in the village \u2014 draw your sword, or go to your desk in the Keep to command your soldiers.', 6, 'bad'); this.sound.play('bell'); }
         if (!R.active) this.drumSaid = false;
         // out of the fight for a while, your wounds slowly mend
-        const near = R.active && this.raid.foes().some(f => Math.hypot(f.x - P.x, f.z - P.z) < 10);
+        const near = this.village && R.active && this.raid.foes().some(f => Math.hypot(f.x - P.x, f.z - P.z) < 10);
         this.calmT = near ? 0 : (this.calmT || 0) + dt;
         if (this.calmT > 6 && F.hp < F.maxHp && F.state !== 'down') F.heal(3 * dt);
-        if (this.doorOk && F.state === 'idle' && I.move().z > 0.3 && T.atKeepDoor(P.x, P.z, P.fwd)) { this.toDesk(); I.endFrame(); return; }
-        this.hud.setPrompt(dk < 4 ? (k.done ? 'Walk in through the door — your desk: build and rule the village' : 'The Keep is still being built') : '');
         this.hud.setCard('', []);
         this.walkT = (this.walkT || 0) + dt; this.hud.hint.hidden = this.walkT > 30;   // the keys, until you know them
-        this.game.viewFocus = this.hud0.cam.target.set(P.x, 0, P.z);   // the village's sounds, smoke and talk follow you
+        const key = I.device === 'touch' ? 'USE' : 'F';
+        this.doorCool = Math.max(0, (this.doorCool || 0) - dt);
+        if (this.village) {
+          // a door: walk in. Otherwise: a field row to work, or a building close by to look after
+          const T = this.T, d = T.doorAt(P.x, P.z, P.fwd);
+          if (d && d.into && !this.doorCool && F.state === 'idle' && I.move().z > 0.3) { if (d.b.done) { this.goInside(d.b); I.endFrame(); return; } }
+          this.near = d ? null : this.nearThing();
+          this.hud.setPrompt(d ? (d.b.done ? `Walk in \u2014 the ${d.b.def.name}` : `The ${d.b.def.name} is still being built`) : this.near ? `${key} \u2014 ${this.near.label}` : '');
+          this.game.viewFocus = this.hud0.cam.target.set(P.x, 0, P.z);   // the village's sounds, smoke and talk follow you
+        } else {
+          // inside a building: walk out through the door; the spots to use
+          const pl = this.pl;
+          if (P.z > pl.D / 2 - 0.75 && Math.abs(P.x) < 0.8 && P.fwd.z > 0.35 && I.move().z > 0.3 && !this.doorCool) { this.goOutside(); I.endFrame(); return; }
+          let best = null, bd = 1e9;
+          for (const sp of pl.spots) { const dd = Math.hypot(sp.x - P.x, sp.z - P.z); if (dd < sp.r && dd < bd) { best = sp; bd = dd; } }
+          this.spot = best;
+          this.hud.setPrompt(best ? `${key} \u2014 ${best.label}` : P.z > pl.D / 2 - 1.6 ? 'Walk out through the door' : '');
+          for (const n of pl.npcs) if (!n.still) n.p.animate(dt, n.pose);
+          pl.day.material.color.copy(this.stage.scene.fog.color);
+        }
       } else {
       // what's close enough to use
       const rk = this.yard.rack, nearRack = Math.hypot(rk.x - P.x, rk.z - P.z) < 3;
@@ -515,6 +671,8 @@ export class FPMode {
   }
   stopDraw() { if (this.drawSnd) { this.drawSnd.stop(); this.drawSnd = null; } }
   use() {
+    if (this.inside) { const sp = this.spot; if (!sp) return; if (sp.use) return sp.use(this); if (sp.panel) return this.openPanel(this.pl.b); if (sp.work) return this.doWork(sp); return; }
+    if (this.village) { if (this.near) this.near.use(); return; }
     const P = this.player, rk = this.yard.rack, K = this.sensei;
     if (!rk || !K) return;
     if (!this.bout && Math.hypot(K.x - P.x, K.z - P.z) < 3 && !this.fighter.isBow) { this.startBout(); return; }

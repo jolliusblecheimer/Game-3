@@ -38,7 +38,7 @@ export class FPInput {
   setDevice(d) { if (this.device !== d) { this.device = d; if (this.onDevice) this.onDevice(d); } }
   /* ---------- keyboard ---------- */
   key(e, down) {
-    if (!this.active) return;
+    if (!this.active || this.hold) return;
     const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     const c = e.code;
     if (['Space', 'Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace'].includes(c) || (e.key && e.key.length === 1)) e.preventDefault();

@@ -505,3 +505,14 @@ New lords get a **guide** (the Tasks row, bottom-left) through the first steps. 
 - **Desk markers** (the red 道 "no road" signs) only show at the desk, not floating in the sky while you walk.
 - The empty card in the top-left corner on foot is gone.
 - On a narrow screen (iPad upright) the village scroll makes room for the **外 Outside** seal.
+
+## Go inside your buildings, help your people, real fields
+- **Every building has an inside.** Walk into its door and you stand in its room; walk back out through the door. Homes have a hearth and futons, the storehouse shelves and sacks, the forge an anvil and a glowing hearth, the mines a timber-framed tunnel with seams of ore, the brewery its great vats, the shrine an altar and a bell, and so on. The people who work there are inside, working.
+- **The Keep's hall:** tatami, gold screens with a painted pine, a raised dais.
+  - **Your desk** (F): sit down and you see the village from above, as before: build, jobs, research, the map. **立 Stand up** brings you back into the hall.
+  - **Your bed** (F): at night you sleep until morning; the village goes on quickly while you sleep (the alarm drum wakes you). By day you rest a moment.
+  - **Your armoury** (F): choose what you carry: katana, sword and shield, yari, naginata, kanabō or the yumi longbow (24 arrows, refilled here).
+- **Help the workers** (F at their work spot, it costs a little stamina): dig gold or iron in the mines, break stone at the quarry, split logs at the lumber camp, hammer at the anvil (keeps the forge hot, uses iron), stir the sake mash (6 wheat → 3 sake). What you make goes straight to the stores.
+- **Use buildings:** the hearth warms you, the healer and the tea house heal you, the shrine's bell gives a blessing once a day (+1 Wisdom), the Pavilion opens research, the Strategy Hall the war room, the storehouse ledger shows your stock. Every building has a **ledger by the door** (F) that opens its panel: workers, upgrades and the rest, while you stand there.
+- **Fields really grow now.** Each row of a field is bare, growing or ripe. Farmers cut the ripe rows, sow the bare ones and weed the young wheat (which then grows faster). Wheat grows with the season and stops in winter. You can help: stand on a row and press F to sow it, weed it or cut it. Older saves start with their fields already sown.
+- Backup of the game before this: **/v6/** (its own save).

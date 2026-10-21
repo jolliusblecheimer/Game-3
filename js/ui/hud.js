@@ -154,7 +154,7 @@ export class Hud {
     this.info = h('div', { class: 'info', hidden: true }); R.append(this.info);
     this.renderBar();
     // bottom-right: map
-    this.outBtn = h('button', { class: 'stepout', hidden: true, title: 'Step outside the Keep and walk your village (Esc)', onclick: () => this.onStepOut && this.onStepOut() }, h('b', null, 'Outside'));
+    this.outBtn = h('button', { class: 'stepout', hidden: true, title: 'Stand up from your desk (Esc)', onclick: () => this.onStepOut && this.onStepOut() }, h('b', null, 'Stand up'));
     R.append(this.outBtn);
     this.mapBtn = h('button', { class: 'mapbig', title: 'Country map (M)', onclick: () => this.onMap && this.onMap() }, icon('map', 34), h('b', null, 'Map'));
     R.append(this.mapBtn);
@@ -1044,7 +1044,7 @@ export class Hud {
 
   /* ---------- keyboard ---------- */
   onKey(k, e) {
-    if (window.tenkaFP && window.tenkaFP.active) return;   // first person has its own keys
+    if (window.tenkaFP && window.tenkaFP.active && !window.tenkaFP.holding) return;   // first person has its own keys (except while a window is open on foot)
     const I = this.input;
     if (this.keyHook && this.keyHook(k, e)) return;
     if (k === 'escape') {

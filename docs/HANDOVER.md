@@ -123,6 +123,7 @@ js/ui/
 js/fp/                FIRST PERSON (see §6)
   fpmode.js           the mode: places ('village' = the game on foot, 'yard' = the sandbox), enter/exit, Keep door → desk, the loop, strikes, arrows, abilities, bouts, the camp, HUD info
   raidfight.js        RaidFight: raid bandits as foes on foot (game.lordDuel hook in raids.stepRaider steers a bandit fighting the lord; blocks, wind-ups, strikes)
+  interiors.js        rooms for every building (ROOMS by type; buildInterior → a place at INSIDE_AT with Room colliders, spots {label, use|work|panel}, worker NPCs); canEnter()
   village.js          VillageGround: the village as a place to walk (heightAt ground, colliders from buildings/trees/rocks/woods, the Keep's door, villagers stepping aside)
   combat.js           Fighter — the shared melee rules (combo, heavy, block, counter, stamina, bows) + WEAPONS
   classes.js          the playable soldiers (CLASSES) and abilities
@@ -192,6 +193,8 @@ v1/ … v5/             playable backups
 - **Colliders** rebuild when `game.version` changes (every 1.5 s at most): building boxes (footprint − 0.3 m, the Keep 3.95 m), wall/palisade/hedge/spike cells, gate posts and guard walls, torii posts, the Town Square's tower; plot trees, rocks and `nature.woods` (forest trunks within FLAT+45). Open: roads, fields. Walkable to `PLOT.half + 30`.
 - **Windows from the village** show over the walk (`#ui.mode-walk` shows `.toasts`, `.modal`, `.updbanner`); while one is open you are held still (`fp.holding`).
 - **The lord's position** is saved in the village save (`save.lord`, via `window.tenkaExtraSave`) and in `tenka.fp`.
+- **Inside buildings (21 Oct 2026):** `VillageGround.doorAt` finds the door you walk into (local +z; the Keep by its stairs) → `fp.goInside(b)` builds the room (`places.inside`), `fp.goOutside()` puts you at `game.door(b, 0.9)`. `fp.home` = village or inside (lord mode). F: `fp.use()` → inside spot (`use`, `work` via `doWork`, `panel` via `openPanel`), outside `nearThing()` (a field row → `farmWork`, or a building's panel). Panels/modals on foot hold you (`fp.holding`; `input.hold` lets keys reach the hud; `#ui.walk-panel` shows `.panel`). Sleep: `fp.sleep()` → `hud.speed = 10` until time 0.26 (or the alarm). Armoury: `fp.setLordWeapon(k)` edits `CLASSES.lord` (saved in `tenka.fp` as `lordWeapon`).
+- **Fields (js/game/fields.js):** 7 rows per farm, `b.field.rows[i] = { s: 'b'|'g'|'r', g, tend, by, byT }`, grow 95 s at farmMult 1 (×1.4 while tended 30 s), yield ≈ 10 wheat a row. Farmers: harvest > plant > tend (`rowTask`). Saved as `field` on the farm; older saves → `oldField` (sown at mixed growth). Visuals: `b.extra.rows[i] = { green, ripe }` from buildings.js `farm()`.
 - **Raids on foot:** `RaidFight` — bandits within 4.5 m notice you (`u.duel`), close to 1.55 m, wind up 0.55 s (heavy 0.85 s, 20%), strike for 1.5× their damage via `fp.enemyStrike`; 35% block light cuts they see coming. Released at 16 m, when you're down, paused or at the desk. Wounds mend at 3 hp/s after 6 s without a bandit within 10 m.
 - **The Keep's steps** (8 × 0.29 m, buildings.js townhall) are climbable: `VillageGround.stairAt`. The door takes you in at the top (local z < 4.45).
 - **Detail:** the `/gfx/` models are now in js/render (geo roof ribs, buildings, nature, people). LOD: `nature.updateLOD(focus, r)` every 0.4 s packs plot trees into the detailed mesh (near) or `treeMeshLow` (far); hill rocks are a separate simple mesh. On medium quality the walk renders about 1.0M triangles (shadows included).
@@ -306,7 +309,7 @@ Soldier, sparring difficulty (also the enemies'), time of day, "I play with" (mo
 7. **Make backups (`vN/`)** at milestones and before big changes.
 9. **The world on foot (`plans/first-person-world.md`, decided 19 Oct 2026; W0–W1 built 20 Oct 2026):**
    - You are **the lord**.
-   - The top-down **desk opens only by walking into the Keep**, and **building happens only at the desk**.
+   - The top-down **desk opens only from the lord's desk inside the Keep's hall** (walk in, F at the desk; "Stand up" returns to the hall — changed 21 Oct 2026 at the player's request), and **building happens only at the desk**. Every building can be entered; the player asked to enter all buildings, help the workers, real fields, a Keep interior with bed, desk and weapon place.
    - **Time on foot is always normal speed.**
    - The **`/gfx/` detail comes in from the start.**
 8. **The interface should look Japanese and stay tidy** (the player's words: it shouldn't "scream AI" or fill the screen): washi paper, ink frames, lacquer with gold, vermilion seals, Shippori Mincho / Zen Kaku Gothic New (css/theme.css). The build menu and village scroll fold up and remember. No generic rounded web cards.
