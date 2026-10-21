@@ -80,6 +80,7 @@ open http://localhost:8777/?fp=sandbox   # first person
 | `/v3/` | right before the first-person plan |
 | `/v4/` | the first-person training yard **before real opponents** (M0–M1, all classes, the kyūdō bow) |
 | `/v5/` | the game **just before the world on foot**: training yard with real opponents, bandit camp, the tidy Japanese look |
+| `/v6/` | walking the village as the lord (W1 + raid fighting), **before interiors and real fields** |
 
 - **How a backup is made:** copy `css/ js/ lib/ index.html version.json README.md` into `vN/`, then change inside the copy:
   - the save key → `tenka.vN.save`

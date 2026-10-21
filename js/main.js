@@ -32,6 +32,8 @@ try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getIt
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v4snapshot')) localStorage.setItem('tenka.v4snapshot', raw); } catch (_) { /* storage off */ }
 // ... and the same for the v5 backup at /v5/
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v5snapshot')) localStorage.setItem('tenka.v5snapshot', raw); } catch (_) { /* storage off */ }
+// ... and the same for the v6 backup at /v6/
+try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v6snapshot')) localStorage.setItem('tenka.v6snapshot', raw); } catch (_) { /* storage off */ }
 // ... and the same for the v2 backup at /v2/
 try { const raw = localStorage.getItem(SAVE_KEY); if (raw && !localStorage.getItem('tenka.v2snapshot')) localStorage.setItem('tenka.v2snapshot', raw); } catch (_) { /* storage off */ }
 

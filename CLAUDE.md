@@ -7,7 +7,7 @@
 - **What it is:** Tenka is a Japanese samurai village builder (three.js, plain ES modules, **no build step**). It is growing a **first-person combat mode** that will replace the old top-down battles.
 - **Live:** https://jolliusblecheimer.github.io/Game-3/ (GitHub Pages serves `main`).
   - The game starts on foot as the lord in your village; the Keep's door opens the top-down desk. The training-yard sandbox is at `?fp=sandbox`.
-  - Backups: `/v1/` `/v2/` `/v3/` `/v4/` `/v5/`.
+  - Backups: `/v1/` `/v2/` `/v3/` `/v4/` `/v5/` `/v6/`.
 - **The player** plays mostly on an **iPad**: sometimes touch, sometimes a keyboard with trackpad or mouse, and a **German QWERTZ** keyboard. Every feature must work with keyboard+mouse, keyboard+trackpad and keyboard+touchscreen.
 - **Language:** the player writes short messages, often with typos. Answer in plain, simple English. Short summaries of what changed, what was tested and what's live.
 

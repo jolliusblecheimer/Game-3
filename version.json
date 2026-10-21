@@ -1,5 +1,5 @@
 {
-"v": "20261020-173401",
+"v": "20261021-204950",
 "files": [
 "css/style.css",
 "css/theme.css",
@@ -23,6 +23,7 @@
 "js/game/clans.js",
 "js/game/country.js",
 "js/game/data.js",
+"js/game/fields.js",
 "js/game/grid.js",
 "js/game/life.js",
 "js/game/progress.js",
